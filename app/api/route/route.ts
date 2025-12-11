@@ -11,62 +11,76 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing coordinates" }, { status: 400 });
   }
 
+  const apiKey = process.env.OPENROUTESERVICE_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "OpenRouteService API key not set" },
+      { status: 500 }
+    );
+  }
+
   try {
-    // OSRM Route Service - format: /route/v1/{profile}/{coordinates}
-    // coordinates format: {longitude},{latitude};{longitude},{latitude}
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson&steps=true&annotations=true`;
+    const orsUrl =
+      "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
+    const body = {
+      coordinates: [
+        [parseFloat(startLon), parseFloat(startLat)],
+        [parseFloat(endLon), parseFloat(endLat)],
+      ],
+      instructions: true,
+    };
 
-    const response = await fetch(osrmUrl);
-    const data = await response.json();
+    const response = await fetch(orsUrl, {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
 
-    if (data.code !== "Ok") {
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("ORS returned non-OK response:", text);
       return NextResponse.json(
-        { error: data.message || "OSRM routing failed", code: data.code },
-        { status: 400 }
+        { error: "Routing service returned an invalid response" },
+        { status: 502 }
       );
     }
 
-    if (!data.routes || data.routes.length === 0) {
+    const data = await response.json();
+
+    const route = data.features[0];
+    if (!route) {
       return NextResponse.json({ error: "No route found" }, { status: 404 });
     }
 
-    const route = data.routes[0];
-
-    // Convert GeoJSON coordinates from [lon, lat] to [lat, lon] for Leaflet
     const coordinates = route.geometry.coordinates.map((c: number[]) => [
       c[1],
       c[0],
     ]);
-
-    // Extract turn-by-turn instructions from all legs and steps
-    const instructions = (route.legs || []).flatMap(
-      (leg: any) =>
-        leg.steps?.map((step: any) => {
-          // Build instruction text
-          let instructionText = step.maneuver?.instruction || "";
-
-          return {
-            text: instructionText,
-            distance: step.distance || 0,
-            duration: step.duration || 0,
-            type: step.maneuver?.type,
-            modifier: step.maneuver?.modifier,
-          };
-        }) || []
+    const instructions = (route.properties.segments?.[0].steps || []).map(
+      (step: any) => ({
+        text: step.instruction,
+        distance: step.distance,
+        duration: step.duration,
+        type: step.type,
+        modifier: step.modifier,
+      })
     );
 
     return NextResponse.json({
       coordinates,
-      distance: route.distance,
-      duration: route.duration,
+      distance: route.properties.summary.distance,
+      duration: route.properties.summary.duration,
       instructions,
-      waypoints: data.waypoints?.map((wp: any) => ({
-        name: wp.name,
-        location: [wp.location[1], wp.location[0]],
-      })),
+      waypoints: [
+        { location: [parseFloat(startLat), parseFloat(startLon)] },
+        { location: [parseFloat(endLat), parseFloat(endLon)] },
+      ],
     });
   } catch (error) {
-    console.error("OSRM routing error:", error);
+    console.error("ORS routing error:", error);
     return NextResponse.json(
       { error: "Routing service unavailable" },
       { status: 500 }
