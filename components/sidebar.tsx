@@ -10,46 +10,67 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
-  Navigation,
-  Fuel,
-  Zap,
-  AlertTriangle,
   MapPin,
-  Route,
   Car,
+  Plus,
+  Trash2,
+  X,
+  MapPinned,
+  Package,
 } from "lucide-react";
-import { AddressSearch } from "@/components/address-search";
-import type { LayerVisibility, SearchLocation, VehicleType } from "@/lib/types";
+import type { LayerVisibility, VehicleType } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
+
+interface FleetJob {
+  id: string;
+  coords: [number, number];
+  label: string;
+}
+
+interface FleetVehicle {
+  id: string;
+  coords: [number, number];
+  type: VehicleType;
+}
 
 interface SidebarProps {
   layers: LayerVisibility;
   toggleLayer: (layer: keyof LayerVisibility) => void;
-  isRouting: boolean;
-  setIsRouting: (value: boolean) => void;
-  clearRoute: () => void;
-  routePoints: { start: [number, number] | null; end: [number, number] | null };
-  startLocation: SearchLocation | null;
-  endLocation: SearchLocation | null;
-  onStartLocationSelect: (coords: [number, number], name: string) => void;
-  onEndLocationSelect: (coords: [number, number], name: string) => void;
   selectedVehicle: VehicleType;
   setSelectedVehicle: (vehicle: VehicleType) => void;
+  fleetMode: boolean;
+  setFleetMode: (value: boolean) => void;
+  clearFleet: () => void;
+  fleetVehicles: FleetVehicle[];
+  fleetJobs: FleetJob[];
+  selectedVehicleId: string | null;
+  setSelectedVehicleId: (id: string | null) => void;
+  addVehicle: () => void;
+  addJob: () => void;
+  removeVehicle: (vehicleId: string) => void;
+  removeJob: (jobId: string) => void;
+  addMode: "vehicle" | "job" | null;
+  cancelAddMode: () => void;
 }
 
 export function Sidebar({
   layers,
   toggleLayer,
-  isRouting,
-  setIsRouting,
-  clearRoute,
-  routePoints,
-  startLocation,
-  endLocation,
-  onStartLocationSelect,
-  onEndLocationSelect,
   selectedVehicle,
   setSelectedVehicle,
+  fleetMode,
+  setFleetMode,
+  clearFleet,
+  fleetVehicles,
+  fleetJobs,
+  selectedVehicleId,
+  setSelectedVehicleId,
+  addVehicle,
+  addJob,
+  removeVehicle,
+  removeJob,
+  addMode,
+  cancelAddMode,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -77,94 +98,236 @@ export function Sidebar({
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold text-foreground">
-              GIS Transport Demo
+              Fleet Manager Demo
             </h1>
           </div>
 
           <Separator />
 
-          {/* Vehicle Type Selection */}
+          {/* Fleet Mode Toggle */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Car className="h-4 w-4" />
-                Type of Vehicle
-              </CardTitle>
+              <CardTitle className="text-sm">Fleet Mode</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="space-y-2">
-                {VEHICLE_TYPES.map((vehicle) => (
-                  <button
-                    key={vehicle.id}
-                    onClick={() => setSelectedVehicle(vehicle)}
-                    className={`w-full text-left p-2 rounded-lg text-sm transition-colors ${
-                      selectedVehicle.id === vehicle.id
-                        ? "bg-primary text-primary-foreground font-medium"
-                        : "bg-accent/50 hover:bg-accent text-foreground"
-                    }`}
-                  >
-                    <div className="font-medium">{vehicle.label}</div>
-                    <div
-                      className={`text-xs ${
-                        selectedVehicle.id === vehicle.id
-                          ? "text-primary-foreground/80"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {vehicle.tags.length > 0
-                        ? `Etiquetas: ${vehicle.tags.join(", ")}`
-                        : "Sin etiqueta"}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="fleet-mode" className="text-sm">
+                  Activate Fleet Mode
+                </Label>
+                <Switch
+                  id="fleet-mode"
+                  checked={fleetMode}
+                  onCheckedChange={setFleetMode}
+                />
+              </div>
+
+              {fleetMode && (
+                <div className="mt-4 space-y-3">
+                  {/* Add Mode Indicator */}
+                  {addMode && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <MapPinned className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            {addMode === "vehicle"
+                              ? "Adding Vehicle"
+                              : "Adding Job"}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={cancelAddMode}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        Click on the map to place{" "}
+                        {addMode === "vehicle" ? "a new vehicle" : "a new job"}
+                      </p>
                     </div>
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {selectedVehicle.description}
-              </p>
-            </CardContent>
-          </Card>
+                  )}
 
-          <Separator />
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addVehicle}
+                      disabled={!!addMode}
+                      className="w-full"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Vehicle
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addJob}
+                      disabled={!!addMode}
+                      className="w-full"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Job
+                    </Button>
+                  </div>
 
-          {/* Address Search */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Navigation className="h-4 w-4" />
-                Address Search
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">
-                  Start Location
-                </Label>
-                <AddressSearch
-                  onSelectLocation={onStartLocationSelect}
-                  placeholder="Search start address..."
-                  className="mt-1"
-                />
-                {startLocation && (
-                  <p className="mt-1 truncate text-xs text-green-600">
-                    {startLocation.name}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">
-                  End Location
-                </Label>
-                <AddressSearch
-                  onSelectLocation={onEndLocationSelect}
-                  placeholder="Search destination..."
-                  className="mt-1"
-                />
-                {endLocation && (
-                  <p className="mt-1 truncate text-xs text-green-600">
-                    {endLocation.name}
-                  </p>
-                )}
-              </div>
+                  {/* Fleet Summary */}
+                  <div className="p-2 bg-muted rounded-lg text-xs text-muted-foreground">
+                    <div className="flex justify-between">
+                      <span>Total Vehicles:</span>
+                      <span className="font-medium">
+                        {fleetVehicles.length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Jobs:</span>
+                      <span className="font-medium">{fleetJobs.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Vehicle Type Selector */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-2 block">
+                      Vehicle Type for New Vehicles
+                    </Label>
+                    <select
+                      value={selectedVehicle.id}
+                      onChange={(e) => {
+                        const vehicle = VEHICLE_TYPES.find(
+                          (v) => v.id === e.target.value
+                        );
+                        if (vehicle) setSelectedVehicle(vehicle);
+                      }}
+                      className="w-full p-2 text-sm border rounded-lg bg-background"
+                    >
+                      {VEHICLE_TYPES.map((vehicle) => (
+                        <option key={vehicle.id} value={vehicle.id}>
+                          {vehicle.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Separator />
+
+                  {/* Vehicles List */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Car className="h-3 w-3" />
+                      Vehicles ({fleetVehicles.length})
+                    </Label>
+
+                    {fleetVehicles.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-muted-foreground bg-muted/50 rounded-lg">
+                        No vehicles. Click "Add Vehicle".
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                        {fleetVehicles.map((vehicle) => (
+                          <Card
+                            key={vehicle.id}
+                            className={`cursor-pointer transition-all ${
+                              selectedVehicleId === vehicle.id
+                                ? "ring-2 ring-primary"
+                                : "hover:bg-accent/50"
+                            }`}
+                            onClick={() => setSelectedVehicleId(vehicle.id)}
+                          >
+                            <CardContent className="p-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Car className="h-4 w-4 text-primary" />
+                                <div>
+                                  <span className="font-medium text-sm">
+                                    {vehicle.type.label}
+                                  </span>
+                                  <div className="text-xs text-muted-foreground">
+                                    {vehicle.coords[0].toFixed(4)},{" "}
+                                    {vehicle.coords[1].toFixed(4)}
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeVehicle(vehicle.id);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Jobs List */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Package className="h-3 w-3" />
+                      Jobs ({fleetJobs.length})
+                    </Label>
+
+                    {fleetJobs.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-muted-foreground bg-muted/50 rounded-lg">
+                        No jobs. Click "Add Job".
+                      </div>
+                    ) : (
+                      <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                        {fleetJobs.map((job) => (
+                          <div
+                            key={job.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-accent/30 hover:bg-accent/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Package className="h-3 w-3 text-purple-600" />
+                              <div>
+                                <span className="text-sm font-medium">
+                                  {job.label}
+                                </span>
+                                <div className="text-xs text-muted-foreground">
+                                  {job.coords[0].toFixed(4)},{" "}
+                                  {job.coords[1].toFixed(4)}
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => removeJob(job.id)}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={clearFleet}
+                    disabled={
+                      fleetVehicles.length === 0 && fleetJobs.length === 0
+                    }
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Clear All
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -179,162 +342,17 @@ export function Sidebar({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Fuel className="h-4 w-4 text-orange-500" />
-                  <Label htmlFor="gas-stations" className="text-sm">
-                    Gas Stations
-                  </Label>
+              {Object.entries(layers).map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <Label className="text-sm">{key}</Label>
+                  <Switch
+                    checked={value}
+                    onCheckedChange={() =>
+                      toggleLayer(key as keyof LayerVisibility)
+                    }
+                  />
                 </div>
-                <Switch
-                  id="gas-stations"
-                  checked={layers.gasStations}
-                  onCheckedChange={() => toggleLayer("gasStations")}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-green-500" />
-                  <Label htmlFor="ev-stations" className="text-sm">
-                    EV Charging
-                  </Label>
-                </div>
-                <Switch
-                  id="ev-stations"
-                  checked={layers.evStations}
-                  onCheckedChange={() => toggleLayer("evStations")}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <Label htmlFor="lez" className="text-sm">
-                    Low Emission Zones
-                  </Label>
-                </div>
-                <Switch
-                  id="lez"
-                  checked={layers.lowEmissionZones}
-                  onCheckedChange={() => toggleLayer("lowEmissionZones")}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                  <Label htmlFor="restricted" className="text-sm">
-                    Restricted Zones
-                  </Label>
-                </div>
-                <Switch
-                  id="restricted"
-                  checked={layers.restrictedZones}
-                  onCheckedChange={() => toggleLayer("restrictedZones")}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Route className="h-4 w-4 text-blue-500" />
-                  <Label htmlFor="route" className="text-sm">
-                    Route
-                  </Label>
-                </div>
-                <Switch
-                  id="route"
-                  checked={layers.route}
-                  onCheckedChange={() => toggleLayer("route")}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Route Planning */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Navigation className="h-4 w-4" />
-                Route Planning
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                {isRouting
-                  ? routePoints.start
-                    ? "Click on the map to set your destination"
-                    : "Click on the map to set your starting point"
-                  : "Use address search above or enable routing mode to click on map"}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant={isRouting ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setIsRouting(!isRouting)}
-                >
-                  {isRouting ? "Routing Mode On" : "Click-to-Route"}
-                </Button>
-                {(routePoints.start || routePoints.end) && (
-                  <Button variant="destructive" size="sm" onClick={clearRoute}>
-                    Clear
-                  </Button>
-                )}
-              </div>
-              {routePoints.start && (
-                <div className="rounded-md bg-muted p-2 text-xs">
-                  <p className="font-medium text-foreground">Start:</p>
-                  <p className="text-muted-foreground">
-                    {startLocation?.name ||
-                      `${routePoints.start[0].toFixed(
-                        5
-                      )}, ${routePoints.start[1].toFixed(5)}`}
-                  </p>
-                </div>
-              )}
-              {routePoints.end && (
-                <div className="rounded-md bg-muted p-2 text-xs">
-                  <p className="font-medium text-foreground">End:</p>
-                  <p className="text-muted-foreground">
-                    {endLocation?.name ||
-                      `${routePoints.end[0].toFixed(
-                        5
-                      )}, ${routePoints.end[1].toFixed(5)}`}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Legend */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Legend</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center gap-2 text-xs">
-                <div className="h-3 w-3 rounded-full bg-orange-500" />
-                <span className="text-muted-foreground">
-                  Gas Stations (OSM)
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="h-3 w-3 rounded-full bg-green-500" />
-                <span className="text-muted-foreground">
-                  EV Charging (Open Charge Map)
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="h-3 w-3 rounded border-2 border-amber-500 bg-amber-500/20" />
-                <span className="text-muted-foreground">
-                  Low Emission Zones (ZBE)
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="h-3 w-3 rounded border-2 border-dashed border-red-500 bg-red-500/30" />
-                <span className="text-muted-foreground">Restricted Areas</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="h-0.5 w-3 bg-blue-500" />
-                <span className="text-muted-foreground">Route</span>
-              </div>
+              ))}
             </CardContent>
           </Card>
         </div>

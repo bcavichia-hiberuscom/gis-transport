@@ -3,26 +3,31 @@
 import dynamic from "next/dynamic";
 import { useState, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
-import { WeatherPanel } from "@/components/weather-panel";
-import { RouteInfo } from "@/components/route-info";
 import type {
-  RouteData,
-  WeatherData,
   LayerVisibility,
   POI,
   SearchLocation,
   VehicleType,
+  RouteData,
+  WeatherData,
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-muted">
-      <div className="text-muted-foreground">Loading map...</div>
-    </div>
-  ),
 });
+
+interface FleetJob {
+  id: string;
+  coords: [number, number];
+  label: string;
+}
+
+interface FleetVehicle {
+  id: string;
+  coords: [number, number];
+  type: VehicleType;
+}
 
 export function GISMap() {
   const [layers, setLayers] = useState<LayerVisibility>({
@@ -32,9 +37,9 @@ export function GISMap() {
     restrictedZones: true,
     route: true,
   });
+
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [isRouting, setIsRouting] = useState(false);
   const [routePoints, setRoutePoints] = useState<{
     start: [number, number] | null;
     end: [number, number] | null;
@@ -44,42 +49,75 @@ export function GISMap() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([
     40.4168, -3.7038,
   ]);
-  const [startLocation, setStartLocation] = useState<SearchLocation | null>(
-    null
-  );
-  const [endLocation, setEndLocation] = useState<SearchLocation | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>(
     VEHICLE_TYPES[0]
   );
 
-  const toggleLayer = (layer: keyof LayerVisibility) => {
-    setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
-  };
+  const [fleetMode, setFleetMode] = useState(false);
 
-  const clearRoute = () => {
-    setRouteData(null);
-    setRoutePoints({ start: null, end: null });
-    setStartLocation(null);
-    setEndLocation(null);
-    setIsRouting(false);
-    setWeather(null);
-  };
+  const [fleetVehicles, setFleetVehicles] = useState<FleetVehicle[]>([]);
 
-  const handleStartLocationSelect = useCallback(
-    (coords: [number, number], name: string) => {
-      setStartLocation({ coords, name });
-      setRoutePoints((prev) => ({ ...prev, start: coords }));
-      setMapCenter(coords);
-    },
-    []
+  const [fleetJobs, setFleetJobs] = useState<FleetJob[]>([]);
+
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
+    "vehicle-1"
   );
+  const [addMode, setAddMode] = useState<"vehicle" | "job" | null>(null);
 
-  const handleEndLocationSelect = useCallback(
-    (coords: [number, number], name: string) => {
-      setEndLocation({ coords, name });
-      setRoutePoints((prev) => ({ ...prev, end: coords }));
+  const toggleLayer = (layer: keyof LayerVisibility) =>
+    setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
+
+  const clearFleet = () => {
+    setFleetVehicles([]);
+    setFleetJobs([]);
+    setSelectedVehicleId(null);
+    setAddMode(null);
+  };
+
+  const addVehicle = () => {
+    setAddMode("vehicle");
+  };
+
+  const addJob = () => {
+    setAddMode("job");
+  };
+
+  const removeVehicle = (vehicleId: string) => {
+    setFleetVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
+    if (selectedVehicleId === vehicleId) {
+      const remaining = fleetVehicles.filter((v) => v.id !== vehicleId);
+      setSelectedVehicleId(remaining.length > 0 ? remaining[0].id : null);
+    }
+  };
+
+  const removeJob = (jobId: string) => {
+    setFleetJobs((prev) => prev.filter((j) => j.id !== jobId));
+  };
+
+  const handleMapClick = useCallback(
+    (coords: [number, number]) => {
+      if (!fleetMode || !addMode) return;
+
+      if (addMode === "vehicle") {
+        const newVehicle: FleetVehicle = {
+          id: `vehicle-${Date.now()}`,
+          coords,
+          type: selectedVehicle,
+        };
+        setFleetVehicles((prev) => [...prev, newVehicle]);
+        setSelectedVehicleId(newVehicle.id);
+        setAddMode(null);
+      } else if (addMode === "job") {
+        const newJob: FleetJob = {
+          id: `job-${Date.now()}`,
+          coords,
+          label: `Job ${fleetJobs.length + 1}`,
+        };
+        setFleetJobs((prev) => [...prev, newJob]);
+        setAddMode(null);
+      }
     },
-    []
+    [fleetMode, addMode, selectedVehicle, fleetJobs.length]
   );
 
   return (
@@ -87,16 +125,21 @@ export function GISMap() {
       <Sidebar
         layers={layers}
         toggleLayer={toggleLayer}
-        isRouting={isRouting}
-        setIsRouting={setIsRouting}
-        clearRoute={clearRoute}
-        routePoints={routePoints}
-        startLocation={startLocation}
-        endLocation={endLocation}
-        onStartLocationSelect={handleStartLocationSelect}
-        onEndLocationSelect={handleEndLocationSelect}
         selectedVehicle={selectedVehicle}
         setSelectedVehicle={setSelectedVehicle}
+        fleetMode={fleetMode}
+        setFleetMode={setFleetMode}
+        clearFleet={clearFleet}
+        fleetVehicles={fleetVehicles}
+        fleetJobs={fleetJobs}
+        selectedVehicleId={selectedVehicleId}
+        setSelectedVehicleId={setSelectedVehicleId}
+        addVehicle={addVehicle}
+        addJob={addJob}
+        removeVehicle={removeVehicle}
+        removeJob={removeJob}
+        addMode={addMode}
+        cancelAddMode={() => setAddMode(null)}
       />
       <div className="relative flex-1">
         <MapContainer
@@ -104,7 +147,7 @@ export function GISMap() {
           routeData={routeData}
           setRouteData={setRouteData}
           setWeather={setWeather}
-          isRouting={isRouting}
+          isRouting={false}
           routePoints={routePoints}
           setRoutePoints={setRoutePoints}
           dynamicEVStations={dynamicEVStations}
@@ -114,14 +157,11 @@ export function GISMap() {
           mapCenter={mapCenter}
           setMapCenter={setMapCenter}
           selectedVehicle={selectedVehicle}
-          zoneKeySuffix={
-            layers.lowEmissionZones || layers.restrictedZones
-              ? "LEZ-RZ"
-              : "none"
-          } // opción para asegurar keys únicas
+          fleetVehicles={fleetVehicles}
+          fleetJobs={fleetJobs}
+          selectedVehicleId={selectedVehicleId}
+          onMapClick={fleetMode ? handleMapClick : undefined}
         />
-        {weather && <WeatherPanel weather={weather} />}
-        {routeData && <RouteInfo routeData={routeData} onClear={clearRoute} />}
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import {
   useMap,
   CircleMarker,
   Tooltip,
+  Marker,
 } from "react-leaflet";
 import L from "leaflet";
 import type {
@@ -22,6 +23,18 @@ import type {
   Zone,
 } from "@/lib/types";
 import { LeafletMouseEvent } from "leaflet";
+
+interface FleetJob {
+  id: string;
+  coords: [number, number];
+  label: string;
+}
+
+interface FleetVehicle {
+  id: string;
+  coords: [number, number];
+  type: VehicleType;
+}
 
 interface MapContainerProps {
   layers: LayerVisibility;
@@ -42,17 +55,64 @@ interface MapContainerProps {
   setMapCenter: (center: [number, number]) => void;
   selectedVehicle: VehicleType;
   zoneKeySuffix?: string;
+  onMapClick?: (coords: [number, number]) => void;
+  fleetVehicles?: FleetVehicle[];
+  fleetJobs?: FleetJob[];
+  selectedVehicleId?: string | null;
 }
 
-/* Minimal visual tokens: use small circle markers instead of large custom icons */
-const MARKER_RADIUS = 5; // small radius
+const MARKER_RADIUS = 5;
 const COLORS = {
   gas: "#f5934dff",
   ev: "#05ce4fff",
   route: "#3b82f6",
-  start: "#2563eb",
-  end: "#ef4444",
+  vehicle: "#facc15",
+  job: "#8b5cf6",
 };
+
+// SVG icon for delivery van
+const createVehicleIcon = (color: string) => {
+  return L.divIcon({
+    className: "custom-vehicle-icon",
+    html: `
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Modern van body -->
+        <path d="M2.5 9h14.5c1.2 0 2.8.4 3.6 1.2L22 12v4H2.5V9z"
+          fill="${color}" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>
+
+        <!-- Front cabin -->
+        <path d="M17 9h2.2c.8 0 1.4.3 1.8.8L22 12h-5V9z"
+          fill="${color}" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>
+
+        <!-- Windows -->
+        <rect x="4" y="10" width="3.2" height="2.7" rx="0.4" fill="white" opacity="0.85"/>
+        <rect x="8" y="10" width="3.2" height="2.7" rx="0.4" fill="white" opacity="0.85"/>
+        <rect x="12.2" y="10" width="3.2" height="2.7" rx="0.4" fill="white" opacity="0.85"/>
+        <path d="M17.3 10h2.3l1.4 1.6v1.1h-3.7V10z" fill="white" opacity="0.85"/>
+
+        <!-- Wheels -->
+        <circle cx="7" cy="17.2" r="1.9" fill="#2d3748" stroke="white" stroke-width="1"/>
+        <circle cx="7" cy="17.2" r="1.1" fill="#4a5568"/>
+        <circle cx="17" cy="17.2" r="1.9" fill="#2d3748" stroke="white" stroke-width="1"/>
+        <circle cx="17" cy="17.2" r="1.1" fill="#4a5568"/>
+
+        <!-- Side details -->
+        <rect x="5" y="13.3" width="1.1" height="1.8" fill="white" opacity="0.6" rx="0.2"/>
+        <rect x="6.7" y="13.3" width="1.1" height="1.8" fill="white" opacity="0.6" rx="0.2"/>
+      </svg>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+};
+
+function normalizeCoords(coords: [number, number]): [number, number] {
+  const [a, b] = coords;
+  if (a < -90 || a > 90) {
+    return [b, a];
+  }
+  return [a, b];
+}
 
 function MapEventHandler({
   isRouting,
@@ -66,6 +126,8 @@ function MapEventHandler({
   setDynamicRestrictedZones,
   setMapCenter,
   layers,
+  selectedVehicle,
+  onMapClick,
 }: {
   isRouting: boolean;
   routePoints: { start: [number, number] | null; end: [number, number] | null };
@@ -81,6 +143,8 @@ function MapEventHandler({
   setDynamicRestrictedZones: (zones: Zone[]) => void;
   setMapCenter: (center: [number, number]) => void;
   layers: LayerVisibility;
+  selectedVehicle: VehicleType;
+  onMapClick?: (coords: [number, number]) => void;
 }) {
   const map = useMap();
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -117,7 +181,7 @@ function MapEventHandler({
     async (start: [number, number], end: [number, number]) => {
       try {
         const response = await fetch(
-          `/api/route?startLat=${start[0]}&startLon=${start[1]}&endLat=${end[0]}&endLon=${end[1]}`
+          `/api/route?startLat=${start[0]}&startLon=${start[1]}&endLat=${end[0]}&endLon=${end[1]}&vehicle=${selectedVehicle.label}`
         );
         const data = await response.json();
         if (data.coordinates) {
@@ -139,12 +203,11 @@ function MapEventHandler({
         console.error("Error fetching route:", error);
       }
     },
-    [map, setRouteData, fetchMultipleWeather]
+    [map, setRouteData, fetchMultipleWeather, selectedVehicle.label]
   );
 
   const fetchZones = useCallback(async () => {
     const center = map.getCenter();
-
     if (!layers.lowEmissionZones && !layers.restrictedZones) return;
     if (isLoadingZones.current) return;
 
@@ -158,14 +221,11 @@ function MapEventHandler({
       if (layers.lowEmissionZones) {
         promises.push(
           fetch(
-            `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=${radius}&type=lowEmission`
+            `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=${radius}&type=lowEmission&vehicle=${selectedVehicle.label}`
           )
             .then((r) => r.json())
             .then((data) => setDynamicLEZones(data.zones || []))
-            .catch((err) => {
-              console.error("Error fetching LEZ zones:", err);
-              setDynamicLEZones([]);
-            })
+            .catch(() => setDynamicLEZones([]))
         );
       } else {
         setDynamicLEZones([]);
@@ -174,14 +234,11 @@ function MapEventHandler({
       if (layers.restrictedZones) {
         promises.push(
           fetch(
-            `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=${radius}&type=restricted`
+            `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=${radius}&type=restricted&vehicle=${selectedVehicle.label}`
           )
             .then((r) => r.json())
             .then((data) => setDynamicRestrictedZones(data.zones || []))
-            .catch((err) => {
-              console.error("Error fetching restricted zones:", err);
-              setDynamicRestrictedZones([]);
-            })
+            .catch(() => setDynamicRestrictedZones([]))
         );
       } else {
         setDynamicRestrictedZones([]);
@@ -197,6 +254,7 @@ function MapEventHandler({
     layers.restrictedZones,
     setDynamicLEZones,
     setDynamicRestrictedZones,
+    selectedVehicle.label,
   ]);
 
   const fetchPOIs = useCallback(async () => {
@@ -223,12 +281,12 @@ function MapEventHandler({
         const evResponse = await fetch(
           `/api/ev-stations?lat=${center.lat}&lon=${
             center.lng
-          }&distance=${Math.ceil(distance)}`
+          }&distance=${Math.ceil(distance)}&vehicle=${selectedVehicle.label}`
         );
         const evData = await evResponse.json();
         if (evData.stations) setDynamicEVStations(evData.stations);
-      } catch (error) {
-        console.error("Error fetching EV stations:", error);
+      } catch {
+        setDynamicEVStations([]);
       }
     }
 
@@ -238,12 +296,12 @@ function MapEventHandler({
         const gasResponse = await fetch(
           `/api/gas-stations?lat=${center.lat}&lon=${
             center.lng
-          }&radius=${Math.ceil(radius)}`
+          }&radius=${Math.ceil(radius)}&vehicle=${selectedVehicle.label}`
         );
         const gasData = await gasResponse.json();
         if (gasData.stations) setDynamicGasStations(gasData.stations);
-      } catch (error) {
-        console.error("Error fetching gas stations:", error);
+      } catch {
+        setDynamicGasStations([]);
       }
     }
   }, [
@@ -252,6 +310,7 @@ function MapEventHandler({
     layers.gasStations,
     setDynamicEVStations,
     setDynamicGasStations,
+    selectedVehicle.label,
   ]);
 
   useEffect(() => {
@@ -261,8 +320,14 @@ function MapEventHandler({
 
   useMapEvents({
     click: (e: LeafletMouseEvent) => {
-      if (!isRouting) return;
       const point: [number, number] = [e.latlng.lat, e.latlng.lng];
+
+      if (onMapClick) {
+        onMapClick(point);
+        return;
+      }
+
+      if (!isRouting) return;
       if (!routePoints.start) setRoutePoints({ start: point, end: null });
       else if (!routePoints.end) setRoutePoints({ ...routePoints, end: point });
     },
@@ -286,7 +351,6 @@ function MapEventHandler({
   useEffect(() => {
     fetchZones();
     fetchPOIs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -327,6 +391,10 @@ export default function MapContainer({
   mapCenter,
   setMapCenter,
   selectedVehicle,
+  fleetVehicles,
+  fleetJobs,
+  selectedVehicleId,
+  onMapClick,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicLEZones, setDynamicLEZones] = useState<Zone[]>([]);
@@ -350,7 +418,7 @@ export default function MapContainer({
     const allZones = [...dynamicLEZones, ...dynamicRestrictedZones];
     const mapById = new Map<string, Zone>();
     allZones.forEach((z, idx) => {
-      const key = `${z.id}-${idx}`; // índice asegura unicidad
+      const key = `${z.id}-${idx}`;
       mapById.set(key, z);
     });
     return Array.from(mapById.values());
@@ -394,6 +462,8 @@ export default function MapContainer({
         setDynamicRestrictedZones={setDynamicRestrictedZones}
         setMapCenter={setMapCenter}
         layers={layers}
+        selectedVehicle={selectedVehicle}
+        onMapClick={onMapClick}
       />
 
       {mergedZones.map((zone, idx) => {
@@ -507,39 +577,89 @@ export default function MapContainer({
           </CircleMarker>
         ))}
 
-      {routePoints.start && (
-        <CircleMarker
-          center={routePoints.start}
-          radius={MARKER_RADIUS + 1}
-          pathOptions={{
-            color: COLORS.start,
-            fillColor: COLORS.start,
-            fillOpacity: 1,
-            weight: 0,
-          }}
-        >
-          <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-            <span style={{ fontSize: 12 }}>Start</span>
-          </Tooltip>
-        </CircleMarker>
-      )}
+      {/* Fleet Vehicles - Independent */}
+      {fleetVehicles &&
+        fleetVehicles.map((vehicle) => {
+          const center = normalizeCoords(vehicle.coords);
+          const color = "#ffa202ff";
+          const isSelected = selectedVehicleId === vehicle.id;
 
-      {routePoints.end && (
-        <CircleMarker
-          center={routePoints.end}
-          radius={MARKER_RADIUS + 1}
-          pathOptions={{
-            color: COLORS.end,
-            fillColor: COLORS.end,
-            fillOpacity: 1,
-            weight: 0,
-          }}
-        >
-          <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-            <span style={{ fontSize: 12 }}>End</span>
-          </Tooltip>
-        </CircleMarker>
-      )}
+          return (
+            <Marker
+              key={`vehicle-${vehicle.id}`}
+              position={center}
+              icon={createVehicleIcon(isSelected ? color : "#94a3b8")}
+            >
+              <Tooltip
+                direction="top"
+                offset={[0, -18]}
+                opacity={0.95}
+                permanent={isSelected}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: isSelected ? "bold" : "normal",
+                  }}
+                >
+                  {vehicle.type.label}
+                </span>
+              </Tooltip>
+              {!isRouting && (
+                <Popup>
+                  <div style={{ fontSize: 12 }}>
+                    <strong>{vehicle.type.label}</strong>
+                    <div
+                      style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}
+                    >
+                      {`Lat: ${center[0].toFixed(5)}, Lon: ${center[1].toFixed(
+                        5
+                      )}`}
+                    </div>
+                  </div>
+                </Popup>
+              )}
+            </Marker>
+          );
+        })}
+
+      {/* Fleet Jobs - Independent */}
+      {fleetJobs &&
+        fleetJobs.map((job) => {
+          const center = normalizeCoords(job.coords);
+
+          return (
+            <CircleMarker
+              key={`job-${job.id}`}
+              center={center}
+              radius={MARKER_RADIUS + 2}
+              pathOptions={{
+                color: COLORS.job,
+                fillColor: COLORS.job,
+                fillOpacity: 0.9,
+                weight: 2,
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
+                <span style={{ fontSize: 12 }}>{job.label}</span>
+              </Tooltip>
+              {!isRouting && (
+                <Popup>
+                  <div style={{ fontSize: 12 }}>
+                    <strong>{job.label}</strong>
+                    <div
+                      style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}
+                    >
+                      {`Lat: ${center[0].toFixed(5)}, Lon: ${center[1].toFixed(
+                        5
+                      )}`}
+                    </div>
+                  </div>
+                </Popup>
+              )}
+            </CircleMarker>
+          );
+        })}
     </LeafletMap>
   );
 }
