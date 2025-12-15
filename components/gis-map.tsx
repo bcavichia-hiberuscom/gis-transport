@@ -202,10 +202,9 @@ export function GISMap() {
         vehicles: fleetVehicles.map((v, idx) => ({
           id: idx,
           start_index: idx,
-          end_index: idx,
           profile: "car",
-          capacity: [jobsPerVehicle + 1], // Un poco de margen
-          skills: [idx], // ✅ Array simple, no array de arrays
+          capacity: [jobsPerVehicle + 1],
+          skills: [idx],
         })),
         jobs: fleetJobs.map((j, jidx) => {
           // Asignar trabajos round-robin a los vehículos
@@ -215,7 +214,7 @@ export function GISMap() {
             location_index: fleetVehicles.length + jidx,
             service: 300,
             delivery: [1],
-            skills: [assignedVehicle], // ✅ Array simple con el skill requerido
+            skills: [assignedVehicle],
           };
         }),
         matrix: cleanedMatrix,

@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const radiusKm = Math.min(radius / 1000, 5); // limitar a 5km para evitar sobrecarga
+  const radiusKm = Math.min(radius / 1000, 15);
 
   const zoneTypes: { type: string; filter: string }[] = [
     { type: "LEZ", filter: '["boundary"="low_emission_zone"]' },
