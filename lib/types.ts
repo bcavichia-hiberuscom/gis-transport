@@ -1,3 +1,5 @@
+// lib/types.ts - Archivo completo actualizado
+
 export interface POI {
   id: string;
   name: string;
@@ -24,16 +26,14 @@ export interface Zone {
   coordinates: [number, number][];
   type?: string;
   description?: string;
-
   requiredTags?: string[];
-
-  boundary?: string; // "low_emission_zone"
-  zone?: string; // "low_emission"
-  access?: string; // "no", "permissive", "destination"
-  motor_vehicle?: string; // same values as access
-  maxspeed?: string; // "30"
-  enforcement?: string; // "yes", "automatic"
-  traffic_sign?: string; // "ES:R-505"
+  boundary?: string;
+  zone?: string;
+  access?: string;
+  motor_vehicle?: string;
+  maxspeed?: string;
+  enforcement?: string;
+  traffic_sign?: string;
   start_date?: string;
   end_date?: string;
   restrictions?: string;
@@ -44,6 +44,7 @@ export interface VehicleType {
   label: string;
   tags: string[];
   description: string;
+  vroomType: "car";
 }
 
 export const VEHICLE_TYPES: VehicleType[] = [
@@ -52,32 +53,46 @@ export const VEHICLE_TYPES: VehicleType[] = [
     label: "Zero Emission Vehicle",
     tags: ["0", "eco"],
     description: "Full electric or plug-in hybrids",
+    vroomType: "car",
   },
   {
     id: "eco",
     label: "ECO Vehicle",
     tags: ["eco", "zero", "0"],
     description: "Low-emission hybrids",
+    vroomType: "car",
   },
   {
     id: "b",
     label: "Label B",
     tags: ["b", "eco", "zero", "0"],
     description: "Recent gasoline vehicles",
+    vroomType: "car",
   },
   {
     id: "c",
     label: "Label C",
     tags: ["c", "b", "eco", "zero", "0"],
     description: "Recent diesel and gasoline vehicles",
+    vroomType: "car",
   },
   {
     id: "noLabel",
     label: "No environmental label",
     tags: [],
     description: "Vehicles without classification",
+    vroomType: "car",
   },
 ];
+
+export interface VehicleRoute {
+  vehicleId: number;
+  coordinates: [number, number][];
+  distance: number;
+  duration: number;
+  color: string;
+  jobsAssigned: number;
+}
 
 export interface RouteData {
   coordinates: [number, number][];
@@ -88,6 +103,7 @@ export interface RouteData {
     name?: string;
     location: [number, number];
   }>;
+  vehicleRoutes?: VehicleRoute[]; // ✅ Nuevo campo para rutas multi-vehículo
 }
 
 export interface RouteInstruction {

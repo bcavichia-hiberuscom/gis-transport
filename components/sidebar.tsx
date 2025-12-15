@@ -17,6 +17,7 @@ import {
   X,
   MapPinned,
   Package,
+  Loader2,
 } from "lucide-react";
 import type { LayerVisibility, VehicleType } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
@@ -51,6 +52,8 @@ interface SidebarProps {
   removeJob: (jobId: string) => void;
   addMode: "vehicle" | "job" | null;
   cancelAddMode: () => void;
+  startRouting: () => void;
+  isCalculatingRoute?: boolean; // ⬅️ Nueva prop
 }
 
 export function Sidebar({
@@ -71,6 +74,8 @@ export function Sidebar({
   removeJob,
   addMode,
   cancelAddMode,
+  startRouting,
+  isCalculatingRoute = false, // ⬅️ Valor por defecto
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -151,13 +156,25 @@ export function Sidebar({
                     </div>
                   )}
 
+                  {/* Loading Indicator */}
+                  {isCalculatingRoute && (
+                    <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
+                        <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                          Calculating optimal routes...
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action Buttons */}
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={addVehicle}
-                      disabled={!!addMode}
+                      disabled={!!addMode || isCalculatingRoute}
                       className="w-full"
                     >
                       <Plus className="h-3 w-3 mr-1" />
@@ -167,7 +184,7 @@ export function Sidebar({
                       variant="outline"
                       size="sm"
                       onClick={addJob}
-                      disabled={!!addMode}
+                      disabled={!!addMode || isCalculatingRoute}
                       className="w-full"
                     >
                       <Plus className="h-3 w-3 mr-1" />
@@ -202,7 +219,8 @@ export function Sidebar({
                         );
                         if (vehicle) setSelectedVehicle(vehicle);
                       }}
-                      className="w-full p-2 text-sm border rounded-lg bg-background"
+                      disabled={isCalculatingRoute}
+                      className="w-full p-2 text-sm border rounded-lg bg-background disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {VEHICLE_TYPES.map((vehicle) => (
                         <option key={vehicle.id} value={vehicle.id}>
@@ -258,6 +276,7 @@ export function Sidebar({
                                   e.stopPropagation();
                                   removeVehicle(vehicle.id);
                                 }}
+                                disabled={isCalculatingRoute}
                               >
                                 <Trash2 className="h-3 w-3 text-destructive" />
                               </Button>
@@ -305,6 +324,7 @@ export function Sidebar({
                               size="icon"
                               className="h-6 w-6"
                               onClick={() => removeJob(job.id)}
+                              disabled={isCalculatingRoute}
                             >
                               <Trash2 className="h-3 w-3 text-destructive" />
                             </Button>
@@ -320,11 +340,33 @@ export function Sidebar({
                     className="w-full mt-2"
                     onClick={clearFleet}
                     disabled={
-                      fleetVehicles.length === 0 && fleetJobs.length === 0
+                      (fleetVehicles.length === 0 && fleetJobs.length === 0) ||
+                      isCalculatingRoute
                     }
                   >
                     <Trash2 className="h-3 w-3 mr-1" />
                     Clear All
+                  </Button>
+
+                  {/* Start Routing Button */}
+                  <Button
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={startRouting}
+                    disabled={
+                      fleetVehicles.length === 0 ||
+                      fleetJobs.length === 0 ||
+                      isCalculatingRoute
+                    }
+                  >
+                    {isCalculatingRoute ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Calculating...
+                      </>
+                    ) : (
+                      "Start Routing"
+                    )}
                   </Button>
                 </div>
               )}
@@ -344,7 +386,9 @@ export function Sidebar({
             <CardContent className="space-y-3">
               {Object.entries(layers).map(([key, value]) => (
                 <div key={key} className="flex items-center justify-between">
-                  <Label className="text-sm">{key}</Label>
+                  <Label className="text-sm capitalize">
+                    {key.replace(/([A-Z])/g, " $1").trim()}
+                  </Label>
                   <Switch
                     checked={value}
                     onCheckedChange={() =>

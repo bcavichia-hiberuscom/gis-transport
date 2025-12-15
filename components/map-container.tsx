@@ -23,6 +23,20 @@ import type {
 } from "@/lib/types";
 import { LeafletMouseEvent } from "leaflet";
 import { createVehicleIcon } from "@/lib/map-icons";
+// debajo de los imports, añade:
+function FitBounds({
+  routes,
+}: {
+  routes: { coordinates: [number, number][] }[];
+}) {
+  const map = useMap();
+  useEffect(() => {
+    const all = routes.flatMap((r) => r.coordinates || []);
+    if (all.length === 0) return;
+    map.fitBounds(all as [number, number][], { padding: [40, 40] });
+  }, [routes, map]);
+  return null;
+}
 
 interface FleetJob {
   id: string;
@@ -61,7 +75,7 @@ interface MapContainerProps {
   selectedVehicleId?: string | null;
 }
 
-const MARKER_RADIUS = 5;
+const MARKER_RADIUS = 4;
 const COLORS = {
   gas: "#f5934dff",
   ev: "#05ce4fff",
@@ -310,6 +324,15 @@ export default function MapContainer({
     []
   );
 
+  useEffect(() => {
+    console.log("🗺️ MapContainer - routeData cambió:", routeData);
+    console.log("🗺️ MapContainer - layers.route:", layers.route);
+    if (routeData) {
+      console.log("🗺️ Coordenadas para renderizar:", routeData.coordinates);
+      console.log("🗺️ Primera coord:", routeData.coordinates[0]);
+    }
+  }, [routeData, layers.route]);
+
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {
       if (!zone.requiredTags || zone.requiredTags.length === 0) return true;
@@ -434,12 +457,35 @@ export default function MapContainer({
         );
       })}
 
-      {layers.route && routeData && (
-        <Polyline
-          positions={routeData.coordinates}
-          pathOptions={{ color: COLORS.route, weight: 3, opacity: 0.9 }}
-        />
-      )}
+      {layers.route && routeData?.vehicleRoutes?.length ? (
+        <>
+          {routeData.vehicleRoutes.map((r) => (
+            <Polyline
+              key={`vehicle-route-${r.vehicleId}`}
+              positions={r.coordinates}
+              pathOptions={{
+                color: r.color ?? COLORS.route,
+                weight: 5,
+                opacity: 1,
+              }}
+            />
+          ))}
+
+          {routeData.vehicleRoutes.map((r) =>
+            r.coordinates && r.coordinates.length > 0 ? (
+              <Marker key={`start-${r.vehicleId}`} position={r.coordinates[0]}>
+                <Tooltip direction="top" offset={[0, -12]} permanent={false}>
+                  <span
+                    style={{ fontSize: 12 }}
+                  >{`Vehículo ${r.vehicleId}`}</span>
+                </Tooltip>
+              </Marker>
+            ) : null
+          )}
+
+          <FitBounds routes={routeData.vehicleRoutes} />
+        </>
+      ) : null}
 
       {layers.gasStations &&
         dynamicGasStations.map((station) => (
