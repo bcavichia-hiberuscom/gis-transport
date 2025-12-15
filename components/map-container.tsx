@@ -356,10 +356,8 @@ function MapEventHandler({
   });
 
   useEffect(() => {
-    // initial load: call fetchers (they internally determine whether to fetch)
     fetchZones();
     fetchPOIs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return null;
