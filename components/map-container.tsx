@@ -96,7 +96,6 @@ interface MapContainerProps {
   selectedVehicleId?: string | null;
 }
 
-const MARKER_RADIUS = 4;
 const COLORS = {
   gas: "#f5934dff",
   ev: "#05ce4fff",

@@ -1,6 +1,15 @@
 // app/api/matrix/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 
+/**
+ * Simple and accurate cost matrix for VROOM.
+ * Returns actual travel costs without artificial penalties.
+ */
+
+const COST_PER_METER = 1;
+const COST_PER_SECOND = 0.3;
+const UNREACHABLE_COST = 999999999;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -21,7 +30,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convertir de [lat, lon] a [lon, lat] para ORS
+    // Convertir [lat, lon] a [lon, lat] para ORS
     const locations = coordinates.map((coord: number[]) => {
       if (!Array.isArray(coord) || coord.length < 2) {
         throw new Error("Invalid coordinate format, expected [lat, lon]");
@@ -33,10 +42,7 @@ export async function POST(request: NextRequest) {
 
     const orsResponse = await fetch(orsUrl, {
       method: "POST",
-      headers: {
-        Authorization: apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
         locations,
         metrics: ["distance", "duration"],
@@ -46,7 +52,6 @@ export async function POST(request: NextRequest) {
 
     if (!orsResponse.ok) {
       const text = await orsResponse.text();
-      console.error("ORS returned error:", orsResponse.status, text);
       return NextResponse.json(
         {
           error: "ORS matrix request failed",
@@ -58,19 +63,50 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await orsResponse.json();
-
     if (!data.distances || !data.durations) {
-      console.error("ORS returned unexpected payload:", JSON.stringify(data));
       return NextResponse.json(
         { error: "ORS returned unexpected payload" },
         { status: 502 }
       );
     }
 
-    return NextResponse.json({
-      distances: data.distances,
-      durations: data.durations,
-    });
+    const n = coordinates.length;
+
+    // Create cost matrix: simple combination of distance + duration
+    const cost: number[][] = Array.from({ length: n }, (_, i) =>
+      Array.from({ length: n }, (_, j) => {
+        if (i === j) return 0;
+
+        const distance = Number(data.distances[i][j]);
+        const duration = Number(data.durations[i][j]);
+
+        // Check for invalid values
+        if (
+          !isFinite(distance) ||
+          !isFinite(duration) ||
+          distance < 0 ||
+          duration < 0
+        ) {
+          return UNREACHABLE_COST;
+        }
+
+        // Simple linear combination
+        const totalCost =
+          distance * COST_PER_METER + duration * COST_PER_SECOND;
+
+        return Math.round(totalCost);
+      })
+    );
+
+    // Log matrix for debugging (optional, remove in production)
+    console.log("📊 Cost Matrix generated:");
+    console.log("Dimensions:", n, "x", n);
+    console.log("Sample costs (first 3x3):");
+    for (let i = 0; i < Math.min(3, n); i++) {
+      console.log(cost[i].slice(0, Math.min(3, n)));
+    }
+
+    return NextResponse.json({ cost });
   } catch (error) {
     console.error("Matrix API error:", error);
     return NextResponse.json(

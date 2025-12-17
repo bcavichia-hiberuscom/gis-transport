@@ -244,13 +244,12 @@ export function GISMap() {
       });
       if (!matrixRes.ok) throw new Error("Error en matrix API");
       const matrixData = await matrixRes.json();
-      const cleanedMatrix = matrixData.durations.map((row: number[]) =>
+      const cleanedMatrix = matrixData.cost.map((row: number[]) =>
         row.map((val: number) =>
           isFinite(val) && val >= 0 ? Math.round(val) : 999999
         )
       );
 
-      // 4) payload VROOM (asignación round-robin por skills)
       const jobsPerVehicle = Math.ceil(fleetJobs.length / fleetVehicles.length);
       const vroomPayload = {
         vehicles: fleetVehicles.map((v, idx) => ({
@@ -258,14 +257,12 @@ export function GISMap() {
           start_index: idx,
           profile: "car",
           capacity: [jobsPerVehicle + 1],
-          skills: [idx],
         })),
         jobs: fleetJobs.map((j, jidx) => ({
           id: fleetVehicles.length + jidx,
           location_index: fleetVehicles.length + jidx,
           service: 300,
           delivery: [1],
-          skills: [jidx % fleetVehicles.length],
         })),
         matrix: cleanedMatrix,
       };
