@@ -26,7 +26,9 @@ import { createWeatherIcons } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
 import { useLoadingLayers } from "@/hooks/useLoadingLayers";
 import { usePOICache } from "@/hooks/use-poi-cache";
+import { useZoneCache } from "@/hooks/use-zone-cache";
 import { WeatherPanel } from "./weather-panel";
+import { renderPOIs } from "@/app/helpers/map-render-helpers";
 
 const weatherIcons = createWeatherIcons();
 const {
@@ -140,114 +142,13 @@ function MapEventHandler({
   poiCache: ReturnType<typeof usePOICache>;
 }) {
   const map = useMap();
+  const zoneCache = useZoneCache(map, layers, selectedVehicle, wrapAsync);
+  useEffect(() => {
+    setDynamicLEZones(zoneCache.LEZones);
+    setDynamicRestrictedZones(zoneCache.restrictedZones);
+  }, [zoneCache.LEZones, zoneCache.restrictedZones]);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchCenter = useRef<string>("");
-  const lastZoneFetch = useRef<{ lat: number; lon: number } | null>(null);
-  const isLoadingZones = useRef(false);
-
-  const fetchZones = useCallback(async () => {
-    const center = map.getCenter();
-    const shouldFetchLE = layers.lowEmissionZones;
-    const shouldFetchRestricted = layers.restrictedZones;
-
-    if (!shouldFetchLE && !shouldFetchRestricted) {
-      setDynamicLEZones([]);
-      setDynamicRestrictedZones([]);
-      return;
-    }
-
-    const MIN_ZOOM_FOR_ZONES = 12;
-    if (map.getZoom() < MIN_ZOOM_FOR_ZONES) {
-      setDynamicLEZones([]);
-      setDynamicRestrictedZones([]);
-      return;
-    }
-
-    const haversineMeters = (
-      lat1: number,
-      lon1: number,
-      lat2: number,
-      lon2: number
-    ) => {
-      const toRad = (v: number) => (v * Math.PI) / 180;
-      const R = 6371000;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) *
-          Math.cos(toRad(lat2)) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    };
-
-    const last = lastZoneFetch.current;
-    const MIN_DISTANCE_METERS = 2000;
-    if (last) {
-      const moved = haversineMeters(last.lat, last.lon, center.lat, center.lng);
-      if (moved < MIN_DISTANCE_METERS) {
-        return;
-      }
-    }
-
-    if (isLoadingZones.current) return;
-
-    isLoadingZones.current = true;
-    lastZoneFetch.current = { lat: center.lat, lon: center.lng };
-
-    await wrapAsync(async () => {
-      try {
-        const promises: Promise<void>[] = [];
-
-        if (shouldFetchLE) {
-          promises.push(
-            fetch(
-              `/api/zones?lat=${center.lat}&lon=${
-                center.lng
-              }&radius=${20000}&type=lowEmission&vehicle=${
-                selectedVehicle.label
-              }`
-            )
-              .then((r) => r.json())
-              .then((data) => setDynamicLEZones(data.zones || []))
-              .catch(() => setDynamicLEZones([]))
-          );
-        } else {
-          setDynamicLEZones([]);
-        }
-
-        if (shouldFetchRestricted) {
-          promises.push(
-            fetch(
-              `/api/zones?lat=${center.lat}&lon=${
-                center.lng
-              }&radius=${20000}&type=restricted&vehicle=${
-                selectedVehicle.label
-              }`
-            )
-              .then((r) => r.json())
-              .then((data) => setDynamicRestrictedZones(data.zones || []))
-              .catch(() => setDynamicRestrictedZones([]))
-          );
-        } else {
-          setDynamicRestrictedZones([]);
-        }
-
-        await Promise.all(promises);
-      } finally {
-        isLoadingZones.current = false;
-      }
-    });
-  }, [
-    map,
-    layers.lowEmissionZones,
-    layers.restrictedZones,
-    setDynamicLEZones,
-    setDynamicRestrictedZones,
-    selectedVehicle.label,
-    wrapAsync,
-  ]);
 
   const fetchPOIs = useCallback(async () => {
     const center = map.getCenter();
@@ -283,33 +184,14 @@ function MapEventHandler({
     await wrapAsync(async () => {
       if (willFetchEV) {
         const distanceCeil = Math.ceil(distance);
-        const cached = poiCache.getEVStations(
+        const evStations = await poiCache.fetchPOI(
+          "ev",
           center.lat,
           center.lng,
-          distanceCeil
+          distanceCeil,
+          selectedVehicle.label
         );
-
-        if (cached) {
-          setDynamicEVStations(cached);
-        } else {
-          try {
-            const evResponse = await fetch(
-              `/api/ev-stations?lat=${center.lat}&lon=${center.lng}&distance=${distanceCeil}&vehicle=${selectedVehicle.label}`
-            );
-            const evData = await evResponse.json();
-            const stations = evData.stations || [];
-
-            poiCache.setEVStations(
-              center.lat,
-              center.lng,
-              distanceCeil,
-              stations
-            );
-            setDynamicEVStations(stations);
-          } catch {
-            setDynamicEVStations([]);
-          }
-        }
+        setDynamicEVStations(evStations);
       } else {
         setDynamicEVStations([]);
       }
@@ -317,34 +199,14 @@ function MapEventHandler({
       if (willFetchGas) {
         const radius = Math.min(distance * 1000, 10000);
         const radiusCeil = Math.ceil(radius);
-
-        const cached = poiCache.getGasStations(
+        const gasStations = await poiCache.fetchPOI(
+          "gas",
           center.lat,
           center.lng,
-          radiusCeil
+          radiusCeil,
+          selectedVehicle.label
         );
-
-        if (cached) {
-          setDynamicGasStations(cached);
-        } else {
-          try {
-            const gasResponse = await fetch(
-              `/api/gas-stations?lat=${center.lat}&lon=${center.lng}&radius=${radiusCeil}&vehicle=${selectedVehicle.label}`
-            );
-            const gasData = await gasResponse.json();
-            const stations = gasData.stations || [];
-
-            poiCache.setGasStations(
-              center.lat,
-              center.lng,
-              radiusCeil,
-              stations
-            );
-            setDynamicGasStations(stations);
-          } catch {
-            setDynamicGasStations([]);
-          }
-        }
+        setDynamicGasStations(gasStations);
       } else {
         setDynamicGasStations([]);
       }
@@ -375,21 +237,21 @@ function MapEventHandler({
       setMapCenter([map.getCenter().lat, map.getCenter().lng]);
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
-        fetchZones();
+        zoneCache.fetchZones();
         fetchPOIs();
       }, 100);
     },
     zoomend: () => {
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
-        fetchZones();
+        zoneCache.fetchZones();
         fetchPOIs();
       }, 100);
     },
   });
 
   useEffect(() => {
-    fetchZones();
+    zoneCache.fetchZones();
     fetchPOIs();
   }, []);
 
@@ -604,51 +466,18 @@ export default function MapContainer({
           </>
         ) : null}
 
-        {layers.gasStations &&
-          dynamicGasStations.map((station) => (
-            <Marker
-              key={station.id}
-              position={station.position as [number, number]}
-              icon={gasStationIcon}
-            >
-              <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-                <span style={{ fontSize: 12 }}>{station.name}</span>
-              </Tooltip>
-              {!isRouting && (
-                <Popup>
-                  <div style={{ fontSize: 12 }}>
-                    <strong>{station.name}</strong>
-                    <div style={{ marginTop: 6 }}>{station.address}</div>
-                  </div>
-                </Popup>
-              )}
-            </Marker>
-          ))}
+        {renderPOIs({
+          stations: dynamicGasStations,
+          icon: gasStationIcon,
+          isRouting: isRouting,
+        })}
 
-        {layers.evStations &&
-          dynamicEVStations.map((station) => (
-            <Marker
-              key={station.id}
-              position={station.position as [number, number]}
-              icon={evStationIcon}
-            >
-              <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-                <span style={{ fontSize: 12 }}>{station.name}</span>
-              </Tooltip>
-              {!isRouting && (
-                <Popup>
-                  <div style={{ fontSize: 12 }}>
-                    <strong>{station.name}</strong>
-                    <div style={{ marginTop: 6 }}>
-                      {station.connectors
-                        ? `${station.connectors} connectors`
-                        : "EV station"}
-                    </div>
-                  </div>
-                </Popup>
-              )}
-            </Marker>
-          ))}
+        {renderPOIs({
+          stations: dynamicEVStations,
+          icon: evStationIcon,
+          isEV: true,
+          isRouting: isRouting,
+        })}
 
         {fleetVehicles &&
           fleetVehicles.map((vehicle) => {
