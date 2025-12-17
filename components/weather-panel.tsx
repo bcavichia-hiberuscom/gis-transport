@@ -9,6 +9,8 @@ interface Alert {
   severity: "LOW" | "MEDIUM" | "HIGH";
   timeWindow: string;
   message: string;
+  lat: number;
+  lon: number;
 }
 
 export interface RouteWeather {

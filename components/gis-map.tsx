@@ -151,7 +151,7 @@ export function GISMap() {
     }
 
     console.log(`   → Asumiendo ya está en [lon, lat]`);
-    return coords;
+    return [coords[1], coords[0]];
   };
 
   const startRouting = useCallback(async () => {
@@ -367,7 +367,7 @@ export function GISMap() {
           distance: totalDistance,
           duration: totalDuration,
           vehicleRoutes,
-          weatherRoutes: weatherData.routes, // <-- aquí agregas las rutas con info de clima
+          weatherRoutes: weatherData.routes,
         });
       } catch {
         setRouteData({

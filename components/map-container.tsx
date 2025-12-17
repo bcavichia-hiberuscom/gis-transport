@@ -22,11 +22,24 @@ import type {
   Zone,
 } from "@/lib/types";
 import { LeafletMouseEvent } from "leaflet";
-import { createVehicleIcon } from "@/lib/map-icons";
+import { createWeatherIcons } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
 import { useLoadingLayers } from "@/hooks/useLoadingLayers";
 import { WeatherPanel } from "./weather-panel";
 
+const weatherIcons = createWeatherIcons();
+const {
+  gasStationIcon,
+  evStationIcon,
+  startIcon,
+  endIcon,
+  createVehicleIcon,
+  snowIcon,
+  rainIcon,
+  iceIcon,
+  windIcon,
+  fogIcon,
+} = weatherIcons;
 function FitBounds({
   routes,
 }: {
@@ -564,16 +577,10 @@ export default function MapContainer({
 
         {layers.gasStations &&
           dynamicGasStations.map((station) => (
-            <CircleMarker
+            <Marker
               key={station.id}
-              center={station.position as [number, number]}
-              radius={MARKER_RADIUS}
-              pathOptions={{
-                color: COLORS.gas,
-                fillColor: COLORS.gas,
-                fillOpacity: 1,
-                weight: 0,
-              }}
+              position={station.position as [number, number]}
+              icon={gasStationIcon}
             >
               <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
                 <span style={{ fontSize: 12 }}>{station.name}</span>
@@ -586,21 +593,15 @@ export default function MapContainer({
                   </div>
                 </Popup>
               )}
-            </CircleMarker>
+            </Marker>
           ))}
 
         {layers.evStations &&
           dynamicEVStations.map((station) => (
-            <CircleMarker
+            <Marker
               key={station.id}
-              center={station.position as [number, number]}
-              radius={MARKER_RADIUS}
-              pathOptions={{
-                color: COLORS.ev,
-                fillColor: COLORS.ev,
-                fillOpacity: 1,
-                weight: 0,
-              }}
+              position={station.position as [number, number]}
+              icon={evStationIcon}
             >
               <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
                 <span style={{ fontSize: 12 }}>{station.name}</span>
@@ -617,7 +618,7 @@ export default function MapContainer({
                   </div>
                 </Popup>
               )}
-            </CircleMarker>
+            </Marker>
           ))}
 
         {fleetVehicles &&
@@ -700,10 +701,48 @@ export default function MapContainer({
               </CircleMarker>
             );
           })}
+        {routeData?.weatherRoutes && (
+          <WeatherPanel routes={routeData.weatherRoutes} />
+        )}
+        {routeData?.weatherRoutes?.map((wr, wrIdx) =>
+          wr.alerts?.map((alert, idx) => {
+            if (alert.lat == null || alert.lon == null) return null;
+
+            let icon;
+            switch (alert.event) {
+              case "SNOW":
+                icon = snowIcon;
+                break;
+              case "RAIN":
+                icon = rainIcon;
+                break;
+              case "ICE":
+                icon = iceIcon;
+                break;
+              case "WIND":
+                icon = windIcon;
+                break;
+              case "FOG":
+                icon = fogIcon;
+                break;
+              default:
+                return null;
+            }
+
+            return (
+              <Marker
+                key={`weather-${wrIdx}-${idx}`}
+                position={[alert.lat, alert.lon]}
+                icon={icon}
+              >
+                <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
+                  <span style={{ fontSize: 12 }}>{alert.message}</span>
+                </Tooltip>
+              </Marker>
+            );
+          })
+        )}
       </LeafletMap>
-      {routeData?.weatherRoutes && (
-        <WeatherPanel routes={routeData.weatherRoutes} />
-      )}
     </div>
   );
 }

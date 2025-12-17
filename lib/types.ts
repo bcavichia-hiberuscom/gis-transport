@@ -94,6 +94,14 @@ export interface VehicleRoute {
   jobsAssigned: number;
 }
 
+export interface WeatherMarker {
+  vehicleId: number;
+  segmentIndex: number;
+  coords: [number, number];
+  icon: L.DivIcon;
+  message: string;
+  timeWindow: string;
+}
 export interface RouteData {
   coordinates: [number, number][];
   distance: number;
@@ -105,6 +113,7 @@ export interface RouteData {
   }>;
   vehicleRoutes?: VehicleRoute[];
   weatherRoutes?: RouteWeather[];
+  weatherMarkers?: WeatherMarker[];
 }
 
 export interface RouteInstruction {

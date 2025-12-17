@@ -21,13 +21,13 @@ interface Job {
 interface Segment {
   lat: number;
   lon: number;
-  eta: string; // ISO string
+  eta: string;
 }
 
 interface VroomStep {
   type: string;
   location_index: number;
-  arrival: number; // en segundos
+  arrival: number;
 }
 
 interface VroomRoute {
@@ -37,9 +37,11 @@ interface VroomRoute {
 
 interface Alert {
   segmentIndex: number;
-  event: "SNOW" | "RAIN" | "ICE" | "WIND" | "FOG";
+  event: "SNOW" | "RAIN" | "ICE" | "WIND" | "FOG" | "HEAT" | "COLD";
   severity: "LOW" | "MEDIUM" | "HIGH";
   timeWindow: string;
+  lat: number;
+  lon: number;
   message: string;
 }
 
@@ -59,9 +61,9 @@ interface WeatherRiskRequestFull {
 
 interface VehicleRouteSimple {
   vehicleId: number;
-  coordinates: LatLon[]; // assumed [lat, lon]
+  coordinates: LatLon[];
   distance?: number;
-  duration?: number; // seconds
+  duration?: number;
   color?: string;
   jobsAssigned?: number;
 }
@@ -80,185 +82,95 @@ function sampleIndices(length: number, maxSamples = 5) {
   for (let i = 0; i < n; i++) {
     indices.push(Math.round((i * (length - 1)) / (n - 1)));
   }
-  // unique
   return Array.from(new Set(indices));
 }
 
 export async function POST(req: Request) {
   try {
     const body: IncomingBody = await req.json();
-    console.log("🔹 BODY RECIBIDO:", body);
+    const startTimeStr = body?.startTime ?? new Date().toISOString();
+    const startDate = new Date(startTimeStr);
 
-    // If caller sent the full VROOM-compatible payload
+    let routesWithSegments: { vehicle: number; segments: Segment[] }[] = [];
+
+    // Detect full payload or simplified vehicleRoutes
     const looksFull =
       Array.isArray(body?.vehicles) &&
       Array.isArray(body?.jobs) &&
       Array.isArray(body?.locations) &&
       Array.isArray(body?.matrix);
 
-    let routesWithSegments: { vehicle: number; segments: Segment[] }[] = [];
-    const startTimeStr = body?.startTime ?? new Date().toISOString();
-    const startDate = new Date(startTimeStr);
-
     if (looksFull) {
-      // Validate minimal presence
-      const { vehicles, jobs, locations, matrix, startTime } =
+      const { vehicles, jobs, locations, matrix } =
         body as WeatherRiskRequestFull;
-      if (!vehicles || !jobs || !locations || !matrix) {
-        console.log("❌ Faltan campos en payload full:", {
-          vehicles: vehicles?.length ?? "undefined",
-          jobs: jobs?.length ?? "undefined",
-          locations: locations?.length ?? "undefined",
-          matrix: matrix?.length ?? "undefined",
-          startTime,
-        });
-        return NextResponse.json(
-          { error: "Missing required data" },
-          { status: 400 }
-        );
-      }
-
-      console.log(
-        `✅ Payload full recibido: vehicles=${vehicles.length}, jobs=${jobs.length}, locations=${locations.length}`
-      );
-
-      // We need VROOM to compute route -> call VROOM as before
+      // call VROOM
       const vroomRes = await fetch("http://localhost:3002", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vehicles, jobs, matrix }),
       });
-
-      if (!vroomRes.ok) {
-        const errText = await vroomRes.text();
-        console.log("❌ Error VROOM:", errText);
+      if (!vroomRes.ok)
         return NextResponse.json(
-          { error: errText },
+          { error: await vroomRes.text() },
           { status: vroomRes.status }
         );
-      }
 
       const vroomData: { routes: VroomRoute[] } = await vroomRes.json();
-      if (!vroomData.routes || vroomData.routes.length === 0) {
-        console.log("❌ VROOM no devolvió rutas");
-        return NextResponse.json(
-          { error: "No routes returned by VROOM" },
-          { status: 500 }
-        );
-      }
-
-      // Map VROOM steps -> segments (using arrival times from VROOM)
       for (const route of vroomData.routes) {
         const segments: Segment[] = route.steps
           .filter((s) => s.type === "job")
           .map((s) => {
-            const loc = (body as WeatherRiskRequestFull).locations[
-              s.location_index
-            ];
+            const loc = locations[s.location_index];
             const etaDate = new Date(startDate.getTime() + s.arrival * 1000);
             return { lat: loc.lat, lon: loc.lon, eta: etaDate.toISOString() };
           });
         routesWithSegments.push({ vehicle: route.vehicle, segments });
       }
-
-      console.log("🔹 Segments from VROOM:", routesWithSegments);
     } else if (Array.isArray(body?.vehicleRoutes)) {
-      // Simplified flow: frontend sent vehicleRoutes (what you're currently sending)
       const vehicleRoutes: VehicleRouteSimple[] = body.vehicleRoutes;
-      const assumedStart = startDate;
-      console.log(
-        `✅ Payload simple recibido: vehicleRoutes=${
-          vehicleRoutes.length
-        }, start=${assumedStart.toISOString()}`
-      );
-
       for (const vr of vehicleRoutes) {
         const coords = vr.coordinates || [];
-        if (!coords || coords.length === 0) {
-          routesWithSegments.push({ vehicle: vr.vehicleId, segments: [] });
-          continue;
-        }
-
-        // decide how many sample points (max 5)
         const indices = sampleIndices(coords.length, 5);
-        const durationSeconds =
-          typeof vr.duration === "number" &&
-          isFinite(vr.duration) &&
-          vr.duration > 0
-            ? vr.duration
-            : 0;
-        const segments: Segment[] = indices.map((idx, sampleIdx) => {
+        const durationSeconds = vr.duration ?? 0;
+        const segments: Segment[] = indices.map((idx) => {
           const [lat, lon] = coords[idx];
-          // if coordinates were [lon, lat] accidentally, heuristic: lat in [-90,90] -> assume [lat,lon]
           const [sLat, sLon] =
             Math.abs(lat) <= 90 && Math.abs(lon) <= 180
               ? [lat, lon]
               : [lon, lat];
-          const frac = coords.length <= 1 ? 0 : idx / (coords.length - 1); // 0..1 along route
+          const frac = coords.length <= 1 ? 0 : idx / (coords.length - 1);
           const etaDate = new Date(
-            assumedStart.getTime() + Math.round(frac * durationSeconds * 1000)
+            startDate.getTime() + Math.round(frac * durationSeconds * 1000)
           );
           return { lat: sLat, lon: sLon, eta: etaDate.toISOString() };
         });
-
         routesWithSegments.push({ vehicle: vr.vehicleId, segments });
       }
-
-      console.log(
-        "🔹 Segments generated from vehicleRoutes:",
-        routesWithSegments
-      );
     } else {
-      console.log(
-        "❌ Payload no reconocido. Esperado 'vehicleRoutes' o payload full."
-      );
-      return NextResponse.json(
-        { error: "Invalid payload shape. Send vehicleRoutes or full payload." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    // Now we have routesWithSegments -> query forecast and produce alerts
     const apiKey = process.env.OPENWEATHERMAP_API_KEY;
-    if (!apiKey) {
-      console.log("❌ Missing OpenWeatherMap API key");
+    if (!apiKey)
       return NextResponse.json(
         { error: "Missing OpenWeatherMap API key" },
         { status: 500 }
       );
-    }
 
     const results: RouteAlerts[] = [];
 
     for (const route of routesWithSegments) {
       const alerts: Alert[] = [];
-
       for (let i = 0; i < route.segments.length; i++) {
         const seg = route.segments[i];
-        console.log(
-          `🔹 Processing vehicle ${route.vehicle} segment ${i}:`,
-          seg
-        );
-
-        // call forecast
         const forecastRes = await fetch(
           `https://api.openweathermap.org/data/2.5/forecast?lat=${seg.lat}&lon=${seg.lon}&units=metric&appid=${apiKey}`
         );
-        if (!forecastRes.ok) {
-          console.log(
-            `❌ Forecast fetch failed for seg ${i}:`,
-            forecastRes.status
-          );
-          continue;
-        }
+        if (!forecastRes.ok) continue;
         const forecastData = await forecastRes.json();
         const forecastList = forecastData.list;
-        if (!Array.isArray(forecastList) || forecastList.length === 0) {
-          console.log("❌ Forecast list empty for seg", seg);
-          continue;
-        }
+        if (!Array.isArray(forecastList) || forecastList.length === 0) continue;
 
-        // find closest forecast entry
         const etaTime = new Date(seg.eta).getTime() / 1000;
         let closest = forecastList[0];
         let minDiff = Math.abs(etaTime - closest.dt);
@@ -276,41 +188,42 @@ export async function POST(req: Request) {
         const wind = closest.wind?.speed ?? 0;
         const visibility = closest.visibility ?? 10000;
 
-        console.log(
-          `   🌦 Forecast: temp=${temp}, rain=${rain}, snow=${snow}, wind=${wind}, vis=${visibility}`
-        );
-
-        // map to events (no vehicle mitigation considered)
+        // realistic driver alerts
         if (snow > 0) {
-          const severity: "LOW" | "MEDIUM" | "HIGH" =
-            snow >= 5 ? "HIGH" : "MEDIUM";
           alerts.push({
             segmentIndex: i,
             event: "SNOW",
-            severity,
+            severity: snow >= 5 ? "HIGH" : "MEDIUM",
             timeWindow: seg.eta,
-            message: "Nieve prevista en el tramo.",
+            lat: seg.lat,
+            lon: seg.lon,
+            message: "Nieve en ruta: reducir velocidad y precaución.",
           });
-        } else if (rain > 10 && temp > 0) {
-          const severity: "LOW" | "MEDIUM" | "HIGH" =
-            rain >= 20 ? "HIGH" : "MEDIUM";
+        }
+        if (rain > 10) {
+          const severity = rain >= 20 ? "HIGH" : "MEDIUM";
           alerts.push({
             segmentIndex: i,
             event: "RAIN",
             severity,
             timeWindow: seg.eta,
-            message: "Lluvia intensa prevista en el tramo.",
+            lat: seg.lat,
+            lon: seg.lon,
+            message: "Lluvia significativa: posible hidroplaneo.",
           });
-        } else if (temp <= 0 && rain > 0) {
+        }
+        if (temp <= 0 && rain > 0) {
           alerts.push({
             segmentIndex: i,
             event: "ICE",
             severity: "HIGH",
             timeWindow: seg.eta,
-            message:
-              "Posible hielo en el tramo debido a lluvia y temperatura bajo cero.",
+            lat: seg.lat,
+            lon: seg.lon,
+            message: "Riesgo de hielo: extremar precaución.",
           });
-        } else if (wind >= 15) {
+        }
+        if (wind >= 10) {
           const severity: "LOW" | "MEDIUM" | "HIGH" =
             wind >= 20 ? "HIGH" : "MEDIUM";
           alerts.push({
@@ -318,15 +231,42 @@ export async function POST(req: Request) {
             event: "WIND",
             severity,
             timeWindow: seg.eta,
-            message: `Viento fuerte previsto en el tramo (${wind} m/s).`,
+            lat: seg.lat,
+            lon: seg.lon,
+            message: `Viento fuerte (${wind.toFixed(1)} m/s): sujetar volante.`,
           });
-        } else if (visibility < 1000) {
+        }
+        if (visibility < 1000) {
           alerts.push({
             segmentIndex: i,
             event: "FOG",
             severity: "MEDIUM",
             timeWindow: seg.eta,
-            message: `Visibilidad reducida en el tramo (${visibility} m).`,
+            lat: seg.lat,
+            lon: seg.lon,
+            message: `Niebla: visibilidad reducida (${visibility} m).`,
+          });
+        }
+        if (temp >= 35) {
+          alerts.push({
+            segmentIndex: i,
+            event: "HEAT",
+            severity: "MEDIUM",
+            timeWindow: seg.eta,
+            lat: seg.lat,
+            lon: seg.lon,
+            message: "Calor extremo: hidratarse y evitar sobreesfuerzo.",
+          });
+        }
+        if (temp <= -5) {
+          alerts.push({
+            segmentIndex: i,
+            event: "COLD",
+            severity: "MEDIUM",
+            timeWindow: seg.eta,
+            lat: seg.lat,
+            lon: seg.lon,
+            message: "Frío intenso: precaución con motor y combustible.",
           });
         }
       }
@@ -337,13 +277,12 @@ export async function POST(req: Request) {
           : alerts.some((a) => a.severity === "HIGH")
           ? "HIGH"
           : "MEDIUM";
+
       results.push({ vehicle: route.vehicle, riskLevel, alerts });
     }
 
-    console.log("✅ Final alerts:", results);
     return NextResponse.json({ routes: results });
   } catch (err) {
-    console.error("💥 Error in /api/weather:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
