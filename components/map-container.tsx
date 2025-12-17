@@ -517,49 +517,59 @@ export default function MapContainer({
           poiCache={poiCache}
         />
 
-        {mergedZones.map((zone, idx) => {
-          const hasAccess = canAccessZone(zone);
-          return (
-            <Polygon
-              key={`${zone.id}-${idx}`}
-              positions={zone.coordinates}
-              pathOptions={{
-                color:
-                  zone.type === "LEZ"
-                    ? hasAccess
-                      ? "#10b981"
-                      : "#ef4444"
-                    : "#ef4444",
-                fillColor:
-                  zone.type === "LEZ"
-                    ? hasAccess
-                      ? "#10b981"
-                      : "#ef4444"
-                    : "#ef4444",
-                fillOpacity:
-                  zone.type === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
-                weight: zone.type === "LEZ" ? 1 : 0.5,
-                dashArray: zone.type === "LEZ" ? undefined : "4,4",
-              }}
-            >
-              <Popup closeButton={false} autoClose={false}>
-                <div style={{ fontSize: 12 }}>
-                  <strong>{zone.name}</strong>
-                  {zone.type === "LEZ" && (
-                    <div
-                      style={{
-                        color: hasAccess ? "#10b981" : "#ef4444",
-                        marginTop: 4,
-                      }}
-                    >
-                      {hasAccess ? "Access OK" : "Restricted"}
+        {mergedZones
+          .filter(
+            (zone) =>
+              (zone.type === "LEZ" && layers.lowEmissionZones) ||
+              (zone.type === "RESTRICTED" && layers.restrictedZones)
+          )
+          .map((zone, idx) => {
+            const hasAccess = canAccessZone(zone);
+            return (
+              <Polygon
+                key={`${zone.id}-${idx}`}
+                positions={zone.coordinates}
+                pathOptions={{
+                  color:
+                    zone.type === "LEZ"
+                      ? hasAccess
+                        ? "#10b981"
+                        : "#ef4444"
+                      : "#ef4444",
+                  fillColor:
+                    zone.type === "LEZ"
+                      ? hasAccess
+                        ? "#10b981"
+                        : "#ef4444"
+                      : "#ef4444",
+                  fillOpacity:
+                    zone.type === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
+                  weight: zone.type === "LEZ" ? 1 : 0.5,
+                  dashArray: zone.type === "LEZ" ? undefined : "4,4",
+                  interactive: !isRouting, // bloquea interacción si se está en routing
+                  pane: "overlayPane", // mantiene debajo de rutas y marcadores
+                }}
+              >
+                {!isRouting && (
+                  <Popup closeButton={false} autoClose={false}>
+                    <div style={{ fontSize: 12 }}>
+                      <strong>{zone.name}</strong>
+                      {zone.type === "LEZ" && (
+                        <div
+                          style={{
+                            color: hasAccess ? "#10b981" : "#ef4444",
+                            marginTop: 4,
+                          }}
+                        >
+                          {hasAccess ? "Access OK" : "Restricted"}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </Popup>
-            </Polygon>
-          );
-        })}
+                  </Popup>
+                )}
+              </Polygon>
+            );
+          })}
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
           <>
