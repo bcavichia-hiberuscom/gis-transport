@@ -28,7 +28,11 @@ import { useLoadingLayers } from "@/hooks/useLoadingLayers";
 import { usePOICache } from "@/hooks/use-poi-cache";
 import { useZoneCache } from "@/hooks/use-zone-cache";
 import { WeatherPanel } from "./weather-panel";
-import { renderPOIs } from "@/app/helpers/map-render-helpers";
+import {
+  renderPOIs,
+  renderVehicleMarkers,
+  renderJobMarkers,
+} from "@/app/helpers/map-render-helpers";
 
 const weatherIcons = createWeatherIcons();
 const {
@@ -479,86 +483,17 @@ export default function MapContainer({
           isRouting: isRouting,
         })}
 
-        {fleetVehicles &&
-          fleetVehicles.map((vehicle) => {
-            const center = normalizeCoords(vehicle.coords);
-            const isSelected = selectedVehicleId === vehicle.id;
+        {renderVehicleMarkers({
+          vehicles: fleetVehicles || [],
+          selectedVehicleId,
+          createVehicleIcon,
+          isRouting,
+        })}
 
-            return (
-              <Marker
-                key={`vehicle-${vehicle.id}`}
-                position={center}
-                icon={createVehicleIcon(isSelected ? "#ffa616ff" : "#94a3b8")}
-              >
-                <Tooltip
-                  direction="top"
-                  offset={[0, -18]}
-                  opacity={0.95}
-                  permanent={isSelected}
-                >
-                  <span
-                    style={{
-                      fontSize: 12,
-                      fontWeight: isSelected ? "bold" : "normal",
-                    }}
-                  >
-                    {vehicle.type.label}
-                  </span>
-                </Tooltip>
-                {!isRouting && (
-                  <Popup>
-                    <div style={{ fontSize: 12 }}>
-                      <strong>{vehicle.type.label}</strong>
-                      <div
-                        style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}
-                      >
-                        {`Lat: ${center[0].toFixed(
-                          5
-                        )}, Lon: ${center[1].toFixed(5)}`}
-                      </div>
-                    </div>
-                  </Popup>
-                )}
-              </Marker>
-            );
-          })}
-
-        {fleetJobs &&
-          fleetJobs.map((job) => {
-            const center = normalizeCoords(job.coords);
-
-            return (
-              <CircleMarker
-                key={`job-${job.id}`}
-                center={center}
-                radius={MARKER_RADIUS + 2}
-                pathOptions={{
-                  color: COLORS.job,
-                  fillColor: COLORS.job,
-                  fillOpacity: 0.9,
-                  weight: 2,
-                }}
-              >
-                <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
-                  <span style={{ fontSize: 12 }}>{job.label}</span>
-                </Tooltip>
-                {!isRouting && (
-                  <Popup>
-                    <div style={{ fontSize: 12 }}>
-                      <strong>{job.label}</strong>
-                      <div
-                        style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}
-                      >
-                        {`Lat: ${center[0].toFixed(
-                          5
-                        )}, Lon: ${center[1].toFixed(5)}`}
-                      </div>
-                    </div>
-                  </Popup>
-                )}
-              </CircleMarker>
-            );
-          })}
+        {renderJobMarkers({
+          jobs: fleetJobs || [],
+          isRouting,
+        })}
         {routeData?.weatherRoutes && (
           <WeatherPanel routes={routeData.weatherRoutes} />
         )}

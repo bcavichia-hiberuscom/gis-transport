@@ -47,6 +47,18 @@ export interface VehicleType {
   vroomType: "car";
 }
 
+export interface FleetVehicle {
+  id: string;
+  coords: [number, number];
+  type: VehicleType;
+}
+
+export interface FleetJob {
+  id: string;
+  coords: [number, number];
+  label: string;
+}
+
 export const VEHICLE_TYPES: VehicleType[] = [
   {
     id: "zero",
