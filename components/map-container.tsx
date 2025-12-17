@@ -9,7 +9,6 @@ import {
   Polyline,
   useMapEvents,
   useMap,
-  CircleMarker,
   Tooltip,
   Marker,
 } from "react-leaflet";
@@ -105,11 +104,6 @@ const COLORS = {
   vehicle: "#facc15",
   job: "#8b5cf6",
 };
-
-function normalizeCoords(coords: [number, number]): [number, number] {
-  const [a, b] = coords;
-  return a < -90 || a > 90 ? [b, a] : [a, b];
-}
 
 function MapEventHandler({
   isRouting,
@@ -412,8 +406,6 @@ export default function MapContainer({
                     zone.type === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
                   weight: zone.type === "LEZ" ? 1 : 0.5,
                   dashArray: zone.type === "LEZ" ? undefined : "4,4",
-                  interactive: !isRouting, // bloquea interacción si se está en routing
-                  pane: "overlayPane", // mantiene debajo de rutas y marcadores
                 }}
               >
                 {!isRouting && (
