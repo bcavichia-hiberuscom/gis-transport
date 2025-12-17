@@ -1,5 +1,5 @@
 // lib/types.ts - Archivo completo actualizado
-import type { RouteWeather } from "@/components/weather-panel"; // o define aquí
+import type { RouteWeather } from "@/components/weather-panel";
 export interface POI {
   id: string;
   name: string;

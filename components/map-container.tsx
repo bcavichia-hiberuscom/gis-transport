@@ -25,14 +25,13 @@ import { LeafletMouseEvent } from "leaflet";
 import { createWeatherIcons } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
 import { useLoadingLayers } from "@/hooks/useLoadingLayers";
+import { usePOICache } from "@/hooks/use-poi-cache";
 import { WeatherPanel } from "./weather-panel";
 
 const weatherIcons = createWeatherIcons();
 const {
   gasStationIcon,
   evStationIcon,
-  startIcon,
-  endIcon,
   createVehicleIcon,
   snowIcon,
   rainIcon,
@@ -40,6 +39,7 @@ const {
   windIcon,
   fogIcon,
 } = weatherIcons;
+
 function FitBounds({
   routes,
 }: {
@@ -118,6 +118,7 @@ function MapEventHandler({
   selectedVehicle,
   onMapClick,
   wrapAsync,
+  poiCache,
 }: {
   isRouting: boolean;
   routePoints: { start: [number, number] | null; end: [number, number] | null };
@@ -136,6 +137,7 @@ function MapEventHandler({
   selectedVehicle: VehicleType;
   onMapClick?: (coords: [number, number]) => void;
   wrapAsync: (fn: () => Promise<void>) => Promise<void>;
+  poiCache: ReturnType<typeof usePOICache>;
 }) {
   const map = useMap();
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -143,30 +145,24 @@ function MapEventHandler({
   const lastZoneFetch = useRef<{ lat: number; lon: number } | null>(null);
   const isLoadingZones = useRef(false);
 
-  // fetchZones: only trigger when there is something to fetch and not already loading
-  // dentro de MapEventHandler: reemplaza la implementación actual de fetchZones por esta
   const fetchZones = useCallback(async () => {
     const center = map.getCenter();
     const shouldFetchLE = layers.lowEmissionZones;
     const shouldFetchRestricted = layers.restrictedZones;
 
-    // nothing to fetch
     if (!shouldFetchLE && !shouldFetchRestricted) {
       setDynamicLEZones([]);
       setDynamicRestrictedZones([]);
       return;
     }
 
-    // guard: require reasonable zoom to fetch zones (avoid world-level queries)
     const MIN_ZOOM_FOR_ZONES = 12;
     if (map.getZoom() < MIN_ZOOM_FOR_ZONES) {
-      // clear previously shown zones when zoomed out
       setDynamicLEZones([]);
       setDynamicRestrictedZones([]);
       return;
     }
 
-    // helper: haversine distance in meters
     const haversineMeters = (
       lat1: number,
       lon1: number,
@@ -186,21 +182,17 @@ function MapEventHandler({
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
 
-    // avoid refetching for tiny movements
     const last = lastZoneFetch.current;
-    const MIN_DISTANCE_METERS = 2000; // ajustar según necesidad (2 km)
+    const MIN_DISTANCE_METERS = 2000;
     if (last) {
       const moved = haversineMeters(last.lat, last.lon, center.lat, center.lng);
       if (moved < MIN_DISTANCE_METERS) {
-        // no cambio relevante en la vista: no hacemos nada
         return;
       }
     }
 
-    // avoid concurrent zone fetches
     if (isLoadingZones.current) return;
 
-    // record location requested (but only after we've decided to fetch)
     isLoadingZones.current = true;
     lastZoneFetch.current = { lat: center.lat, lon: center.lng };
 
@@ -257,7 +249,6 @@ function MapEventHandler({
     wrapAsync,
   ]);
 
-  // fetchPOIs: only trigger when zoom is enough and layers enabled and center changed
   const fetchPOIs = useCallback(async () => {
     const center = map.getCenter();
     const zoom = map.getZoom();
@@ -265,11 +256,9 @@ function MapEventHandler({
       2
     )},${zoom}`;
 
-    // if nothing changed, skip entirely (no loading)
     if (centerKey === lastFetchCenter.current) return;
     lastFetchCenter.current = centerKey;
 
-    // if zoom too low, clear markers and skip
     if (zoom < 13) {
       setDynamicEVStations([]);
       setDynamicGasStations([]);
@@ -279,52 +268,82 @@ function MapEventHandler({
     const willFetchEV = layers.evStations;
     const willFetchGas = layers.gasStations;
 
-    // if neither layer enabled, nothing to fetch
     if (!willFetchEV && !willFetchGas) {
       setDynamicEVStations([]);
       setDynamicGasStations([]);
       return;
     }
 
-    // compute distance param
     const bounds = map.getBounds();
     const distance = Math.min(
       bounds.getNorthEast().distanceTo(bounds.getSouthWest()) / 2000,
       25
     );
 
-    // only wrap in loading when there will be real fetches
     await wrapAsync(async () => {
       if (willFetchEV) {
-        try {
-          const evResponse = await fetch(
-            `/api/ev-stations?lat=${center.lat}&lon=${
-              center.lng
-            }&distance=${Math.ceil(distance)}&vehicle=${selectedVehicle.label}`
-          );
-          const evData = await evResponse.json();
-          if (evData.stations) setDynamicEVStations(evData.stations);
-          else setDynamicEVStations([]);
-        } catch {
-          setDynamicEVStations([]);
+        const distanceCeil = Math.ceil(distance);
+        const cached = poiCache.getEVStations(
+          center.lat,
+          center.lng,
+          distanceCeil
+        );
+
+        if (cached) {
+          setDynamicEVStations(cached);
+        } else {
+          try {
+            const evResponse = await fetch(
+              `/api/ev-stations?lat=${center.lat}&lon=${center.lng}&distance=${distanceCeil}&vehicle=${selectedVehicle.label}`
+            );
+            const evData = await evResponse.json();
+            const stations = evData.stations || [];
+
+            poiCache.setEVStations(
+              center.lat,
+              center.lng,
+              distanceCeil,
+              stations
+            );
+            setDynamicEVStations(stations);
+          } catch {
+            setDynamicEVStations([]);
+          }
         }
       } else {
         setDynamicEVStations([]);
       }
 
       if (willFetchGas) {
-        try {
-          const radius = Math.min(distance * 1000, 10000);
-          const gasResponse = await fetch(
-            `/api/gas-stations?lat=${center.lat}&lon=${
-              center.lng
-            }&radius=${Math.ceil(radius)}&vehicle=${selectedVehicle.label}`
-          );
-          const gasData = await gasResponse.json();
-          if (gasData.stations) setDynamicGasStations(gasData.stations);
-          else setDynamicGasStations([]);
-        } catch {
-          setDynamicGasStations([]);
+        const radius = Math.min(distance * 1000, 10000);
+        const radiusCeil = Math.ceil(radius);
+
+        const cached = poiCache.getGasStations(
+          center.lat,
+          center.lng,
+          radiusCeil
+        );
+
+        if (cached) {
+          setDynamicGasStations(cached);
+        } else {
+          try {
+            const gasResponse = await fetch(
+              `/api/gas-stations?lat=${center.lat}&lon=${center.lng}&radius=${radiusCeil}&vehicle=${selectedVehicle.label}`
+            );
+            const gasData = await gasResponse.json();
+            const stations = gasData.stations || [];
+
+            poiCache.setGasStations(
+              center.lat,
+              center.lng,
+              radiusCeil,
+              stations
+            );
+            setDynamicGasStations(stations);
+          } catch {
+            setDynamicGasStations([]);
+          }
         }
       } else {
         setDynamicGasStations([]);
@@ -338,6 +357,7 @@ function MapEventHandler({
     setDynamicGasStations,
     selectedVehicle.label,
     wrapAsync,
+    poiCache,
   ]);
 
   useMapEvents({
@@ -355,7 +375,6 @@ function MapEventHandler({
       setMapCenter([map.getCenter().lat, map.getCenter().lng]);
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
-        // only trigger fetches that will actually run (fetchPOIs/fetchZones guard themselves)
         fetchZones();
         fetchPOIs();
       }, 100);
@@ -416,8 +435,9 @@ export default function MapContainer({
     []
   );
 
-  // use centralized hook: exposes loading + wrapAsync
   const { loading, wrapAsync } = useLoadingLayers();
+
+  const poiCache = usePOICache();
 
   useEffect(() => setMounted(true), []);
 
@@ -494,6 +514,7 @@ export default function MapContainer({
           selectedVehicle={selectedVehicle}
           onMapClick={onMapClick}
           wrapAsync={wrapAsync}
+          poiCache={poiCache}
         />
 
         {mergedZones.map((zone, idx) => {
@@ -521,23 +542,21 @@ export default function MapContainer({
                 dashArray: zone.type === "LEZ" ? undefined : "4,4",
               }}
             >
-              {!isRouting && (
-                <Popup closeButton={false} autoClose={false}>
-                  <div style={{ fontSize: 12 }}>
-                    <strong>{zone.name}</strong>
-                    {zone.type === "LEZ" && (
-                      <div
-                        style={{
-                          color: hasAccess ? "#10b981" : "#ef4444",
-                          marginTop: 4,
-                        }}
-                      >
-                        {hasAccess ? "Access OK" : "Restricted"}
-                      </div>
-                    )}
-                  </div>
-                </Popup>
-              )}
+              <Popup closeButton={false} autoClose={false}>
+                <div style={{ fontSize: 12 }}>
+                  <strong>{zone.name}</strong>
+                  {zone.type === "LEZ" && (
+                    <div
+                      style={{
+                        color: hasAccess ? "#10b981" : "#ef4444",
+                        marginTop: 4,
+                      }}
+                    >
+                      {hasAccess ? "Access OK" : "Restricted"}
+                    </div>
+                  )}
+                </div>
+              </Popup>
             </Polygon>
           );
         })}
