@@ -10,6 +10,7 @@ const COST_PER_METER = 1;
 const COST_PER_SECOND = 0.3;
 const UNREACHABLE_COST = 999999999;
 const MAX_LOCATIONS = 50; // Límite de ORS para matrices
+const REQUEST_TIMEOUT = 30000; // 30 segundos
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Crear AbortController para timeout manual
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     try {
       const orsResponse = await fetch(orsUrl, {
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
         })
       );
 
-      // Log matrix for debugging (optional, remove in production)
+      // Log matrix for debugging
       console.log("📊 Cost Matrix generated:");
       console.log("Dimensions:", n, "x", n);
       console.log("Sample costs (first 3x3):");

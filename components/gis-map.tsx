@@ -1,7 +1,7 @@
 "use client";
 // app/components/gis-map.tsx
 import dynamic from "next/dynamic";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
 import type {
   LayerVisibility,
@@ -48,32 +48,26 @@ function normalizeToLonLat(coords: [number, number]): [number, number] {
     throw new Error("Coordinates must be finite numbers");
   }
 
-  // Si el primer valor está en rango de latitud plausible y el segundo es un valor de longitud válido que supera 90,
-  // asumimos [lat, lon] -> devolver [lon, lat]
   if (Math.abs(a) <= 90 && Math.abs(b) <= 180 && Math.abs(b) > 90) {
     return [b, a];
   }
 
-  // Si el primer valor tiene magnitud > 90 (probablemente longitud en -180..180), asumimos ya [lon, lat]
   if (Math.abs(a) > 90 && Math.abs(b) <= 90) {
     return [a, b];
   }
 
-  // heurística para coordenadas europeas (lat ~ 40, lon ~ -3)
   if (Math.abs(a - 40) < 20 && Math.abs(b + 4) < 10) {
     return [b, a];
   }
 
-  // fallback por seguridad: si el primer elemento parece lat (|a| <= 90) asumimos [lat, lon]
   if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
     return [b, a];
   }
 
-  // si ninguno aplica, devolvemos tal cual (se asume [lon, lat])
   return [a, b];
 }
 
-// Hook para manejar estado y operaciones del fleet (agregar/quitar/limpiar/select)
+// Hook para manejar estado y operaciones del fleet
 function useFleet(
   initialVehicles: FleetVehicle[] = [],
   initialJobs: FleetJob[] = []
@@ -102,7 +96,6 @@ function useFleet(
       const newVehicle: FleetVehicle = { id, coords, type };
       setFleetVehicles((prev) => {
         const next = [...prev, newVehicle];
-        // seleccionar el nuevo vehículo
         setSelectedVehicleId(newVehicle.id);
         return next;
       });
@@ -190,14 +183,13 @@ export function GISMap() {
     removeJob,
   } = useFleet();
 
-  // AQUÍ defines clearAll - DESPUÉS del hook useFleet
   const clearAll = useCallback(() => {
-    clearFleet(); // limpia vehículos y jobs
-    setRouteData(null); // limpia rutas
-    setRoutePoints({ start: null, end: null }); // limpia puntos
-    setDynamicEVStations([]); // limpia estaciones EV
-    setDynamicGasStations([]); // limpia gasolineras
-    setIsCalculatingRoute(false); // resetea loading
+    clearFleet();
+    setRouteData(null);
+    setRoutePoints({ start: null, end: null });
+    setDynamicEVStations([]);
+    setDynamicGasStations([]);
+    setIsCalculatingRoute(false);
   }, [clearFleet]);
 
   const toggleLayer = useCallback(
@@ -219,6 +211,7 @@ export function GISMap() {
         return;
       }
 
+      // Añadir directamente sin snap (el snap se hará antes del routing)
       if (addMode === "vehicle") {
         addVehicleAt(coords, selectedVehicle);
       } else if (addMode === "job") {
@@ -228,25 +221,65 @@ export function GISMap() {
     [fleetMode, addMode, addVehicleAt, addJobAt, selectedVehicle]
   );
 
-  // --- startRouting: se mantienen las mismas fases pero con helpers locales ---
   const startRouting = useCallback(async () => {
+    const totalLocations = fleetVehicles.length + fleetJobs.length;
+
+    if (totalLocations > 50) {
+      alert(
+        `Demasiadas ubicaciones (${totalLocations}). El máximo es 50 (vehículos + jobs).`
+      );
+      return;
+    }
+
     if (fleetVehicles.length === 0 || fleetJobs.length === 0) {
       alert("Necesitas al menos 1 vehículo y 1 trabajo");
       return;
     }
+
     setIsCalculatingRoute(true);
 
     try {
-      // 1) todas las ubicaciones en [lon, lat]
-      const allLocations: [number, number][] = [
-        ...fleetVehicles.map((v) => normalizeToLonLat(v.coords)),
-        ...fleetJobs.map((j) => normalizeToLonLat(j.coords)),
+      // Recopilar todas las coordenadas
+      const allCoords = [
+        ...fleetVehicles.map((v) => v.coords),
+        ...fleetJobs.map((j) => j.coords),
       ];
 
-      // 2) ORS matrix espera [lat, lon]
+      let correctedLocations = allCoords;
+
+      // Intentar snap de todas las coordenadas ANTES de routing
+      try {
+        const snapResponse = await fetch("/api/snap-to-road", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coordinates: allCoords }),
+        });
+
+        if (snapResponse.ok) {
+          const snapData = await snapResponse.json();
+          correctedLocations = snapData.snapped.map((s: any) => s.location);
+
+          const snappedCount = snapData.snapped.filter(
+            (s: any) => s.snapped
+          ).length;
+          if (snappedCount > 0) {
+            console.log(
+              `✅ ${snappedCount}/${allCoords.length} ubicaciones ajustadas a carreteras`
+            );
+          }
+        }
+      } catch (snapError) {
+        console.warn("Snap validation failed, using original coordinates");
+      }
+
+      // Normalizar coordenadas a [lon, lat] para ORS
+      const allLocations: [number, number][] =
+        correctedLocations.map(normalizeToLonLat);
+
+      // ORS matrix espera [lat, lon]
       const coordinatesForMatrix = allLocations.map(([lon, lat]) => [lat, lon]);
 
-      // 3) request matrix
+      // Request matrix
       const matrixRes = await fetch("/api/matrix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -310,7 +343,7 @@ export function GISMap() {
         for (const step of route.steps || []) {
           if (typeof step.location_index === "number") {
             const [lon, lat] = allLocations[step.location_index];
-            waypoints.push([lat, lon]); // [lat, lon] para API de routing
+            waypoints.push([lat, lon]);
             if (step.type === "job") jobCount++;
           }
         }
@@ -322,11 +355,20 @@ export function GISMap() {
             body: JSON.stringify({ coordinates: waypoints }),
           });
 
+          // Si el routing falla (502), intentar con las coordenadas del fallback
           if (!routingRes.ok) {
-            // fallback a líneas rectas si falla
+            const errorData = await routingRes.json().catch(() => ({}));
+
+            // Si tiene fallback coordinates, usar esas
+            const fallbackCoords = errorData.coordinates || waypoints;
+
+            console.warn(
+              `⚠️ Routing falló para vehículo ${route.vehicle}, usando línea recta`
+            );
+
             vehicleRoutes.push({
               vehicleId: route.vehicle,
-              coordinates: waypoints,
+              coordinates: fallbackCoords,
               distance: 0,
               duration: route.duration || 0,
               color: ROUTE_COLORS[route.vehicle % ROUTE_COLORS.length],
