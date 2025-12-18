@@ -2,7 +2,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 const REQUEST_TIMEOUT = 15000;
-const SNAP_RADIUS = 5000; // Aumentado a 5km para zonas rurales
+// Aumentado a 5km para zonas rurales
 
 /**
  * Intenta hacer snap de coordenadas a carreteras antes de routing
@@ -30,7 +30,6 @@ async function snapCoordinates(
         },
         body: JSON.stringify({
           locations,
-          radius: SNAP_RADIUS,
         }),
         signal: controller.signal,
       }
@@ -90,14 +89,6 @@ async function snapCoordinates(
         Math.abs(s[0] - coordinates[i][0]) > 0.00001 ||
         Math.abs(s[1] - coordinates[i][1]) > 0.00001
     ).length;
-
-    if (snappedCount > 0) {
-      console.log(
-        `✅ Routing snap: ${snappedCount}/${coordinates.length} waypoints ajustados exitosamente`
-      );
-    } else {
-      console.log(`ℹ️ Routing snap: ningún waypoint necesitó ajuste`);
-    }
 
     return snapped;
   } catch (error) {
