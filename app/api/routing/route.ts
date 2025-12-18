@@ -2,7 +2,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 const REQUEST_TIMEOUT = 15000;
-// Aumentado a 5km para zonas rurales
 
 /**
  * Intenta hacer snap de coordenadas a carreteras antes de routing

@@ -11,22 +11,12 @@ import type {
   WeatherData,
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
+import { useFleet } from "@/hooks/use-fleet";
+import type { FleetVehicle, FleetJob } from "@/hooks/use-fleet";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
 });
-
-interface FleetJob {
-  id: string;
-  coords: [number, number];
-  label: string;
-}
-
-interface FleetVehicle {
-  id: string;
-  coords: [number, number];
-  type: VehicleType;
-}
 
 const DEFAULT_CENTER: [number, number] = [40.4168, -3.7038];
 
@@ -67,90 +57,12 @@ function normalizeToLonLat(coords: [number, number]): [number, number] {
   return [a, b];
 }
 
-// Hook para manejar estado y operaciones del fleet
-function useFleet(
-  initialVehicles: FleetVehicle[] = [],
-  initialJobs: FleetJob[] = []
-) {
-  const [fleetVehicles, setFleetVehicles] =
-    useState<FleetVehicle[]>(initialVehicles);
-  const [fleetJobs, setFleetJobs] = useState<FleetJob[]>(initialJobs);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
-    null
-  );
-  const [addMode, setAddMode] = useState<"vehicle" | "job" | null>(null);
-
-  const clearFleet = useCallback(() => {
-    setFleetVehicles([]);
-    setFleetJobs([]);
-    setSelectedVehicleId(null);
-    setAddMode(null);
-  }, []);
-
-  const addVehicleAt = useCallback(
-    (coords: [number, number], type: VehicleType) => {
-      const id =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? (crypto as any).randomUUID()
-          : `vehicle-${Date.now()}`;
-      const newVehicle: FleetVehicle = { id, coords, type };
-      setFleetVehicles((prev) => {
-        const next = [...prev, newVehicle];
-        setSelectedVehicleId(newVehicle.id);
-        return next;
-      });
-      setAddMode(null);
-    },
-    []
-  );
-
-  const addJobAt = useCallback((coords: [number, number]) => {
-    const id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? (crypto as any).randomUUID()
-        : `job-${Date.now()}`;
-    setFleetJobs((prev) => {
-      const next = [...prev, { id, coords, label: `Job ${prev.length + 1}` }];
-      return next;
-    });
-    setAddMode(null);
-  }, []);
-
-  const removeVehicle = useCallback((vehicleId: string) => {
-    setFleetVehicles((prev) => {
-      const remaining = prev.filter((v) => v.id !== vehicleId);
-      setSelectedVehicleId((curr) =>
-        curr === vehicleId ? remaining[0]?.id ?? null : curr
-      );
-      return remaining;
-    });
-  }, []);
-
-  const removeJob = useCallback((jobId: string) => {
-    setFleetJobs((prev) => prev.filter((j) => j.id !== jobId));
-  }, []);
-
-  return {
-    fleetVehicles,
-    fleetJobs,
-    selectedVehicleId,
-    addMode,
-    setAddMode,
-    setSelectedVehicleId,
-    clearFleet,
-    addVehicleAt,
-    addJobAt,
-    removeVehicle,
-    removeJob,
-  };
-}
-
 export function GISMap() {
   const [layers, setLayers] = useState<LayerVisibility>({
-    gasStations: true,
-    evStations: true,
-    lowEmissionZones: true,
-    restrictedZones: true,
+    gasStations: false,
+    evStations: false,
+    lowEmissionZones: false,
+    restrictedZones: false,
     route: true,
   });
 
