@@ -175,7 +175,6 @@ export function GISMap() {
     });
 
     if (key === lastRoutingKeyRef.current) {
-      console.log("Ruta ya calculada, no se recalcula");
       return;
     }
 
@@ -221,9 +220,6 @@ export function GISMap() {
             (s: any) => s.snapped
           ).length;
           if (snappedCount > 0) {
-            console.log(
-              `✅ ${snappedCount}/${allCoords.length} ubicaciones ajustadas a carreteras`
-            );
           }
         }
       } catch (snapError) {
@@ -420,7 +416,6 @@ export function GISMap() {
         setShowCustomPOIs={setShowCustomPOIs}
         mapCenter={mapCenter}
         onStartPicking={() => {
-          console.log("🎯 onStartPicking triggered in GISMap");
           setPickingPOILocation(true);
           setIsAddCustomPOIOpen(false);
         }}

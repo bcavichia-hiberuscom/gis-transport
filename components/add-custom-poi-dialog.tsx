@@ -23,8 +23,8 @@ interface AddCustomPOIDialogProps {
     coords: [number, number],
     description?: string
   ) => void;
-  onStartPicking?: () => void; // Nuevo: callback para iniciar picking
-  pickedCoords?: [number, number] | null; // Nuevo: coordenadas seleccionadas del mapa
+  onStartPicking?: () => void;
+  pickedCoords?: [number, number] | null;
   mapCenter?: [number, number];
   isLoading?: boolean;
 }
@@ -95,13 +95,9 @@ export function AddCustomPOIDialog({
   };
 
   const handlePickFromMap = () => {
-    console.log("🎯 handlePickFromMap called");
-    console.log("onStartPicking exists?", !!onStartPicking);
     if (onStartPicking) {
-      console.log("✅ Calling onStartPicking");
       onStartPicking();
     } else {
-      console.log("❌ onStartPicking is undefined!");
     }
   };
 

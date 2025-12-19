@@ -5,10 +5,6 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    console.log("📤 Enviando a VROOM:", JSON.stringify(body, null, 2));
-
-    // Conecta al puerto 3001 que Docker mapea al contenedor
-
     const vroomRes = await fetch("http://localhost:3002", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -24,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     const text = await vroomRes.text();
-    console.log("✅ VROOM respuesta:", text);
+    console.log("respuesta vroom:", text);
 
     return new Response(text, {
       status: 200,
