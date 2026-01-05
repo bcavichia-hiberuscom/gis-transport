@@ -130,6 +130,10 @@ export function GISMap() {
     setIsCalculatingRoute(false);
     setShowCustomPOIs(false);
     setAddingCustomPOI(false);
+    setPickedPOICoords(null);
+    setPickedJobCoords(null);
+    setPickingPOILocation(false);
+    setPickingJobLocation(false);
   }, [clearFleet]);
 
   const toggleLayer = useCallback(
@@ -437,7 +441,10 @@ export function GISMap() {
           setPickedJobCoords(null);
           setIsAddJobOpen(true);
         }}
-        addJobDirectly={(coords, label) => addJobAt(coords, label)}
+        addJobDirectly={(coords, label) => {
+          setPickedJobCoords(null);
+          addJobAt(coords, label);
+        }}
         removeVehicle={removeVehicle}
         removeJob={removeJob}
         addMode={addMode}
