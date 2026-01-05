@@ -18,15 +18,13 @@ interface RenderVehiclesProps {
 interface RenderJobsProps {
   jobs: FleetJob[];
   isRouting: boolean;
-  markerRadius?: number;
-  color?: string;
+  icon: L.Icon;
 }
 
 interface RenderCustomPOIsProps {
   customPOIs: CustomPOI[];
   isRouting: boolean;
-  markerRadius?: number;
-  color?: string;
+  icon: L.Icon;
 }
 
 function normalizeCoords(coords: [number, number]): [number, number] {
@@ -116,25 +114,18 @@ export function renderVehicleMarkers({
 export function renderJobMarkers({
   jobs,
   isRouting,
-  markerRadius = 6,
-  color = "#8b5cf6",
+  icon,
 }: RenderJobsProps) {
   return jobs.map((job) => {
     const center = normalizeCoords(job.coords);
 
     return (
-      <CircleMarker
+      <Marker
         key={`job-${job.id}`}
-        center={center}
-        radius={markerRadius}
-        pathOptions={{
-          color,
-          fillColor: color,
-          fillOpacity: 0.9,
-          weight: 2,
-        }}
+        position={center}
+        icon={icon}
       >
-        <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
+        <Tooltip direction="top" offset={[0, -12]} opacity={0.95}>
           <span style={{ fontSize: 12 }}>{job.label}</span>
         </Tooltip>
         {!isRouting && (
@@ -147,7 +138,7 @@ export function renderJobMarkers({
             </div>
           </Popup>
         )}
-      </CircleMarker>
+      </Marker>
     );
   });
 }
@@ -155,31 +146,24 @@ export function renderJobMarkers({
 export function renderCustomPOIs({
   customPOIs,
   isRouting,
-  markerRadius = 8,
-  color = "#06b6d4",
+  icon,
 }: RenderCustomPOIsProps) {
   return customPOIs.map((poi) => {
     const center = normalizeCoords(poi.position);
 
     return (
-      <CircleMarker
+      <Marker
         key={`custom-poi-${poi.id}`}
-        center={center}
-        radius={markerRadius}
-        pathOptions={{
-          color,
-          fillColor: color,
-          fillOpacity: 0.95,
-          weight: 3,
-        }}
+        position={center}
+        icon={icon}
       >
-        <Tooltip direction="top" offset={[0, -10]} opacity={0.95} permanent={false}>
+        <Tooltip direction="top" offset={[0, -14]} opacity={0.95} permanent={false}>
           <span style={{ fontSize: 12, fontWeight: "bold" }}>{poi.name}</span>
         </Tooltip>
         {!isRouting && (
           <Popup>
             <div style={{ fontSize: 12 }}>
-              <strong style={{ color: color }}>{poi.name}</strong>
+              <strong style={{ color: "#06b6d4" }}>{poi.name}</strong>
               <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
                 {`Lat: ${center[0].toFixed(5)}, Lon: ${center[1].toFixed(5)}`}
               </div>
@@ -191,7 +175,7 @@ export function renderCustomPOIs({
             </div>
           </Popup>
         )}
-      </CircleMarker>
+      </Marker>
     );
   });
 }

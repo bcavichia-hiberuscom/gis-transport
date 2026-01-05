@@ -106,5 +106,51 @@ export const createWeatherIcons = () => {
       iconSize: [20, 20],
       iconAnchor: [10, 10],
     }),
+
+    jobIcon: L.divIcon({
+      className: "custom-marker",
+      html: `<div style="background-color: #8b5cf6; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16.5 9.4 7.5 4.21"/>
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.29 7 12 12 20.71 7"/>
+          <line x1="12" y1="22" x2="12" y2="12"/>
+        </svg>
+      </div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    }),
+
+    customPOIIcon: L.divIcon({
+      className: "custom-marker",
+      html: `<div style="background-color: #06b6d4; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transform: rotate(45deg);">
+        <div style="transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 21h18"/>
+            <path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4"/>
+            <path d="M5 21V10.85"/>
+            <path d="M19 21V10.85"/>
+            <path d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"/>
+          </svg>
+        </div>
+      </div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    }),
+
+    pickingIcon: L.divIcon({
+      className: "custom-marker picking-marker",
+      html: `<div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; width: 100%; height: 100%; border: 2px solid #ef4444; border-radius: 50%; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 8px rgba(239, 68, 68, 0.6); z-index: 1;"></div>
+      </div>
+      <style>
+        @keyframes ping {
+          75%, 100% { transform: scale(2); opacity: 0; }
+        }
+      </style>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    }),
   };
 };

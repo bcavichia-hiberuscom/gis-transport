@@ -105,13 +105,16 @@ export function useFleet(
   );
 
   // Function to add a job at specific coordinates
-  const addJobAt = useCallback((coords: [number, number]) => {
+  const addJobAt = useCallback((coords: [number, number], label?: string) => {
     const id =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? (crypto as any).randomUUID()
         : `job-${Date.now()}`;
     setFleetJobs((prev) => {
-      const next = [...prev, { id, coords, label: `Job ${prev.length + 1}` }];
+      const next = [
+        ...prev,
+        { id, coords, label: label || `Job ${prev.length + 1}` },
+      ];
       return next;
     });
     setAddMode(null);

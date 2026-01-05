@@ -36,9 +36,10 @@ export function useCustomPOI() {
 
   const addCustomPOI = useCallback(
     (name: string, coords: [number, number], description?: string) => {
+      const poiName = name.trim() || `Custom POI ${customPOIs.length + 1}`;
       const newPOI: CustomPOI = {
         id: `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        name,
+        name: poiName,
         position: coords,
         type: "custom",
         description,

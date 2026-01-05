@@ -90,6 +90,12 @@ export function GISMap() {
   >(null);
   const [isAddCustomPOIOpen, setIsAddCustomPOIOpen] = useState(false);
 
+  const [pickingJobLocation, setPickingJobLocation] = useState(false);
+  const [pickedJobCoords, setPickedJobCoords] = useState<
+    [number, number] | null
+  >(null);
+  const [isAddJobOpen, setIsAddJobOpen] = useState(false);
+
   const {
     fleetVehicles,
     fleetJobs,
@@ -142,6 +148,14 @@ export function GISMap() {
         return;
       }
 
+      // Handle picking for JOB
+      if (pickingJobLocation) {
+        setPickedJobCoords(coords);
+        setPickingJobLocation(false);
+        setIsAddJobOpen(true);
+        return;
+      }
+
       // Resto del código existente para fleet mode
       if (!fleetMode || !addMode) return;
 
@@ -167,6 +181,7 @@ export function GISMap() {
       addJobAt,
       selectedVehicle,
       pickingPOILocation,
+      pickingJobLocation,
     ]
   );
 
@@ -418,7 +433,11 @@ export function GISMap() {
         selectedVehicleId={selectedVehicleId}
         setSelectedVehicleId={setSelectedVehicleId}
         addVehicle={() => setAddMode("vehicle")}
-        addJob={() => setAddMode("job")}
+        addJob={() => {
+          setPickedJobCoords(null);
+          setIsAddJobOpen(true);
+        }}
+        addJobDirectly={(coords, label) => addJobAt(coords, label)}
         removeVehicle={removeVehicle}
         removeJob={removeJob}
         addMode={addMode}
@@ -426,7 +445,10 @@ export function GISMap() {
         startRouting={startRouting}
         isCalculatingRoute={isCalculatingRoute}
         customPOIs={customPOIs}
-        addCustomPOI={addCustomPOI}
+        addCustomPOI={(name, coords, desc) => {
+          setPickedPOICoords(null);
+          return addCustomPOI(name, coords, desc);
+        }}
         removeCustomPOI={removeCustomPOI}
         updateCustomPOI={updateCustomPOI}
         clearAllCustomPOIs={clearAllCustomPOIs}
@@ -440,6 +462,13 @@ export function GISMap() {
         pickedCoords={pickedPOICoords}
         isAddCustomPOIOpen={isAddCustomPOIOpen}
         setIsAddCustomPOIOpen={setIsAddCustomPOIOpen}
+        onStartPickingJob={() => {
+          setPickingJobLocation(true);
+          setIsAddJobOpen(false);
+        }}
+        pickedJobCoords={pickedJobCoords}
+        isAddJobOpen={isAddJobOpen}
+        setIsAddJobOpen={setIsAddJobOpen}
         isLoadingVehicles={isLoadingVehicles}
         fetchVehicles={fetchVehicles}
         togglePOISelectionForFleet={togglePOISelectionForFleet}
@@ -465,6 +494,8 @@ export function GISMap() {
           fleetJobs={fleetJobs}
           selectedVehicleId={selectedVehicleId}
           onMapClick={handleMapClick}
+          pickedPOICoords={pickedPOICoords}
+          pickedJobCoords={pickedJobCoords}
         />
       </div>
     </div>

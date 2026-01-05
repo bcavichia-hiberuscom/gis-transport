@@ -27,9 +27,9 @@ import type { LayerVisibility, VehicleType, CustomPOI } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AddressSearch } from "@/components/address-search";
-import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 import { cn } from "@/lib/utils";
+import { AddJobDialog } from "@/components/add-job-dialog";
+import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 
 interface FleetJob {
   id: string;
@@ -57,6 +57,7 @@ interface SidebarProps {
   setSelectedVehicleId: (id: string | null) => void;
   addVehicle: () => void;
   addJob: () => void;
+  addJobDirectly?: (coords: [number, number], label: string) => void;
   removeVehicle: (vehicleId: string) => void;
   removeJob: (jobId: string) => void;
   addMode: "vehicle" | "job" | null;
@@ -86,6 +87,10 @@ interface SidebarProps {
   isLoadingVehicles?: boolean;
   fetchVehicles?: () => Promise<void>;
   togglePOISelectionForFleet?: (id: string) => void;
+  isAddJobOpen?: boolean;
+  setIsAddJobOpen?: (value: boolean) => void;
+  onStartPickingJob?: () => void;
+  pickedJobCoords?: [number, number] | null;
 }
 
 export function Sidebar({
@@ -102,6 +107,7 @@ export function Sidebar({
   setSelectedVehicleId,
   addVehicle,
   addJob,
+  addJobDirectly,
   removeVehicle,
   removeJob,
   addMode,
@@ -123,14 +129,19 @@ export function Sidebar({
   isLoadingVehicles = false,
   fetchVehicles,
   togglePOISelectionForFleet,
+  isAddJobOpen,
+  setIsAddJobOpen,
+  onStartPickingJob,
+  pickedJobCoords,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<{
-    coords: [number, number];
-    label: string;
-  } | null>(null);
-
+  const [localIsAddJobOpen, setLocalIsAddJobOpen] = useState(false);
   const [localIsAddCustomPOIOpen, setLocalIsAddCustomPOIOpen] = useState(false);
+
+  const isAddJobOpenFinal =
+    typeof isAddJobOpen === "boolean" ? isAddJobOpen : localIsAddJobOpen;
+
+  const setIsAddJobOpenFinal = setIsAddJobOpen ?? setLocalIsAddJobOpen;
 
   const isAddCustomPOIOpenFinal =
     typeof isAddCustomPOIOpen === "boolean"
@@ -164,27 +175,15 @@ export function Sidebar({
         <div className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="p-4 pb-2">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <MapPin className="h-5 w-5 text-primary" />
               <h1 className="text-lg font-bold tracking-tight text-foreground">
                 Gis-Transport
               </h1>
             </div>
-
-            <AddressSearch
-              onSelectLocation={(coords, label) => {
-                setSelectedAddress({ coords, label });
-                setMapCenter(coords);
-              }}
-              placeholder="Search address..."
-              className="w-full"
-            />
-
-            {selectedAddress && (
-              <div className="mt-2 p-2 text-xs leading-tight text-muted-foreground bg-muted/30 rounded border border-border/50">
-                <span className="font-medium text-foreground/80">Selected:</span> {selectedAddress.label}
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground px-0.5">
+              Transport & Logistics Intelligence
+            </p>
           </div>
 
           <Tabs defaultValue="map" className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -391,7 +390,7 @@ export function Sidebar({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={addJob}
+                            onClick={() => setIsAddJobOpenFinal(true)}
                             disabled={!!addMode || isCalculatingRoute}
                             className="h-10 text-sm font-medium"
                           >
@@ -616,6 +615,20 @@ export function Sidebar({
           </Tabs>
         </div>
       )}
+
+      <AddJobDialog
+        isOpen={isAddJobOpenFinal}
+        onOpenChange={(value) => setIsAddJobOpenFinal(value)}
+        onSubmit={(coords, label) => {
+          // GISMap handles the actual adding
+          // but we can pass coords here if needed
+          addJobDirectly?.(coords, label);
+          setIsAddJobOpenFinal(false);
+        }}
+        mapCenter={mapCenter}
+        onStartPicking={onStartPickingJob}
+        pickedCoords={pickedJobCoords}
+      />
 
       <AddCustomPOIDialog
         isOpen={isAddCustomPOIOpenFinal}

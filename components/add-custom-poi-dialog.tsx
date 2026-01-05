@@ -13,7 +13,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Target } from "lucide-react";
+import { MapPin, Target, Loader2 } from "lucide-react";
+import { AddressSearch } from "@/components/address-search";
 
 interface AddCustomPOIDialogProps {
   isOpen: boolean;
@@ -54,12 +55,6 @@ export function AddCustomPOIDialog({
 
   const handleSubmit = () => {
     setError(null);
-
-    // Validate inputs
-    if (!name.trim()) {
-      setError("Please enter a name for the POI");
-      return;
-    }
 
     const lat = parseFloat(latitude);
     const lon = parseFloat(longitude);
@@ -114,89 +109,90 @@ export function AddCustomPOIDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-6 pt-2">
+          {/* Geocoding Search */}
           <div className="space-y-2">
-            <Label htmlFor="poi-name">Name *</Label>
-            <Input
-              id="poi-name"
-              placeholder="e.g., Amazon Warehouse"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isLoading}
+            <Label className="text-sm font-semibold">Search Address</Label>
+            <AddressSearch
+              onSelectLocation={(coords: [number, number], address: string) => {
+                setLatitude(coords[0].toFixed(6));
+                setLongitude(coords[1].toFixed(6));
+              }}
+              placeholder="Search for a location..."
+              className="w-full"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Location *</Label>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or pinpoint manually</span>
+            </div>
+          </div>
 
-            {/* Botón principal para seleccionar en el mapa */}
-            <Button
-              type="button"
-              variant="outline"
-              size="default"
-              onClick={handlePickFromMap}
-              disabled={isLoading}
-              className="w-full"
-            >
-              <Target className="h-4 w-4 mr-2" />
-              Click on Map to Select Location
-            </Button>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="poi-name" className="text-sm font-semibold">POI Name *</Label>
+              <Input
+                id="poi-name"
+                placeholder="e.g., Amazon Warehouse (or leave empty for default)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
 
-            {/* Coordenadas (solo lectura visual, pero editables si quieren) */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="poi-lat" className="text-sm">
-                  Latitude
-                </Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Latitude</Label>
                 <Input
                   id="poi-lat"
-                  placeholder="40.4168"
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value)}
                   disabled={isLoading}
                   type="number"
                   step="any"
-                  className="text-sm"
+                  className="h-9 text-sm font-mono"
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="poi-lon" className="text-sm">
-                  Longitude
-                </Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Longitude</Label>
                 <Input
                   id="poi-lon"
-                  placeholder="-3.7038"
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
                   disabled={isLoading}
                   type="number"
                   step="any"
-                  className="text-sm"
+                  className="h-9 text-sm font-mono"
                 />
               </div>
             </div>
 
             <Button
               type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleUseMapCenter}
+              variant="outline"
+              className="w-full h-10 border-dashed"
+              onClick={handlePickFromMap}
               disabled={isLoading}
-              className="w-full text-sm"
             >
-              Use Current Map Center
+              <Target className="h-4 w-4 mr-2" />
+              Pick Exact Point on Map
             </Button>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="poi-description">Description (optional)</Label>
+            <Label htmlFor="poi-description" className="text-sm font-semibold">Description (optional)</Label>
             <Textarea
               id="poi-description"
               placeholder="Add any notes about this location..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={isLoading}
-              rows={3}
+              rows={2}
+              className="resize-none"
             />
           </div>
 

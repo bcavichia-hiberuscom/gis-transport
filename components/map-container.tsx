@@ -46,6 +46,9 @@ const {
   iceIcon,
   windIcon,
   fogIcon,
+  jobIcon,
+  customPOIIcon,
+  pickingIcon,
 } = weatherIcons;
 
 function FitBounds({
@@ -98,6 +101,8 @@ interface MapContainerProps {
   fleetVehicles?: FleetVehicle[];
   fleetJobs?: FleetJob[];
   selectedVehicleId?: string | null;
+  pickedPOICoords?: [number, number] | null;
+  pickedJobCoords?: [number, number] | null;
 }
 
 const COLORS = {
@@ -293,6 +298,8 @@ export default function MapContainer({
   fleetJobs,
   selectedVehicleId,
   onMapClick,
+  pickedPOICoords,
+  pickedJobCoords,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicLEZones, setDynamicLEZones] = useState<Zone[]>([]);
@@ -301,10 +308,6 @@ export default function MapContainer({
   );
 
   const { loading, wrapAsync } = useLoadingLayers();
-  const [pickedPOICoords, setPickedPOICoords] = useState<
-    [number, number] | null
-  >(null);
-  const pinIcon = evStationIcon;
   const poiCache = usePOICache();
 
   useEffect(() => setMounted(true), []);
@@ -486,6 +489,7 @@ export default function MapContainer({
         {renderCustomPOIs({
           customPOIs: customPOIs || [],
           isRouting: isRouting,
+          icon: customPOIIcon,
         })}
 
         {renderVehicleMarkers({
@@ -498,6 +502,7 @@ export default function MapContainer({
         {renderJobMarkers({
           jobs: fleetJobs || [],
           isRouting,
+          icon: jobIcon,
         })}
         {routeData?.weatherRoutes && (
           <WeatherPanel routes={routeData.weatherRoutes} />
@@ -541,7 +546,10 @@ export default function MapContainer({
           })
         )}
         {pickedPOICoords && (
-          <Marker position={pickedPOICoords} icon={pinIcon} />
+          <Marker position={pickedPOICoords} icon={pickingIcon} />
+        )}
+        {pickedJobCoords && (
+          <Marker position={pickedJobCoords} icon={pickingIcon} />
         )}
       </LeafletMap>
     </div>
