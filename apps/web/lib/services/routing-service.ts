@@ -159,12 +159,22 @@ export class RoutingService {
     });
 
     // 3. VROOM Optimization
-    const vroomResult = await this.runVroom(
-      vehicles,
-      jobs,
-      matrices,
-      vehicleToProfile,
-    );
+    let vroomResult: VroomResult;
+    try {
+      vroomResult = await this.runVroom(
+        vehicles,
+        jobs,
+        matrices,
+        vehicleToProfile,
+      );
+    } catch (vroomErr) {
+      console.warn(
+        "[Optimize] VROOM failed (local + public unavailable), using fallback assignment",
+        vroomErr,
+      );
+      // Fallback: simple round-robin assignment without optimization
+      vroomResult = this.createFallbackVroomResult(vehicles, jobs);
+    }
 
     // 3.5. Validar rutas asignadas - detectar si VROOM asignó jobs prohibidos por falta de alternativas
     console.log("[Optimize] Validando asignaciones de VROOM...");
@@ -698,6 +708,79 @@ export class RoutingService {
     );
 
     return vroomResult;
+  }
+
+  private static createFallbackVroomResult(
+    vehicles: FleetVehicle[],
+    jobs: FleetJob[],
+  ): VroomResult {
+    /**
+     * Simple round-robin assignment without optimization.
+     * Used when VROOM service is unavailable (demo mode).
+     */
+    const routes = vehicles.map((vehicle, vIdx) => {
+      const steps: VroomStep[] = [
+        {
+          type: "start",
+          location_index: vIdx,
+          arrival: 0,
+          duration: 0,
+        },
+      ];
+
+      // Assign jobs round-robin to this vehicle
+      jobs.forEach((job, jIdx) => {
+        if (jIdx % vehicles.length === vIdx) {
+          steps.push({
+            type: "job",
+            id: vehicles.length + jIdx,
+            location_index: vehicles.length + jIdx,
+            arrival: 0,
+            duration: ROUTING_CONFIG.DEFAULT_SERVICE_TIME,
+          });
+        }
+      });
+
+      // Add return step
+      steps.push({
+        type: "end",
+        location_index: vIdx,
+        arrival: 0,
+        duration: 0,
+      });
+
+      return {
+        vehicle: vIdx,
+        steps,
+        distance: 0,
+        duration: 0,
+        cost: 0,
+      };
+    });
+
+    const unassignedJobs = jobs
+      .map((job, jIdx) => vehicles.length + jIdx)
+      .filter((jIdx) => !routes.some((r) => r.steps.some((s) => s.id === jIdx)));
+
+    console.log("[Fallback] Round-robin assignment created:", {
+      vehicleRoutes: routes.length,
+      totalJobs: jobs.length,
+      assignedJobs: jobs.length - unassignedJobs.length,
+      unassignedJobs: unassignedJobs.length,
+    });
+
+    return {
+      code: 0,
+      routes,
+      unassigned: unassignedJobs.map((id) => ({ id })),
+      summary: {
+        cost: 0,
+        unassigned: unassignedJobs.length,
+        service: 0,
+        duration: 0,
+        distance: 0,
+      },
+    };
   }
 
   private static async snapCoordinates(
