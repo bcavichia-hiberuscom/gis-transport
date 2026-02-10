@@ -12,8 +12,8 @@
     "build": "pnpm install --force && pnpm -w run db:generate && pnpm --filter \"*\" build",
     "test": "pnpm --filter \"*\" test",
     "lint": "pnpm --filter \"*\" lint",
-    "db:push": "prisma db push --schema packages/database/prisma/schema.prisma",
-    "db:generate": "prisma generate --schema packages/database/prisma/schema.prisma",
-    "db:studio": "prisma studio --schema packages/database/prisma/schema.prisma"
+    "db:push": "npx prisma db push --schema packages/database/prisma/schema.prisma",
+    "db:generate": "npx prisma generate --schema packages/database/prisma/schema.prisma",
+    "db:studio": "npx prisma studio --schema packages/database/prisma/schema.prisma"
   }
 }
