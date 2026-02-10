@@ -11,7 +11,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@gis/shared": "workspace:*",
+    "@gis/shared": "file:../shared",
     "@prisma/client": "^6.0.0",
     "axios": "^1.13.4"
   },
