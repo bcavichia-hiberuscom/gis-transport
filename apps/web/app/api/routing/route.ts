@@ -3,36 +3,26 @@ import { fetchWithTimeout } from "@/lib/fetch-utils";
 import { FetchError, SnappedPoint } from "@/lib/types";
 import { TIMEOUTS } from "@/lib/config";
 
-async function snapCoordinatesInternal(
-  coordinates: [number, number][]
-): Promise<[number, number][]> {
-  try {
-    const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-    const response = await fetchWithTimeout(`${baseURL}/api/snap-to-road`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ coordinates }),
-      timeout: TIMEOUTS.ROUTING,
-    });
+const ORS_LOCAL = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
+const ORS_PUBLIC = "https://api.openrouteservice.org/v2";
+const ORS_API_KEY = process.env.ORS_API_KEY || process.env.NEXT_PUBLIC_ORS_API_KEY || "";
 
-    if (!response.ok) {
-      console.warn("Snap-to-route failed, returning original coordinates");
-      return coordinates;
-    }
+async function callOrsDirections(coordinates: [number, number][], usePublic: boolean) {
+  const baseUrl = usePublic ? ORS_PUBLIC : ORS_LOCAL;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (usePublic && ORS_API_KEY) headers["Authorization"] = ORS_API_KEY;
 
-    const data = await response.json();
-    if (!data.snapped || !Array.isArray(data.snapped)) return coordinates;
-
-    return data.snapped.map((item: SnappedPoint, idx: number) => {
-      if (item.snapped && item.location?.length === 2) {
-        return item.location;
-      }
-      return coordinates[idx];
-    });
-  } catch (error) {
-    console.error("Error calling snap-to-route:", error);
-    return coordinates;
-  }
+  return fetchWithTimeout(`${baseUrl}/directions/driving-car/geojson`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      coordinates,
+      instructions: false,
+      preference: "recommended",
+      radiuses: coordinates.map(() => 5000),
+    }),
+    timeout: TIMEOUTS.ROUTING,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -47,66 +37,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let finalCoordinates = await snapCoordinatesInternal(coordinates);
-
+    // Try local ORS first, fallback to public
+    let response: Response | null = null;
+    let usedPublic = false;
 
     try {
-      const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
-      const response = await fetchWithTimeout(
-        `${orsUrl}/directions/driving-car/geojson`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept:
-              "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8",
-          },
-          body: JSON.stringify({
-            coordinates: finalCoordinates,
-            instructions: false,
-            preference: "recommended",
-            radiuses: finalCoordinates.map(() => 5000),
-          }),
-          timeout: TIMEOUTS.ROUTING,
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
+      response = await callOrsDirections(coordinates, false);
+      if (!response.ok) throw new Error(`Local ORS failed: ${response.status}`);
+    } catch (localErr) {
+      console.warn("[Routing] Local ORS unavailable, falling back to public API");
+      usedPublic = true;
+      try {
+        response = await callOrsDirections(coordinates, true);
+      } catch (publicErr) {
         return NextResponse.json(
-          {
-            error: "Routing failed",
-            details: errorText,
-            fallback: true,
-            coordinates: finalCoordinates,
-            distance: 0,
-            duration: 0,
-          },
+          { error: "Both local and public ORS unavailable", details: String(publicErr) },
           { status: 502 }
         );
       }
-
-      const data = await response.json();
-      const routeCoordinates = data.features[0].geometry.coordinates;
-      const properties = data.features[0].properties;
-      const distance = properties?.summary?.distance || 0;
-      const duration = properties?.summary?.duration || 0;
-
-      return NextResponse.json({
-        coordinates: routeCoordinates,
-        distance: Math.round(distance),
-        duration: Math.round(duration),
-      });
-    } catch (err) {
-      const fetchError = err as FetchError;
-      if (fetchError.name === "AbortError") {
-        return NextResponse.json(
-          { error: "Routing request timeout" },
-          { status: 504 }
-        );
-      }
-      throw fetchError;
     }
+
+    if (!response || !response.ok) {
+      const errorText = response ? await response.text() : "No response";
+      return NextResponse.json(
+        { error: "Routing failed", details: errorText },
+        { status: 502 }
+      );
+    }
+
+    const data = await response.json();
+    const routeCoordinates = data.features[0].geometry.coordinates;
+    const properties = data.features[0].properties;
+
+    return NextResponse.json({
+      coordinates: routeCoordinates,
+      distance: Math.round(properties?.summary?.distance || 0),
+      duration: Math.round(properties?.summary?.duration || 0),
+      source: usedPublic ? "public" : "local",
+    });
   } catch (error) {
     return NextResponse.json(
       { error: "Internal server error", message: (error as Error).message },

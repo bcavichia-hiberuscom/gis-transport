@@ -12,11 +12,36 @@ import {
   OptimizeOptions,
 } from "@gis/shared";
 import { THEME } from "@/lib/theme";
-import { ORS_URL, VROOM_URL, SNAP_URL, ROUTING_CONFIG } from "@/lib/config";
+import { ORS_URL, ORS_PUBLIC_URL, ORS_API_KEY, VROOM_URL, SNAP_URL, ROUTING_CONFIG } from "@/lib/config";
 import { WeatherService } from "./weather-service";
 import { getForbiddenZones, getZoneForbiddenReason } from "@/lib/helpers/zone-access-helper";
 
+const VROOM_PUBLIC = "https://solver.vroom-project.org";
+
 const { route: ROUTE_COLORS } = THEME.colors;
+
+/**
+ * Fetch with fallback: tries local URL first, then public.
+ */
+async function fetchWithFallback(
+  localUrl: string,
+  publicUrl: string,
+  options: RequestInit,
+  extraHeaders?: Record<string, string>,
+): Promise<Response> {
+  try {
+    const res = await fetch(localUrl, { ...options, signal: AbortSignal.timeout(10000) });
+    if (res.ok) return res;
+    throw new Error(`Local returned ${res.status}`);
+  } catch {
+    console.warn(`[Fallback] Local ${localUrl} unavailable, using public`);
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
+      ...extraHeaders,
+    };
+    return fetch(publicUrl, { ...options, headers });
+  }
+}
 
 interface ProfileData {
   name: string;
@@ -435,11 +460,20 @@ export class RoutingService {
     };
 
     try {
-      const res = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const orsHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const publicHeaders: Record<string, string> = {};
+      if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;
+
+      const res = await fetchWithFallback(
+        `${ORS_URL}/directions/driving-car/geojson`,
+        `${ORS_PUBLIC_URL}/directions/driving-car/geojson`,
+        {
+          method: "POST",
+          headers: orsHeaders,
+          body: JSON.stringify(body),
+        },
+        publicHeaders,
+      );
 
       if (!res.ok) throw new Error(await res.text());
 
@@ -500,11 +534,20 @@ export class RoutingService {
       units: "m",
     };
 
-    const res = await fetch(`${ORS_URL}/matrix/driving-car`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const orsHeaders: Record<string, string> = { "Content-Type": "application/json" };
+    const publicHeaders: Record<string, string> = {};
+    if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;
+
+    const res = await fetchWithFallback(
+      `${ORS_URL}/matrix/driving-car`,
+      `${ORS_PUBLIC_URL}/matrix/driving-car`,
+      {
+        method: "POST",
+        headers: orsHeaders,
+        body: JSON.stringify(body),
+      },
+      publicHeaders,
+    );
 
     if (!res.ok) throw new Error(`ORS Matrix failed: ${await res.text()}`);
 
@@ -631,11 +674,15 @@ export class RoutingService {
       JSON.stringify(payload.jobs, null, 2),
     );
 
-    const res = await fetch(VROOM_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await fetchWithFallback(
+      VROOM_URL,
+      VROOM_PUBLIC,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
 
     if (!res.ok) throw new Error(`VROOM failed: ${await res.text()}`);
 

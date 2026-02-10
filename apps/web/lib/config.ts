@@ -5,12 +5,21 @@
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 export const GAS_STATIONS_API_URL = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/";
-// Local OpenRouteService (Docker) - Internal redirect via Gateway or direct
-export const ORS_URL = "http://localhost:8080/ors/v2";
 
-// Internal Microservices
-export const VROOM_URL = "http://localhost:3002";
-export const SNAP_URL = "http://localhost:3005/api/snap-to-road";
+// OpenRouteService - Local Docker or Public API fallback
+export const ORS_LOCAL_URL = process.env.NEXT_PUBLIC_ORS_URL || "http://localhost:8080/ors/v2";
+export const ORS_PUBLIC_URL = "https://api.openrouteservice.org/v2";
+export const ORS_API_KEY = process.env.NEXT_PUBLIC_ORS_API_KEY || "";
+// Use local if available, otherwise public
+export const ORS_URL = ORS_LOCAL_URL;
+
+// VROOM - Local Docker or Public API fallback
+export const VROOM_LOCAL_URL = process.env.NEXT_PUBLIC_VROOM_URL || "http://localhost:3002";
+export const VROOM_PUBLIC_URL = "https://solver.vroom-project.org";
+export const VROOM_URL = VROOM_LOCAL_URL;
+
+// Snap service
+export const SNAP_URL = process.env.NEXT_PUBLIC_SNAP_URL || "http://localhost:3005/api/snap-to-road";
 
 // Map Settings
 export const MAP_CENTER: [number, number] = [40.4168, -3.7038];
