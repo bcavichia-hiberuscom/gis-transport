@@ -1,0 +1,26 @@
+# Node.js
+**/node_modules/
+**/npm-debug.log*
+**/pnpm-debug.log*
+package-lock.json
+yarn.lock
+
+# Next.js
+**/.next/
+**/out/
+**/.vercel/
+**/.env*
+!**/.env.example
+**/.cache/
+**/dist/
+**/*.log
+
+# TypeScript
+**/*.tsbuildinfo
+
+# Prisma
+**/prisma/*.db
+**/prisma/migrations/**/migration_lock.toml
+
+# Monorepo / Turbo
+.turbo/

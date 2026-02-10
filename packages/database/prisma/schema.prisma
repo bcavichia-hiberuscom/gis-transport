@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enable PostGIS extension for geospatial queries
+model extensions {
+  @@ignore
+}
+
+// PostgreSQL extensions initialization (run manually via SQL)
+// CREATE EXTENSION IF NOT EXISTS postgis;
+// CREATE EXTENSION IF NOT EXISTS postgis_topology;
+// CREATE EXTENSION IF NOT EXISTS uuid-ossp;
+
+model OptimizationSnapshot {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  
+  // Native PostgreSQL jsonb for efficient JSON storage and querying
+  fleetData       Json // FleetOverview object
+  optimizationData Json // OptimizationSummary object
+  weatherData     Json // WeatherSummary object
+  
+  status String // "optimized", "failed", etc.
+  
+  // Link to relational analytics data (Optional 1:1 relation)
+  runDetails OptimizationRun?
+}
+
+model OptimizationRun {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  snapshotId String @unique
+  snapshot   OptimizationSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  // Aggregated Metrics
+  totalJobs           Int
+
+  // Relations
+  vehicleMetrics VehicleMetric[]
+}
+
+model VehicleMetric {
+  id        String   @id @default(uuid())
+  
+  runId     String
+  run       OptimizationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  vehicleId String // The identifier used in the fleet/optimization
+  vehicleType String
+  
+  // Metrics
+  jobsAssigned        Int
+}
+
+model GeoZone {
+  id        String   @id @default(uuid())
+  osmId     String   @unique
+  name      String
+  type      String   // "LEZ", "ENVIRONMENTAL", "PEDESTRIAN", "RESTRICTED"
+  
+  // Native PostGIS geometry - stores polygon boundaries as geographic data
+  // Using geometry(MultiPolygon, 4326) to handle complex zones
+  geometry  Unsupported("geometry(MultiPolygon, 4326)")?
+  
+  // Metadata as native jsonb for OSM tags and additional attributes
+  metadata  Json?
+  
+  // Keep centroid point for additional spatial operations
+  // Using geometry(Point, 4326) for WGS84
+  centroid  Unsupported("geometry(Point, 4326)")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Spatial indexes will be created via raw SQL migrations
+  // CREATE INDEX IF NOT EXISTS "GeoZone_geometry_idx" ON "GeoZone" USING GIST (geometry);
+  // CREATE INDEX IF NOT EXISTS "GeoZone_centroid_idx" ON "GeoZone" USING GIST (centroid);
+}
+
+model Driver {
+  id                 String          @id @default(uuid())
+  name               String
+  licenseType        String?
+  licenseNumber      String?
+  phoneNumber        String?
+  onTimeDeliveryRate Float           @default(100)
+  isAvailable        Boolean         @default(true)
+  imageUrl           String?
+  currentVehicleId   String?         // ID of the vehicle currently assigned
+  
+  speedingEvents     SpeedingEvent[]
+  vehicleAssignments DriverVehicleAssignment[]
+  
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model DriverVehicleAssignment {
+  id          String   @id @default(uuid())
+  
+  driverId    String
+  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  vehicleId   String   // Can be null if vehicle was deleted, but we keep the history
+  
+  assignedAt  DateTime @default(now())
+  unassignedAt DateTime?
+  
+  notes       String?  // Optional: reason for unassignment, etc.
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([driverId, assignedAt])
+  @@index([vehicleId, assignedAt])
+}
+
+model SpeedingEvent {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  speed     Float
+  limit     Float
+  
+  // Native PostGIS Point geometry for speeding event location (WGS84)
+  location  Unsupported("geometry(Point, 4326)")
+  
+  driverId  String
+  driver    Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  // Spatial index will be created via raw SQL migration
+  // CREATE INDEX IF NOT EXISTS "SpeedingEvent_location_idx" ON "SpeedingEvent" USING GIST (location);
+}
