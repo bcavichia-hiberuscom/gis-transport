@@ -175,7 +175,10 @@ export default function MapContainer({
 
   const renderedCustomPOIs = useMemo(() => {
     return renderCustomPOIs({
-      customPOIs: customPOIs?.filter(poi => !poi.entityType || poi.entityType === "point") || [],
+      customPOIs:
+        customPOIs?.filter(
+          (poi) => !poi.entityType || poi.entityType === "point",
+        ) || [],
       icon: customPOI,
       zoom,
     });
@@ -185,8 +188,8 @@ export default function MapContainer({
   const customZonesAsZones = useMemo(() => {
     if (!customPOIs) return [];
     return customPOIs
-      .filter(poi => poi.entityType === "zone" && poi.coordinates)
-      .map(zone => ({
+      .filter((poi) => poi.entityType === "zone" && poi.coordinates)
+      .map((zone) => ({
         id: zone.id,
         name: zone.name,
         coordinates: zone.coordinates,
@@ -206,14 +209,7 @@ export default function MapContainer({
       zoom,
       selectedVehicleId,
     });
-  }, [
-    fleetJobs,
-    job,
-    routeData,
-    fleetVehicles,
-    zoom,
-    selectedVehicleId,
-  ]);
+  }, [fleetJobs, job, routeData, fleetVehicles, zoom, selectedVehicleId]);
 
   useEffect(() => setMounted(true), []);
 
@@ -233,7 +229,7 @@ export default function MapContainer({
         className="w-full h-full z-0 outline-none"
         zoomControl={false}
         minZoom={5}
-        maxZoom={19}
+        maxZoom={16}
         preferCanvas={true}
       >
         <ZoomControl position="topright" />
