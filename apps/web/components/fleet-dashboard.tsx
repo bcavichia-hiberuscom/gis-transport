@@ -5,17 +5,10 @@
 // Uses telemetry from CanBusTelemetryProvider (mocked, CAN Bus-ready).
 
 import { useMemo, useEffect, useRef } from "react";
-import type {
-  POI,
-  FleetVehicle,
-  VehicleMetrics,
-  FleetJob,
-  Driver,
-} from "@gis/shared";
+import type { POI, FleetVehicle, FleetJob, Driver } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 
 import {
-  Activity,
   Battery,
   Fuel,
   Truck,
@@ -62,11 +55,8 @@ export function FleetDashboard({
   vehicleAlerts = {},
   addStopToVehicle,
   startRouting,
-  isAddStopOpen,
-  setIsAddStopOpen,
   onStartPickingStop,
   pickedStopCoords,
-  onAddStopSubmit,
   drivers,
   selectedVehicleId,
   onSelectVehicle,
@@ -75,11 +65,6 @@ export function FleetDashboard({
   isGasStationLayerVisible = true,
   onToggleGasStationLayer,
 }: FleetDashboardProps) {
-  const selectedVehicle = useMemo(
-    () => vehicles.find((v) => v.id === selectedVehicleId) || null,
-    [vehicles, selectedVehicleId],
-  );
-
   // Local state for vehicle detail sheet inside dashboard (independent from gis-map panels)
   const [dashboardVehicleId, setDashboardVehicleId] = useState<
     string | number | null
@@ -174,8 +159,8 @@ export function FleetDashboard({
   const sortedGasStations = useMemo(() => {
     console.log("[FleetDashboard] gasStations prop:", gasStations.length);
     return [...gasStations].sort((a, b) => {
-      const priceA = a.prices?.diesel || a.prices?.gasoline95 || 999;
-      const priceB = b.prices?.diesel || b.prices?.gasoline95 || 999;
+      const priceA = a.prices?.diesel || a.prices?.gasoline95 || 0;
+      const priceB = b.prices?.diesel || b.prices?.gasoline95 || 0;
       return priceA - priceB;
     });
   }, [gasStations]);
@@ -212,104 +197,104 @@ export function FleetDashboard({
   return (
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {/* Header Section */}
-          <div className="p-4 pb-3 border-b border-border/10 flex flex-col gap-3 shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold tracking-tight text-foreground leading-none">
-                  Dashboard
-                </h2>
-                <p className="text-[9px] uppercase font-medium text-muted-foreground/50 tracking-wider mt-0.5">
-                  Métricas en Tiempo Real
-                </p>
-              </div>
-              <div className="flex flex-col items-end">
-                <span className="text-lg font-bold text-primary leading-none">
-                  {kpis.activeVehicles}
-                </span>
-                <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/40">
-                  En Servicio
-                </span>
-              </div>
+        {/* Header Section */}
+        <div className="p-4 pb-3 border-b border-border/10 flex flex-col gap-3 shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-foreground leading-none">
+                Dashboard
+              </h2>
+              <p className="text-[9px] uppercase font-medium text-muted-foreground/50 tracking-wider mt-0.5">
+                Métricas en Tiempo Real
+              </p>
             </div>
-
-            {/* KPI Grid - more compact */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
-                <div className="flex items-center justify-between">
-                  <Route className="h-3 w-3 text-emerald-500" />
-                  <span className="text-sm font-bold text-foreground">
-                    {kpis.onRouteCount}
-                  </span>
-                </div>
-                <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
-                  En Ruta
-                </span>
-              </div>
-              <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
-                <div className="flex items-center justify-between">
-                  <Package className="h-3 w-3 text-orange-500" />
-                  <span className="text-sm font-bold text-foreground">
-                    {kpis.pendingJobsCount}
-                  </span>
-                </div>
-                <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
-                  Pendientes
-                </span>
-              </div>
-
-              {kpis.hasElectricVehicles && (
-                <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
-                  <div className="flex items-center justify-between">
-                    <Battery className="h-3 w-3 text-blue-500" />
-                    <span className="text-sm font-bold text-foreground">
-                      {kpis.avgBattery !== null ? `${kpis.avgBattery}%` : "--%"}
-                    </span>
-                  </div>
-                  <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
-                    Energía
-                  </span>
-                </div>
-              )}
-              {kpis.hasFuelVehicles && (
-                <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
-                  <div className="flex items-center justify-between">
-                    <Fuel className="h-3 w-3 text-orange-500" />
-                    <span className="text-sm font-bold text-foreground">
-                      {kpis.avgFuel !== null ? `${kpis.avgFuel}%` : "--%"}
-                    </span>
-                  </div>
-                  <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
-                    Combustible
-                  </span>
-                </div>
-              )}
-
-              {kpis.alertsCount > 0 && (
-                <div className="p-2.5 bg-red-50 border border-red-100 rounded-xl shadow-sm flex items-center justify-between col-span-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-red-600" />
-                    <span className="text-xs font-bold text-red-600">
-                      {kpis.alertsCount} ALERTAS
-                    </span>
-                  </div>
-                  <span className="text-[8px] font-semibold uppercase tracking-wide text-red-600/60">
-                    Atención
-                  </span>
-                </div>
-              )}
+            <div className="flex flex-col items-end">
+              <span className="text-lg font-bold text-primary leading-none">
+                {kpis.activeVehicles}
+              </span>
+              <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+                En Servicio
+              </span>
             </div>
           </div>
 
-          {/* Scrollable List */}
-          <ScrollArea className="flex-1 min-h-0 px-4 py-3">
-            <div className="space-y-2.5 pb-4">
-              <Label className="text-[10px] font-semibold uppercase text-muted-foreground/60 tracking-wider pl-1 mb-1.5 block">
-                Vehículos Conectados
-              </Label>
+          {/* KPI Grid - more compact */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
+              <div className="flex items-center justify-between">
+                <Route className="h-3 w-3 text-emerald-500" />
+                <span className="text-sm font-bold text-foreground">
+                  {kpis.onRouteCount}
+                </span>
+              </div>
+              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
+                En Ruta
+              </span>
+            </div>
+            <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
+              <div className="flex items-center justify-between">
+                <Package className="h-3 w-3 text-orange-500" />
+                <span className="text-sm font-bold text-foreground">
+                  {kpis.pendingJobsCount}
+                </span>
+              </div>
+              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
+                Pendientes
+              </span>
+            </div>
 
-              <div className="max-h-[280px] overflow-y-auto space-y-2.5 pr-1">
-                {vehicles.map((vehicle) => {
+            {kpis.hasElectricVehicles && (
+              <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
+                <div className="flex items-center justify-between">
+                  <Battery className="h-3 w-3 text-blue-500" />
+                  <span className="text-sm font-bold text-foreground">
+                    {kpis.avgBattery !== null ? `${kpis.avgBattery}%` : "--%"}
+                  </span>
+                </div>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
+                  Energía
+                </span>
+              </div>
+            )}
+            {kpis.hasFuelVehicles && (
+              <div className="p-2.5 bg-card border border-border/40 rounded-xl shadow-sm flex flex-col gap-0.5">
+                <div className="flex items-center justify-between">
+                  <Fuel className="h-3 w-3 text-orange-500" />
+                  <span className="text-sm font-bold text-foreground">
+                    {kpis.avgFuel !== null ? `${kpis.avgFuel}%` : "--%"}
+                  </span>
+                </div>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/40">
+                  Combustible
+                </span>
+              </div>
+            )}
+
+            {kpis.alertsCount > 0 && (
+              <div className="p-2.5 bg-red-50 border border-red-100 rounded-xl shadow-sm flex items-center justify-between col-span-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-red-600" />
+                  <span className="text-xs font-bold text-red-600">
+                    {kpis.alertsCount} ALERTAS
+                  </span>
+                </div>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-red-600/60">
+                  Atención
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Scrollable List */}
+        <ScrollArea className="flex-1 min-h-0 px-4 py-3">
+          <div className="space-y-2.5 pb-4">
+            <Label className="text-[10px] font-semibold uppercase text-muted-foreground/60 tracking-wider pl-1 mb-1.5 block">
+              Vehículos Conectados
+            </Label>
+
+            <div className="max-h-[280px] overflow-y-auto space-y-2.5 pr-1">
+              {vehicles.map((vehicle) => {
                 const m = vehicle.metrics;
                 const movement = m ? m.movementState : null;
                 const isElectric =
@@ -419,94 +404,94 @@ export function FleetDashboard({
                   </div>
                 );
               })}
-              </div>
+            </div>
 
-              {/* Gas Stations Section */}
-              <div className="mt-4 pt-4 border-t border-border/20">
-                <Label className="text-[10px] font-semibold uppercase text-muted-foreground/60 tracking-wider pl-1 mb-2 block">
-                  Estaciones Encontradas ({sortedGasStations.length})
-                </Label>
-                <div className="max-h-[220px] overflow-y-auto space-y-1.5 pr-1">
-                  {sortedGasStations.length === 0 ? (
-                    <div className="flex flex-col gap-2">
-                      <p className="text-[9px] text-muted-foreground/50 p-3 text-center border border-dashed border-border/40 rounded-lg">
-                        {isGasStationLayerVisible
-                          ? "No hay estaciones en el área"
-                          : "Capa de Gasolineras oculta"}
-                      </p>
-                      {!isGasStationLayerVisible && onToggleGasStationLayer && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full h-8 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all"
-                          onClick={onToggleGasStationLayer}
-                        >
-                          <Fuel className="h-3 w-3 mr-2" />
-                          Mostrar Gasolineras
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      {displayedGasStations.map((poi) => (
-                        <div
-                          key={poi.id}
-                          className="p-2 bg-muted/20 border border-border/40 rounded-lg flex items-center justify-between gap-2 hover:border-orange-200 transition-colors cursor-pointer group"
-                          onClick={() => {
-                            setSelectedGasStation(poi);
-                            setIsGasStationDialogOpen(true);
-                          }}
-                        >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <div className="h-7 w-7 bg-orange-500/10 text-orange-600 rounded-lg flex items-center justify-center shrink-0">
-                              <Fuel className="h-3.5 w-3.5" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-[10px] font-bold text-foreground truncate">
-                                {poi.name}
-                              </span>
-                              <span className="text-[8px] text-muted-foreground/60 truncate">
-                                {poi.address || "Sin dirección"}
-                              </span>
-                            </div>
+            {/* Gas Stations Section */}
+            <div className="mt-4 pt-4 border-t border-border/20">
+              <Label className="text-[10px] font-semibold uppercase text-muted-foreground/60 tracking-wider pl-1 mb-2 block">
+                Estaciones Encontradas ({sortedGasStations.length})
+              </Label>
+              <div className="max-h-[220px] overflow-y-auto space-y-1.5 pr-1">
+                {sortedGasStations.length === 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[9px] text-muted-foreground/50 p-3 text-center border border-dashed border-border/40 rounded-lg">
+                      {isGasStationLayerVisible
+                        ? "No hay estaciones en el área"
+                        : "Capa de Gasolineras oculta"}
+                    </p>
+                    {!isGasStationLayerVisible && onToggleGasStationLayer && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all"
+                        onClick={onToggleGasStationLayer}
+                      >
+                        <Fuel className="h-3 w-3 mr-2" />
+                        Mostrar Gasolineras
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {displayedGasStations.map((poi) => (
+                      <div
+                        key={poi.id}
+                        className="p-2 bg-muted/20 border border-border/40 rounded-lg flex items-center justify-between gap-2 hover:border-orange-200 transition-colors cursor-pointer group"
+                        onClick={() => {
+                          setSelectedGasStation(poi);
+                          setIsGasStationDialogOpen(true);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="h-7 w-7 bg-orange-500/10 text-orange-600 rounded-lg flex items-center justify-center shrink-0">
+                            <Fuel className="h-3.5 w-3.5" />
                           </div>
-                          <div className="flex flex-col items-end shrink-0">
-                            <span className="text-xs font-black text-foreground">
-                              {poi.prices?.diesel
-                                ? `${poi.prices.diesel}€`
-                                : poi.prices?.gasoline95
-                                  ? `${poi.prices.gasoline95}€`
-                                  : "--"}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[10px] font-bold text-foreground truncate">
+                              {poi.name}
                             </span>
-                            <span className="text-[7px] font-semibold text-muted-foreground/50 uppercase">
-                              {poi.prices?.diesel ? "Diesel" : "G95"}
+                            <span className="text-[8px] text-muted-foreground/60 truncate">
+                              {poi.address || "Sin dirección"}
                             </span>
                           </div>
-                          <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-orange-500 transition-colors shrink-0" />
                         </div>
-                      ))}
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="text-xs font-black text-foreground">
+                            {poi.prices?.diesel
+                              ? `${poi.prices.diesel}€`
+                              : poi.prices?.gasoline95
+                                ? `${poi.prices.gasoline95}€`
+                                : "--"}
+                          </span>
+                          <span className="text-[7px] font-semibold text-muted-foreground/50 uppercase">
+                            {poi.prices?.diesel ? "Diesel" : "G95"}
+                          </span>
+                        </div>
+                        <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-orange-500 transition-colors shrink-0" />
+                      </div>
+                    ))}
 
-                      {sortedGasStations.length > 5 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setShowAllGasStations(!showAllGasStations)
-                          }
-                          className="w-full text-[9px] font-bold uppercase tracking-wider text-muted-foreground/50 hover:text-foreground hover:bg-muted/30 h-7"
-                        >
-                          {showAllGasStations
-                            ? "Ver menos"
-                            : `Ver ${sortedGasStations.length - 5} más`}
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </div>
+                    {sortedGasStations.length > 5 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setShowAllGasStations(!showAllGasStations)
+                        }
+                        className="w-full text-[9px] font-bold uppercase tracking-wider text-muted-foreground/50 hover:text-foreground hover:bg-muted/30 h-7"
+                      >
+                        {showAllGasStations
+                          ? "Ver menos"
+                          : `Ver ${sortedGasStations.length - 5} más`}
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-          </ScrollArea>
-        </div>
+          </div>
+        </ScrollArea>
+      </div>
 
       <AddGasStationDialog
         isOpen={isGasStationDialogOpen}
