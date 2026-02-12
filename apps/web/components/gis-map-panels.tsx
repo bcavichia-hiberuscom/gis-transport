@@ -95,7 +95,7 @@ export function GISMapPanels({
 
       {/* Vehicle Route Management Panel - opens from map popup "Ver detalles" */}
       {isVehicleDetailsOpen && selectedVehicleObject && (
-        <div className="fixed inset-0 right-0 left-auto w-72 h-full z-40 bg-background border-l border-border/40 shadow-lg overflow-hidden">
+        <div className="fixed inset-0 right-0 left-auto w-96 h-full z-40 bg-background border-l border-border/40 shadow-lg overflow-hidden flex flex-col">
           <VehicleDetailSheet
             vehicle={selectedVehicleObject}
             metrics={selectedVehicleObject.metrics || null}

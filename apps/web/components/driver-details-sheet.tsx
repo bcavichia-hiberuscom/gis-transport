@@ -3,7 +3,7 @@
 import { Driver } from "@gis/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, Car, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Users, Clock, Car, AlertTriangle, ArrowLeft, ShieldCheck, Phone, Award, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -25,41 +25,38 @@ export function DriverDetailsSheet({
     : 0;
 
   return (
-    <div className="flex flex-col h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-hidden animate-in slide-in-from-right-4 duration-300 font-sans">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border/40 flex items-center gap-3 shrink-0 bg-background/50 sticky top-0 z-20 backdrop-blur-md">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 -ml-2 text-muted-foreground hover:text-foreground rounded-full"
-          onClick={onClose}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-bold text-foreground leading-none truncate">
-            {driver.name}
-          </h2>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-mono text-muted-foreground uppercase opacity-70">
-              {driver.licenseNumber || "ID: " + driver.id.slice(-6)}
-            </span>
-            <Badge
-              variant={driver.isAvailable ? "outline" : "secondary"}
-              className="text-[8px] uppercase font-black px-1.5 h-3.5 border-emerald-500/20 text-emerald-600 bg-emerald-500/5 py-0"
-            >
-              {driver.isAvailable ? "Disponible" : "Conductor Asignado"}
-            </Badge>
+    <div className="flex flex-col flex-1 min-h-0 bg-background border-l border-border/10 overflow-hidden font-sans">
+      {/* Premium Header Container */}
+      <div className="relative shrink-0">
+        {/* Background Accent */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.05] via-transparent to-transparent h-48" />
+
+        {/* Navigation & Title */}
+        <div className="px-5 py-4 flex items-center gap-4 relative z-10">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-foreground/40 hover:text-foreground hover:bg-muted/50 rounded-lg"
+            onClick={onClose}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-bold text-foreground tracking-tight truncate">
+              Perfil de Operador
+            </h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                {driver.licenseNumber || "ID-" + driver.id.slice(-6).toUpperCase()}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-6 pb-8">
-          {/* Profile Header */}
-          <div className="flex justify-center">
-            <div className="h-24 w-24 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative group">
+        {/* Profile Card Overlay */}
+        <div className="px-5 pb-6 relative z-10 flex flex-col items-center">
+          <div className="relative group">
+            <div className="h-20 w-20 rounded-[2rem] bg-muted/20 border-4 border-background shadow-2xl overflow-hidden relative">
               {driver.imageUrl ? (
                 <img
                   src={driver.imageUrl}
@@ -67,143 +64,134 @@ export function DriverDetailsSheet({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <Users className="h-10 w-10 text-primary/40" />
+                <div className="h-full w-full flex items-center justify-center bg-primary/[0.02]">
+                  <Users className="h-8 w-8 text-primary/20" />
+                </div>
               )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
             </div>
           </div>
 
-          {/* License Information */}
-          <div className="space-y-2">
-            <h3 className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest pl-1">
-              Licencia
-            </h3>
-            <div className="bg-card border border-border/50 rounded-xl p-4 space-y-3 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium">
-                  Categoría
-                </span>
-                <span className="text-sm font-bold bg-muted/50 px-2 py-0.5 rounded-md border border-border/50">
-                  {driver.licenseType || "Cat. B"}
-                </span>
+          <h1 className="mt-4 text-xl font-bold text-foreground tracking-tighter">
+            {driver.name}
+          </h1>
+          <Badge
+            variant="outline"
+            className={cn(
+              "mt-2 text-[10px] uppercase font-bold tracking-[0.1em] px-3 py-0.5 border-border/10",
+              driver.isAvailable
+                ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/20"
+                : "bg-blue-500/5 text-blue-600 border-blue-500/20"
+            )}
+          >
+            {driver.isAvailable ? "Disponible" : "En Operación"}
+          </Badge>
+        </div>
+      </div>
+
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="px-5 pb-10 space-y-6">
+
+          {/* Quick Metrics Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted/10 border border-border/15 rounded-2xl p-4 hover:bg-muted/20">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Licencia</span>
               </div>
-              {driver.licenseNumber && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">
-                    Número
-                  </span>
-                  <span className="text-xs font-mono font-bold tracking-wider">
-                    {driver.licenseNumber}
-                  </span>
-                </div>
-              )}
-              {driver.phoneNumber && (
-                <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                  <span className="text-xs text-muted-foreground font-medium">
-                    Teléfono
-                  </span>
-                  <a
-                    href={`tel:${driver.phoneNumber}`}
-                    className="text-xs font-mono font-bold text-blue-600 hover:underline"
-                  >
-                    {driver.phoneNumber}
-                  </a>
-                </div>
-              )}
+              <span className="text-[13px] font-black text-foreground/80 leading-none">
+                {driver.licenseType || "Cat. B"}
+              </span>
+            </div>
+            <div className="bg-muted/10 border border-border/15 rounded-2xl p-4 hover:bg-muted/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Award className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Rendimiento</span>
+              </div>
+              <span className="text-[13px] font-black text-emerald-600 leading-none">
+                {driver.onTimeDeliveryRate || 100}%
+              </span>
             </div>
           </div>
 
-          {/* Performance Metrics */}
-          <div className="space-y-2">
-            <h3 className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest pl-1">
-              Métricas de Desempeño
-            </h3>
-            <div className="bg-card border border-border/50 rounded-xl p-4 space-y-4 shadow-sm">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-3.5 w-3.5 text-blue-500" />
-                    <span className="text-xs font-bold text-foreground">
-                      Puntualidad
-                    </span>
+          {/* Performance Detailed */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pl-1">
+              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Puntualidad en Entregas</h3>
+              <Clock className="h-3.5 w-3.5 text-muted-foreground/60" />
+            </div>
+            <div className="bg-muted/10 border border-border/15 rounded-2xl p-4 relative overflow-hidden group">
+              <div className="flex justify-between items-end mb-3">
+                <div className="flex flex-col">
+                  <span className="text-2xl font-black text-foreground tracking-tighter">
+                    {driver.onTimeDeliveryRate || 100}
+                    <span className="text-sm font-bold text-muted-foreground/40 ml-1">%</span>
+                  </span>
+                </div>
+                <Badge className="bg-emerald-500 text-white border-none text-[9px] font-black px-2 py-0">SCORE EXCELENTE</Badge>
+              </div>
+              <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                  style={{ width: `${driver.onTimeDeliveryRate || 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pl-1">
+              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Información de Contacto</h3>
+              <Phone className="h-3.5 w-3.5 text-muted-foreground/60" />
+            </div>
+            <div className="bg-muted/5 border border-border/10 rounded-2xl overflow-hidden">
+              <div className="p-4 flex items-center justify-between hover:bg-muted/10 border-b border-border/5">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Phone className="h-3.5 w-3.5 text-blue-600" />
                   </div>
-                  <span
-                    className={cn(
-                      "text-sm font-black",
-                      driver.onTimeDeliveryRate >= 90
-                        ? "text-emerald-600"
-                        : driver.onTimeDeliveryRate >= 75
-                          ? "text-orange-500"
-                          : "text-red-500",
-                    )}
-                  >
-                    {driver.onTimeDeliveryRate}%
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">Móvil</span>
+                    <span className="text-[12px] font-bold text-foreground">{driver.phoneNumber || "+34 600 000 000"}</span>
+                  </div>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden p-0.5">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-1000 ease-out",
-                      driver.onTimeDeliveryRate >= 90
-                        ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                        : driver.onTimeDeliveryRate >= 75
-                          ? "bg-orange-500"
-                          : "bg-red-500",
-                    )}
-                    style={{ width: `${driver.onTimeDeliveryRate}%` }}
-                  />
-                </div>
+                <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:bg-blue-500/10">Llamar</Button>
               </div>
             </div>
           </div>
 
-          {/* Speeding Events */}
+          {/* Security Alerts - Technical Redesign */}
           {speeedingCount > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wider pl-1">
-                Alertas de Seguridad
-              </h3>
-              <div className="bg-card border border-red-200/40 dark:border-red-900/40 rounded-lg p-3 space-y-2">
-                <div className="flex items-start gap-2">
-                  <div className="bg-red-100 dark:bg-red-900/30 p-1.5 rounded-md shrink-0">
-                    <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pl-1">
+                <h3 className="text-[10px] font-black text-red-600/50 uppercase tracking-[0.2em]">Registro de Incidencias</h3>
+                <AlertTriangle className="h-3.5 w-3.5 text-red-600/40" />
+              </div>
+              <div className="bg-red-500/[0.02] border border-red-500/20 rounded-2xl">
+                <div className="p-4 bg-red-500/[0.03] border-b border-red-500/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse" />
+                    <span className="text-[11px] font-black text-red-700 uppercase tracking-tight">Excesos de Velocidad</span>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-semibold text-red-700 dark:text-red-400 mb-0.5">
-                      Excesos de velocidad detectados
-                    </p>
-                    <p className="text-[9px] text-muted-foreground leading-snug">
-                      <strong>{speeedingCount}</strong> evento{speeedingCount > 1 ? "s" : ""} registrado{speeedingCount > 1 ? "s" : ""}.
-                    </p>
-                  </div>
+                  <span className="text-[14px] font-black text-red-700">{speeedingCount}</span>
                 </div>
-                {/* Individual speeding event details */}
-                <div className="space-y-1 pt-2 border-t border-red-200/30 dark:border-red-900/30 max-h-[120px] overflow-y-auto">
+                <div className="divide-y divide-red-500/5">
                   {driver.speedingEvents!.slice(0, 5).map((event: any, i: number) => (
-                    <div
-                      key={event.id || i}
-                      className="flex items-center justify-between text-[9px] px-2 py-1.5 bg-red-50/50 dark:bg-red-950/20 rounded-md border border-red-100/50 dark:border-red-900/20"
-                    >
-                      <span className="text-red-700 dark:text-red-400 font-medium">
-                        {Math.round(event.speed)} km/h → {Math.round(event.limit)} km/h
-                      </span>
-                      <span className="text-red-500/60 dark:text-red-500/50 font-mono text-[8px]">
-                        {event.timestamp
-                          ? new Date(event.timestamp).toLocaleDateString("es-ES", {
-                              day: "2-digit",
-                              month: "short",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : "—"}
-                      </span>
+                    <div key={event.id || i} className="p-3.5 flex items-center justify-between hover:bg-red-500/[0.02]">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-black text-foreground/80">{Math.round(event.speed)} km/h</span>
+                          <span className="text-[9px] font-bold text-red-500/40 uppercase tracking-tighter">vs {Math.round(event.limit)} límite</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase font-mono">
+                          {event.timestamp ? new Date(event.timestamp).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' }) : "—"} • {event.timestamp ? new Date(event.timestamp).toLocaleDateString("es-ES", { day: '2-digit', month: 'short' }) : "—"}
+                        </span>
+                      </div>
+                      <div className="h-8 w-8 rounded-lg bg-red-500/5 flex items-center justify-center">
+                        <MapPin className="h-3 w-3 text-red-500/40" />
+                      </div>
                     </div>
                   ))}
-                  {speeedingCount > 5 && (
-                    <p className="text-[8px] text-red-500/50 dark:text-red-500/40 text-center pt-1 font-medium">
-                      +{speeedingCount - 5} más
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
