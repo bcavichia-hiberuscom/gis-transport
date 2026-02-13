@@ -37,71 +37,52 @@ function AutoCenter({ center, zoom }: { center: [number, number], zoom: number }
 
 interface MapPreviewProps {
     coords?: [number, number];
-    fleetVehicles?: FleetVehicle[];
-    fleetJobs?: FleetJob[];
+    vehicle?: FleetVehicle | null;
+    jobs?: FleetJob[];
     routeData?: RouteData | null;
-    selectedVehicleId?: string | number | null;
     vehicleAlerts?: Record<string | number, Alert[]>;
 }
 
 // Map style constants
 const LIGHT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const LIGHT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const DEFAULT_ZOOM = 14;
 
 const MapPreview = memo(({
     coords,
-    fleetVehicles = [],
-    fleetJobs = [],
+    vehicle = null,
+    jobs = [],
     routeData = null,
-    selectedVehicleId = null,
     vehicleAlerts = {}
 }: MapPreviewProps) => {
     const mapIcons = useMemo(() => createMapIcons(), []);
 
-    // Only show the selected vehicle in the preview if one is selected
-    const displayedVehicles = useMemo(() => {
-        if (!selectedVehicleId) return fleetVehicles;
-        return fleetVehicles.filter(v => String(v.id) === String(selectedVehicleId));
-    }, [fleetVehicles, selectedVehicleId]);
-
-    const selectedVehicle = useMemo(() => {
-        return displayedVehicles[0] || null;
-    }, [displayedVehicles]);
-
-    // Filter routes to show ONLY for the selected vehicle
+    // Filter routes for this specific vehicle
     const displayedRoutes = useMemo(() => {
-        if (!routeData?.vehicleRoutes) return [];
-        if (!selectedVehicleId) return routeData.vehicleRoutes;
-        return routeData.vehicleRoutes.filter(r => String(r.vehicleId) === String(selectedVehicleId));
-    }, [routeData, selectedVehicleId]);
+        if (!routeData?.vehicleRoutes || !vehicle) return [];
+        return routeData.vehicleRoutes.filter(r => String(r.vehicleId) === String(vehicle.id));
+    }, [routeData, vehicle]);
 
     const renderedJobs = useMemo(() => {
-        // Filter jobs strictly to the selected vehicle's jobs
-        const filteredJobs = fleetJobs.filter(j => !selectedVehicleId || String(j.assignedVehicleId) === String(selectedVehicleId));
-
         return renderJobMarkers({
-            jobs: filteredJobs,
+            jobs: jobs, // Already filtered by parent
             icon: mapIcons.job,
             routeData,
-            vehicles: displayedVehicles,
-            zoom: 16, // Much closer detail as requested
-            selectedVehicleId: selectedVehicleId ? String(selectedVehicleId) : null,
+            vehicles: vehicle ? [vehicle] : [],
+            zoom: DEFAULT_ZOOM,
+            selectedVehicleId: vehicle ? String(vehicle.id) : null,
         });
-    }, [fleetJobs, mapIcons.job, routeData, displayedVehicles, selectedVehicleId]);
+    }, [jobs, mapIcons.job, routeData, vehicle]);
 
-    // Focus center on the selected vehicle if it exists
     const center = useMemo(() => {
         if (coords) return coords;
-        if (selectedVehicle) return selectedVehicle.position;
-        return MAP_CENTER;
-    }, [coords, selectedVehicle]);
+        return vehicle?.position || MAP_CENTER;
+    }, [coords, vehicle]);
 
-    // Closer zoom level (16 is very close, 15 is standard detail)
     const zoom = useMemo(() => {
-        if (coords) return 17;
-        if (selectedVehicle) return 16;
-        return 12;
-    }, [coords, selectedVehicle]);
+        if (coords) return 16;
+        return DEFAULT_ZOOM;
+    }, [coords]);
 
     return (
         <div className="h-full w-full relative rounded-xl overflow-hidden shadow-inner min-h-[150px] bg-slate-50">
@@ -116,27 +97,24 @@ const MapPreview = memo(({
                 className="h-full w-full grayscale-[0.3]"
             >
                 <MapResizer />
-                <AutoCenter center={center} zoom={zoom} />
+                {(vehicle || coords) && <AutoCenter center={center} zoom={zoom} />}
                 <TileLayer attribution={LIGHT_ATTRIBUTION} url={LIGHT_TILE_URL} />
 
                 {coords && <Marker position={coords} />}
 
                 {displayedRoutes.length ? (
-                    <>
-                        <RouteLayer
-                            vehicleRoutes={displayedRoutes}
-                            selectedVehicleId={selectedVehicleId ? String(selectedVehicleId) : null}
-                        />
-                        <FitBounds routes={displayedRoutes} />
-                    </>
+                    <RouteLayer
+                        vehicleRoutes={displayedRoutes}
+                        selectedVehicleId={vehicle ? String(vehicle.id) : null}
+                    />
                 ) : null}
 
                 <VehiclesLayer
-                    vehicles={displayedVehicles}
-                    selectedVehicleId={selectedVehicleId ? String(selectedVehicleId) : null}
+                    vehicles={vehicle ? [vehicle] : []}
+                    selectedVehicleId={vehicle ? String(vehicle.id) : null}
                     createVehicleIcon={mapIcons.vehicle}
                     vehicleAlerts={vehicleAlerts}
-                    zoom={zoom}
+                    zoom={DEFAULT_ZOOM}
                 />
 
                 {renderedJobs}

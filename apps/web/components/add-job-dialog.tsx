@@ -44,7 +44,7 @@ const MapPreview = dynamic(() => import("@/components/map-preview"), {
 interface AddJobDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (coords: [number, number], label: string) => void;
+  onSubmit: (coords: [number, number], label: string, eta?: string) => void;
   onStartPicking?: () => void;
   pickedCoords?: [number, number] | null;
   mapCenter?: [number, number];
@@ -246,30 +246,48 @@ Step2Content.displayName = "Step2Content";
 const Step3Content = memo(
   ({
     label,
+    eta,
     latitude,
     longitude,
     isLoading,
     onLabelChange,
+    onEtaChange,
     onBack,
     onSubmit,
-  }: Step3ContentProps) => (
+  }: Step3ContentProps & { eta: string; onEtaChange: (val: string) => void }) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
-      <div className="space-y-2">
-        <Label htmlFor="job-label" className="text-sm font-semibold">
-          Job Reference Name
-        </Label>
-        <Input
-          id="job-label"
-          placeholder="e.g., Client A Delivery, Zone 4 Pickup..."
-          value={label}
-          onChange={(e) => onLabelChange(e.target.value)}
-          disabled={isLoading}
-          className="h-12 text-base font-medium"
-          autoFocus
-        />
-        <p className="text-[10px] text-muted-foreground/70 ml-1 italic">
-          Assign a recognizable name for this job in the fleet list.
-        </p>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="job-label" className="text-sm font-semibold">
+            Job Reference Name
+          </Label>
+          <Input
+            id="job-label"
+            placeholder="e.g., Client A Delivery, Zone 4 Pickup..."
+            value={label}
+            onChange={(e) => onLabelChange(e.target.value)}
+            disabled={isLoading}
+            className="h-12 text-base font-medium"
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="job-eta" className="text-sm font-semibold">
+            Expected Time of Arrival (ETA)
+          </Label>
+          <Input
+            id="job-eta"
+            type="datetime-local"
+            value={eta}
+            onChange={(e) => onEtaChange(e.target.value)}
+            disabled={isLoading}
+            className="h-12 text-base font-medium"
+          />
+          <p className="text-[10px] text-muted-foreground/70 ml-1 italic">
+            Optional: Specified arrival window for this logistic job.
+          </p>
+        </div>
       </div>
 
       <div className="p-4 rounded-xl bg-muted/30 border border-border/50 flex items-center gap-4 opacity-70">
@@ -337,6 +355,7 @@ export const AddJobDialog = memo(function AddJobDialog({
 }: AddJobDialogProps) {
   const [step, setStep] = useState(1);
   const [label, setLabel] = useState("");
+  const [eta, setEta] = useState("");
   const [latitude, setLatitude] = useState(mapCenter[0].toString());
   const [longitude, setLongitude] = useState(mapCenter[1].toString());
   const [error, setError] = useState<string | null>(null);
@@ -383,15 +402,18 @@ export const AddJobDialog = memo(function AddJobDialog({
     if (!parsedCoords) return;
 
     setError(null);
-    onSubmit(parsedCoords, label.trim());
+    // Convert local datetime to ISO 8601 if present
+    const isoEta = eta ? new Date(eta).toISOString() : undefined;
+    onSubmit(parsedCoords, label.trim(), isoEta);
 
     // Reset only after successful submission
     setLabel("");
+    setEta("");
     setLatitude(mapCenter[0].toString());
     setLongitude(mapCenter[1].toString());
     setStep(1);
     setError(null);
-  }, [parsedCoords, label, onSubmit, mapCenter]);
+  }, [parsedCoords, label, eta, onSubmit, mapCenter]);
 
   const handleAddressSelect = useCallback(
     (coords: [number, number], address: string) => {
@@ -473,10 +495,12 @@ export const AddJobDialog = memo(function AddJobDialog({
           {step === 3 && (
             <Step3Content
               label={label}
+              eta={eta}
               latitude={latitude}
               longitude={longitude}
               isLoading={isLoading}
               onLabelChange={setLabel}
+              onEtaChange={setEta}
               onBack={handleBackToStep2}
               onSubmit={handleSubmit}
             />

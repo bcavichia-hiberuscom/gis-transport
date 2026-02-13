@@ -20,7 +20,7 @@ interface GISMapDialogsProps {
   // Job Dialog
   isAddJobOpen: boolean;
   onOpenAddJobChange: (open: boolean) => void;
-  onAddJobSubmit: (coords: [number, number], label: string) => void;
+  onAddJobSubmit: (coords: [number, number], label: string, eta?: string) => void;
   mapCenter: [number, number];
   onStartPickingJob: () => void;
   pickedJobCoords: [number, number] | null;

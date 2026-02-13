@@ -72,6 +72,7 @@ interface SidebarProps {
     vehicleId: string | number,
     position: [number, number],
     label?: string,
+    eta?: string,
   ) => void;
   addJobDirectly?: (coords: [number, number], label: string) => void;
   removeVehicle: (vehicleId: string | number) => void;
@@ -107,7 +108,7 @@ interface SidebarProps {
   fetchDrivers?: () => Promise<void>;
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
   drivers?: Driver[];
-  onAddStopSubmit?: (coords: [number, number], label: string) => void;
+  onAddStopSubmit?: (coords: [number, number], label: string, eta?: string) => void;
   pickedStopCoords?: [number, number] | null;
   isGasStationLayerVisible?: boolean;
   onToggleGasStationLayer?: () => void;

@@ -17,6 +17,7 @@ interface UseRoutingProps {
   customPOIs: CustomPOI[];
   activeZones: Zone[];
   removeJob: (id: string | number) => void;
+  setJobAssignments: (assignments: { jobId: string | number; vehicleId: string | number }[]) => void;
   setLayers: React.Dispatch<React.SetStateAction<LayerVisibility>>;
 }
 
@@ -26,6 +27,7 @@ export function useRouting({
   customPOIs,
   activeZones,
   removeJob,
+  setJobAssignments,
   setLayers,
 }: UseRoutingProps) {
   const [routeData, setRouteData] = useState<RouteData | null>(null);
@@ -45,6 +47,7 @@ export function useRouting({
   const customPOIsRef = useRef(customPOIs);
   const activeZonesRef = useRef(activeZones);
   const removeJobRef = useRef(removeJob);
+  const setJobAssignmentsRef = useRef(setJobAssignments);
   const setLayersRef = useRef(setLayers);
 
   // Keep refs in sync with props
@@ -63,6 +66,9 @@ export function useRouting({
   useEffect(() => {
     removeJobRef.current = removeJob;
   }, [removeJob]);
+  useEffect(() => {
+    setJobAssignmentsRef.current = setJobAssignments;
+  }, [setJobAssignments]);
   useEffect(() => {
     setLayersRef.current = setLayers;
   }, [setLayers]);
@@ -103,6 +109,7 @@ export function useRouting({
     const pois = customPOIsRef.current;
     const zones = activeZonesRef.current;
     const doRemoveJob = removeJobRef.current;
+    const doSetJobAssignments = setJobAssignmentsRef.current;
     const doSetLayers = setLayersRef.current;
 
     const key = JSON.stringify({
@@ -146,11 +153,11 @@ export function useRouting({
         zones:
           zones.length > 0
             ? zones.map((z) => ({
-                id: z.id,
-                name: z.name,
-                type: z.type,
-                requiredTags: z.requiredTags,
-              }))
+              id: z.id,
+              name: z.name,
+              type: z.type,
+              requiredTags: z.requiredTags,
+            }))
             : "No zones",
       });
 
@@ -189,6 +196,51 @@ export function useRouting({
 
       setRouteData(data);
       doSetLayers((prev) => ({ ...prev, route: true }));
+
+      // Update global job assignments based on the optimized route
+      if (data.vehicleRoutes) {
+        const assignments: {
+          jobId: string | number;
+          vehicleId: string | number;
+        }[] = [];
+
+        data.vehicleRoutes.forEach((route) => {
+          if (route.assignedJobIds) {
+            route.assignedJobIds.forEach((jobId) => {
+              // Vroom often returns numeric indices (0, 1, 2...) for jobs and vehicles
+              // We need to map them back to our original IDs if they are numeric indices
+              let realVehicleId = route.vehicleId;
+              let realJobId = jobId;
+
+              // Map Vehicle ID back from index if necessary
+              const vIdx = Number(route.vehicleId);
+              if (
+                !isNaN(vIdx) &&
+                vehicles[vIdx] &&
+                !vehicles.some((v) => String(v.id) === String(route.vehicleId))
+              ) {
+                realVehicleId = vehicles[vIdx].id;
+              }
+
+              // Map Job ID back from index if necessary
+              const jIdx = Number(jobId);
+              if (
+                !isNaN(jIdx) &&
+                allFleetJobs[jIdx] &&
+                !allFleetJobs.some((j) => String(j.id) === String(jobId))
+              ) {
+                realJobId = allFleetJobs[jIdx].id;
+              }
+
+              assignments.push({ jobId: realJobId, vehicleId: realVehicleId });
+            });
+          }
+        });
+
+        if (assignments.length > 0) {
+          doSetJobAssignments(assignments);
+        }
+      }
 
       // Process unassigned jobs as errors
       const unassignedErrors: RouteError[] = (data.unassignedJobs || []).map(

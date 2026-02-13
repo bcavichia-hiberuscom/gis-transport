@@ -39,13 +39,14 @@ interface FleetDashboardProps {
     vehicleId: string | number,
     position: [number, number],
     label?: string,
+    eta?: string,
   ) => void;
   startRouting?: () => void;
   isAddStopOpen?: boolean;
   setIsAddStopOpen?: (open: boolean) => void;
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
-  onAddStopSubmit?: (coords: [number, number], label: string) => void;
+  onAddStopSubmit?: (coords: [number, number], label: string, eta?: string) => void;
   drivers?: Driver[];
   selectedVehicleId?: string | number | null;
   onSelectVehicle?: (id: string | number | null) => void;
@@ -73,17 +74,22 @@ export const FleetDashboard = memo(function FleetDashboard({
   onToggleGasStationLayer,
   routeData = null,
 }: FleetDashboardProps) {
-  // Local state for auto-selection if none is active
-  const [localSelectedId, setLocalSelectedId] = useState<string | number | null>(selectedVehicleId || (vehicles.length > 0 ? vehicles[0].id : null));
+  // Local state for auto-selection syncing with dashboard interaction
+  const [localSelectedId, setLocalSelectedId] = useState<string | number | null>(selectedVehicleId ?? null);
 
   // Sync with prop
   useEffect(() => {
-    if (selectedVehicleId) setLocalSelectedId(selectedVehicleId);
+    if (selectedVehicleId !== undefined) {
+      setLocalSelectedId(selectedVehicleId);
+    }
   }, [selectedVehicleId]);
 
   // Local state for add-stop dialog
   const [dashboardIsAddStopOpen, setDashboardIsAddStopOpen] = useState(false);
   const waitingForPickRef = useRef(false);
+
+  // Job type filter
+  const [jobTypeFilter, setJobTypeFilter] = useState<"all" | "standard" | "custom">("all");
 
   useEffect(() => {
     if (pickedStopCoords && waitingForPickRef.current && localSelectedId) {
@@ -327,69 +333,124 @@ export const FleetDashboard = memo(function FleetDashboard({
             {/* Jobs Management Table */}
             <div className="bg-card border border-border/40 rounded-2xl overflow-hidden flex flex-col shadow-sm min-h-0">
               <div className="px-5 py-4 border-b border-border/10 flex items-center justify-between bg-muted/20">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Cola de Pedidos Activos</Label>
-                <Badge variant="outline" className="text-[8px] font-bold border-primary/20 text-primary bg-primary/5 uppercase">{jobs.length} pendientes</Badge>
-              </div>
-              <ScrollArea className="flex-1">
-                <div className="p-0 border-collapse">
-                  <table className="w-full text-left text-[10px]">
-                    <thead className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10 border-b border-border/20">
-                      <tr>
-                        <th className="p-3 font-black uppercase tracking-tighter opacity-40">Pedido</th>
-                        <th className="p-3 font-black uppercase tracking-tighter opacity-40 text-center">Estado</th>
-                        <th className="p-3 font-black uppercase tracking-tighter opacity-40">Asignación</th>
-                        <th className="p-3 font-black uppercase tracking-tighter opacity-40 text-right">ETA</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/10">
-                      {jobs
-                        .filter(job => !localSelectedId || job.assignedVehicleId === localSelectedId)
-                        .map((job) => {
-                          const assignedVehicle = vehicles.find(v => v.id === job.assignedVehicleId);
-                          // Look up driver: checking both the vehicle's driver object and the drivers list
-                          const assignedDriver = assignedVehicle?.driver;
-
-                          return (
-                            <tr key={job.id} className="hover:bg-muted/20 transition-colors group">
-                              <td className="p-3 font-bold text-foreground/80">{job.label}</td>
-                              <td className="p-3 text-center">
-                                <span className={cn(
-                                  "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter",
-                                  job.status === "completed" ? "bg-emerald-100 text-emerald-800" : (job.status === "in_progress" ? "bg-blue-100 text-blue-800 animate-pulse" : "bg-muted/50 text-muted-foreground")
-                                )}>
-                                  {job.status === "completed" ? "OK" : (job.status === "in_progress" ? "EN CURSO" : "PENDIENTE")}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                {assignedVehicle ? (
-                                  <div className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <Truck className="h-3 w-3 text-primary/40" />
-                                      <span className="font-bold opacity-60 text-primary">{assignedVehicle.label}</span>
-                                    </div>
-                                    {assignedDriver && (
-                                      <div className="flex items-center gap-1.5 ml-4">
-                                        <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                                        <span className="text-[8px] font-bold text-muted-foreground/60 uppercase">{assignedDriver.name}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : <span className="opacity-20">—</span>}
-                              </td>
-                              <td className="p-3 text-right font-mono opacity-60">{job.estimatedArrival || "--:--"}</td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                  {(!localSelectedId || jobs.filter(j => j.assignedVehicleId === localSelectedId).length === 0) && (
-                    <div className="flex flex-col items-center justify-center py-10 opacity-30">
-                      <Package className="h-8 w-8 mb-2" />
-                      <p className="text-[10px] font-bold uppercase tracking-widest">Sin pedidos activos</p>
-                    </div>
-                  )}
+                <div className="flex items-center gap-4">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Cola de Pedidos Activos</Label>
+                  <div className="flex bg-background/50 p-0.5 rounded-lg border border-border/10">
+                    {(["all", "standard", "custom"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setJobTypeFilter(t)}
+                        className={cn(
+                          "px-2 py-1 text-[8px] font-bold uppercase tracking-tighter rounded-md transition-all",
+                          jobTypeFilter === t
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-background hover:text-foreground"
+                        )}
+                      >
+                        {t === "all" ? "Todos" : t === "standard" ? "Logística" : "Manuales"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </ScrollArea>
+                <Badge variant="outline" className="text-[8px] font-bold border-primary/20 text-primary bg-primary/5 uppercase">{jobs.filter(j => jobTypeFilter === "all" || j.type === jobTypeFilter).length} pendientes</Badge>
+              </div>
+              <div className="flex-1 relative min-h-0">
+                <ScrollArea className="h-full w-full">
+                  <div className="p-0 border-collapse">
+                    {(() => {
+                      const filteredJobsList = jobs.filter(job => {
+                        const jobType = job.type || "standard";
+                        const matchesType = jobTypeFilter === "all" || jobType === jobTypeFilter;
+                        const matchesVehicle = !localSelectedId || String(job.assignedVehicleId) === String(localSelectedId);
+                        return matchesType && matchesVehicle;
+                      });
+
+                      if (filteredJobsList.length === 0) {
+                        return (
+                          <div className="flex flex-col items-center justify-center py-10 opacity-30">
+                            <Package className="h-8 w-8 mb-2" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest">Sin pedidos activos</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <table className="w-full text-left text-[10px]">
+                          <thead className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10 border-b border-border/20">
+                            <tr>
+                              <th className="p-3 font-black uppercase tracking-tighter opacity-40">Pedido</th>
+                              <th className="p-3 font-black uppercase tracking-tighter opacity-40 text-center">Estado</th>
+                              <th className="p-3 font-black uppercase tracking-tighter opacity-40">Asignación</th>
+                              <th className="p-3 font-black uppercase tracking-tighter opacity-40 text-right">ETA</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/10">
+                            {filteredJobsList.map((job) => {
+                              const assignedVehicle = vehicles.find(v => String(v.id) === String(job.assignedVehicleId));
+                              const assignedDriver = assignedVehicle?.driver;
+
+                              return (
+                                <tr key={job.id} className="hover:bg-muted/20 transition-colors group">
+                                  <td className="p-3">
+                                    <div className="flex flex-col gap-1">
+                                      <span className="font-bold text-foreground/80">{job.label}</span>
+                                      <Badge
+                                        variant="outline"
+                                        className={cn(
+                                          "w-fit text-[7px] h-3.5 px-1 font-black uppercase border-none",
+                                          job.type === "custom" ? "bg-orange-100/80 text-orange-700" : "bg-blue-100/80 text-blue-700"
+                                        )}
+                                      >
+                                        {job.type === "custom" ? "Manual" : "Logística"}
+                                      </Badge>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <span className={cn(
+                                      "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter",
+                                      job.status === "completed" ? "bg-emerald-100 text-emerald-800" : (job.status === "in_progress" ? "bg-blue-100 text-blue-800 animate-pulse" : "bg-muted/50 text-muted-foreground")
+                                    )}>
+                                      {job.status === "completed" ? "OK" : (job.status === "in_progress" ? "EN CURSO" : "PENDIENTE")}
+                                    </span>
+                                  </td>
+                                  <td className="p-3">
+                                    {assignedVehicle ? (
+                                      <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <Truck className="h-3 w-3 text-primary/40" />
+                                          <span className="font-bold opacity-60 text-primary">{assignedVehicle.label}</span>
+                                        </div>
+                                        {assignedDriver && (
+                                          <div className="flex items-center gap-1.5 ml-4">
+                                            <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+                                            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase">{assignedDriver.name}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : <span className="opacity-20">—</span>}
+                                  </td>
+                                  <td className="p-3 text-right font-mono opacity-80 font-bold">
+                                    {job.eta ? (
+                                      (() => {
+                                        try {
+                                          const d = new Date(job.eta);
+                                          return isNaN(d.getTime()) ? (job.estimatedArrival || "--:--") : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                        } catch {
+                                          return job.estimatedArrival || "--:--";
+                                        }
+                                      })()
+                                    ) : (job.estimatedArrival || "--:--")}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
 
             {/* Alert Logs Section */}
@@ -398,31 +459,33 @@ export const FleetDashboard = memo(function FleetDashboard({
                 <Label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Alertas y Seguridad</Label>
                 <Badge variant="outline" className="text-[8px] font-bold border-red-500/20 text-red-600 bg-red-50 uppercase">Alertas Críticas</Badge>
               </div>
-              <ScrollArea className="flex-1">
-                <div className="p-5 space-y-4">
-                  {localSelectedId && vehicleAlerts[localSelectedId]?.length > 0 ? (
-                    (vehicleAlerts[localSelectedId] || []).map((alert, idx) => (
-                      <div key={`${localSelectedId}-${idx}`} className="flex gap-4 p-3 bg-red-50/20 border border-red-100/30 rounded-xl transition-all hover:bg-red-50/40">
-                        <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
-                          <AlertTriangle className="h-4 w-4 text-red-600" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-red-700 tracking-tight">{selectedVehicle?.label}</span>
-                            <span className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-tighter">— Hace pocos mins</span>
+              <div className="flex-1 relative min-h-0">
+                <ScrollArea className="h-full w-full">
+                  <div className="p-5 space-y-4">
+                    {localSelectedId && vehicleAlerts[localSelectedId]?.length > 0 ? (
+                      (vehicleAlerts[localSelectedId] || []).map((alert, idx) => (
+                        <div key={`${localSelectedId}-${idx}`} className="flex gap-4 p-3 bg-red-50/20 border border-red-100/30 rounded-xl transition-all hover:bg-red-50/40">
+                          <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
                           </div>
-                          <p className="text-[11px] font-bold text-foreground mt-0.5 leading-snug">{alert.message}</p>
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase text-red-700 tracking-tight">{selectedVehicle?.label}</span>
+                              <span className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-tighter">— Hace pocos mins</span>
+                            </div>
+                            <p className="text-[11px] font-bold text-foreground mt-0.5 leading-snug">{alert.message}</p>
+                          </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 opacity-30">
+                        <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">{localSelectedId ? "Sin alertas para este vehículo" : "Seleccione un vehículo"}</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-10 opacity-30">
-                      <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2" />
-                      <p className="text-[10px] font-bold uppercase tracking-widest">{localSelectedId ? "Sin alertas para este vehículo" : "Seleccione un vehículo"}</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
           </div>
         </div>
@@ -432,10 +495,9 @@ export const FleetDashboard = memo(function FleetDashboard({
           {/* Map Preview Area (Secondary Context) */}
           <div className="h-[200px] bg-card border border-border/40 rounded-2xl overflow-hidden relative shadow-sm group shrink-0">
             <MapPreview
-              fleetVehicles={vehicles}
-              fleetJobs={jobs}
+              vehicle={selectedVehicle}
+              jobs={jobs.filter(j => localSelectedId && String(j.assignedVehicleId) === String(localSelectedId))}
               routeData={routeData}
-              selectedVehicleId={localSelectedId}
               vehicleAlerts={vehicleAlerts}
             />
           </div>

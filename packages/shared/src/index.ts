@@ -177,8 +177,9 @@ export const FleetJobSchema = z.object({
     .enum(["pending", "in_progress", "completed", "failed"])
     .default("pending"),
   estimatedArrival: z.string().optional(),
+  eta: z.string().optional(), // ISO 8601 timestamp string
   completedAt: z.number().optional(),
-  source: z.enum(["vroom", "custom_stop"]).default("vroom"),
+  type: z.enum(["standard", "custom"]).default("standard"),
 });
 export type FleetJob = z.infer<typeof FleetJobSchema>;
 

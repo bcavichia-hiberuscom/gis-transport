@@ -3,7 +3,7 @@ import { useCallback } from "react";
 
 interface UseJobCoordinationProps {
   dispatch: any;
-  addJobAt: (coords: [number, number], label?: string) => void;
+  addJobAt: (coords: [number, number], label?: string, vehicleId?: string | number, eta?: string) => void;
   removeJob: (id: string | number) => void;
   interactionMode: string | null;
 }
@@ -31,8 +31,8 @@ export function useJobCoordination({
 
   // Submit job from dialog
   const handleAddJobSubmit = useCallback(
-    (coords: [number, number], label: string) => {
-      addJobAt(coords, label); // No vehicle assignment
+    (coords: [number, number], label: string, eta?: string) => {
+      addJobAt(coords, label, undefined, eta); // No vehicle assignment, pass eta
       dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: false });
       dispatch({ type: "SET_PICKED_JOB_COORDS", payload: null });
     },

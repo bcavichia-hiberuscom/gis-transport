@@ -71,5 +71,10 @@ export async function GET(request: Request) {
 
   await Promise.all(updates);
 
-  return NextResponse.json({ positions, metrics, timestamp: Date.now() });
+  return NextResponse.json({
+    positions,
+    metrics,
+    completedJobs: Array.from(global.gpsSimulation.completedJobs || []),
+    timestamp: Date.now(),
+  });
 }

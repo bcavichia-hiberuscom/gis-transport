@@ -46,7 +46,7 @@ interface AddStopDialogProps {
   vehicleLabel: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddStop: (coords: [number, number], label: string) => void;
+  onAddStop: (coords: [number, number], label: string, eta?: string) => void;
   onStartPicking?: () => void;
   pickedCoords?: [number, number] | null;
   mapCenter?: [number, number];
@@ -247,30 +247,48 @@ Step2Content.displayName = "Step2Content";
 const Step3Content = memo(
   ({
     label,
+    eta,
     latitude,
     longitude,
     isLoading,
     onLabelChange,
+    onEtaChange,
     onBack,
     onSubmit,
-  }: Step3ContentProps) => (
+  }: Step3ContentProps & { eta: string; onEtaChange: (val: string) => void }) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
-      <div className="space-y-2">
-        <Label htmlFor="stop-label" className="text-sm font-semibold">
-          Nombre de la Parada
-        </Label>
-        <Input
-          id="stop-label"
-          placeholder="Ej: Cliente VIP, Almacén Norte..."
-          value={label}
-          onChange={(e) => onLabelChange(e.target.value)}
-          disabled={isLoading}
-          className="h-12 text-base font-medium"
-          autoFocus
-        />
-        <p className="text-[10px] text-muted-foreground/70 ml-1 italic">
-          Nombre identificativo para esta parada en la ruta.
-        </p>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="stop-label" className="text-sm font-semibold">
+            Nombre de la Parada
+          </Label>
+          <Input
+            id="stop-label"
+            placeholder="Ej: Cliente VIP, Almacén Norte..."
+            value={label}
+            onChange={(e) => onLabelChange(e.target.value)}
+            disabled={isLoading}
+            className="h-12 text-base font-medium"
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="stop-eta" className="text-sm font-semibold">
+            Hora Estimada de Llegada (ETA)
+          </Label>
+          <Input
+            id="stop-eta"
+            type="datetime-local"
+            value={eta}
+            onChange={(e) => onEtaChange(e.target.value)}
+            disabled={isLoading}
+            className="h-12 text-base font-medium"
+          />
+          <p className="text-[10px] text-muted-foreground/70 ml-1 italic">
+            Opcional: Ventana de tiempo deseada para esta parada manual.
+          </p>
+        </div>
       </div>
 
       <div className="p-4 rounded-xl bg-muted/30 border border-border/50 flex items-center gap-4 opacity-70">
@@ -339,6 +357,7 @@ export const AddStopDialog = memo(function AddStopDialog({
 }: AddStopDialogProps) {
   const [step, setStep] = useState(1);
   const [label, setLabel] = useState("");
+  const [eta, setEta] = useState("");
   const [latitude, setLatitude] = useState(mapCenter[0].toString());
   const [longitude, setLongitude] = useState(mapCenter[1].toString());
   const [error, setError] = useState<string | null>(null);
@@ -377,15 +396,18 @@ export const AddStopDialog = memo(function AddStopDialog({
     if (!parsedCoords) return;
 
     setError(null);
-    onAddStop(parsedCoords, label.trim());
+    // Convert local datetime to ISO 8601 if present
+    const isoEta = eta ? new Date(eta).toISOString() : undefined;
+    onAddStop(parsedCoords, label.trim(), isoEta);
 
     // Reset solo tras éxito
     setLabel("");
+    setEta("");
     setLatitude(mapCenter[0].toString());
     setLongitude(mapCenter[1].toString());
     setStep(1);
     setError(null);
-  }, [parsedCoords, label, onAddStop, mapCenter]);
+  }, [parsedCoords, label, eta, onAddStop, mapCenter]);
 
   const handleAddressSelect = useCallback(
     (coords: [number, number], address: string) => {
@@ -470,10 +492,12 @@ export const AddStopDialog = memo(function AddStopDialog({
           {step === 3 && (
             <Step3Content
               label={label}
+              eta={eta}
               latitude={latitude}
               longitude={longitude}
               isLoading={isLoading}
               onLabelChange={setLabel}
+              onEtaChange={setEta}
               onBack={handleBackToStep2}
               onSubmit={handleSubmit}
             />

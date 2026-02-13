@@ -44,13 +44,14 @@ interface VehicleDetailSheetProps {
     vehicleId: string | number,
     position: [number, number],
     label?: string,
+    eta?: string,
   ) => void;
   startRouting?: () => void;
   isAddStopOpen?: boolean;
   setIsAddStopOpen?: (open: boolean) => void;
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
-  onAddStopSubmit?: (coords: [number, number], label: string) => void;
+  onAddStopSubmit?: (coords: [number, number], label: string, eta?: string) => void;
   onClose: () => void;
   drivers?: Driver[];
   vehicles?: FleetVehicle[];
@@ -86,8 +87,8 @@ export const VehicleDetailSheet = memo(function VehicleDetailSheet({
     .sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
   // Separate real Vroom jobs from custom stops
-  const realJobs = assignedJobs.filter((j) => j.source === "vroom" || !j.source);
-  const customStops = assignedJobs.filter((j) => j.source === "custom_stop");
+  const realJobs = assignedJobs.filter((j) => j.type === "standard" || !j.type);
+  const customStops = assignedJobs.filter((j) => j.type === "custom");
   const completedJobs = realJobs.filter((j) => j.status === "completed").length;
 
   useEffect(() => {
@@ -444,8 +445,8 @@ export const VehicleDetailSheet = memo(function VehicleDetailSheet({
           pickedCoords={pickedStopCoords}
           onAddStop={
             onAddStopSubmit ||
-            ((pos, lbl) => {
-              addStopToVehicle?.(vehicle.id, pos, lbl);
+            ((pos, lbl, eta) => {
+              addStopToVehicle?.(vehicle.id, pos, lbl, eta);
               setIsAddStopOpen?.(false); // Close dialog after adding
               setTimeout(() => startRouting?.(), 500);
             })

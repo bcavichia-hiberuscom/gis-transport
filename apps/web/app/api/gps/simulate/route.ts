@@ -13,43 +13,63 @@ declare global {
   // eslint-disable-next-line no-var
   var gpsSimulation:
     | {
-        routes: Record<string, [number, number][]>;
-        positions: Record<
-          string,
-          { coords: [number, number]; routeIndex: number }
-        >;
-        telemetry: Record<
-          string,
-          {
-            fuel?: number;
-            battery?: number;
-            distance: number;
-            isElectric: boolean;
-          }
-        >;
-        isRunning: boolean;
-        intervalId?: NodeJS.Timeout;
-      }
+      routes: Record<string, [number, number][]>;
+      jobs: any[];
+      completedJobs: Set<string>;
+      positions: Record<
+        string,
+        { coords: [number, number]; routeIndex: number }
+      >;
+      telemetry: Record<
+        string,
+        {
+          fuel?: number;
+          battery?: number;
+          distance: number;
+          isElectric: boolean;
+        }
+      >;
+      isRunning: boolean;
+      intervalId?: NodeJS.Timeout;
+    }
     | undefined;
 }
 
 if (!global.gpsSimulation) {
   global.gpsSimulation = {
     routes: {},
+    jobs: [],
+    completedJobs: new Set(),
     positions: {},
     telemetry: {},
     isRunning: false,
   };
 }
 
+const getDistance = (p1: [number, number], p2: [number, number]) => {
+  const R = 6371; // km
+  const dLat = ((p2[0] - p1[0]) * Math.PI) / 180;
+  const dLon = ((p2[1] - p1[1]) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((p1[0] * Math.PI) / 180) *
+    Math.cos((p2[0] * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { routes, action } = body;
+    const { routes, jobs, action } = body;
 
     if (action === "start" && routes) {
       // Initialize simulation with provided routes
       global.gpsSimulation!.routes = routes;
+      global.gpsSimulation!.jobs = jobs || [];
+      global.gpsSimulation!.completedJobs = new Set();
       global.gpsSimulation!.isRunning = true;
 
       // Set initial positions and telemetry
@@ -110,6 +130,30 @@ export async function POST(req: Request) {
                   routeIndex: nextIndex,
                 };
 
+                // Validate if vehicle reached any job
+                const activeJobs = global.gpsSimulation!.jobs || [];
+                const segmentStart = data.routeIndex;
+                const segmentEnd = nextIndex;
+
+                activeJobs.forEach((job: any) => {
+                  const jobKey = String(job.id);
+                  if (
+                    String(job.assignedVehicleId) === String(vehicleId) &&
+                    !global.gpsSimulation!.completedJobs.has(jobKey)
+                  ) {
+                    // Check every point in this segment jump to ensure we don't skip the waypoint
+                    for (let i = segmentStart; i <= segmentEnd; i++) {
+                      const point = route[i];
+                      const distKm = getDistance(point, job.position);
+                      if (distKm <= 0.5) { // Increased to 500 meters for robustness
+                        global.gpsSimulation!.completedJobs.add(jobKey);
+                        console.log(`[Simulation] Arrival validation: Vehicle ${vehicleId} reached job ${job.id} at index ${i} (dist: ${distKm.toFixed(3)}km)`);
+                        break;
+                      }
+                    }
+                  }
+                });
+
                 if (isMoving) {
                   tel.distance += distKm;
                   if (tel.isElectric && tel.battery) {
@@ -146,6 +190,7 @@ export async function POST(req: Request) {
     if (action === "update" && routes) {
       // Update routes while simulation is running
       global.gpsSimulation!.routes = routes;
+      if (jobs) global.gpsSimulation!.jobs = jobs;
 
       // Update positions and ensure telemetry for all vehicles in routes
       Object.entries(routes as Record<string, any>).forEach(

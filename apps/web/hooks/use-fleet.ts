@@ -136,6 +136,7 @@ export function useFleet(
       position: [number, number],
       label?: string,
       vehicleId?: string | number,
+      eta?: string,
     ) => {
       const id = generateId("job");
       setFleetJobs((prev) => {
@@ -146,7 +147,8 @@ export function useFleet(
             position,
             label: label || `Job ${prev.length + 1}`,
             status: "pending",
-            source: "vroom",
+            type: "standard",
+            eta,
             ...(vehicleId && { assignedVehicleId: vehicleId }),
           },
         ];
@@ -162,6 +164,7 @@ export function useFleet(
       vehicleId: string | number,
       position: [number, number],
       label?: string,
+      eta?: string,
     ) => {
       const id = generateId("stop");
       setFleetJobs((prev) => {
@@ -173,7 +176,8 @@ export function useFleet(
             label: label || `Parada personalizada`,
             assignedVehicleId: vehicleId,
             status: "pending",
-            source: "custom_stop",
+            type: "custom",
+            eta,
           },
         ];
         return next;
@@ -291,6 +295,37 @@ export function useFleet(
     [],
   );
 
+  /**
+   * Bulk update job assignments (e.g., after routing optimization)
+   */
+  const setJobAssignments = useCallback(
+    (assignments: { jobId: string | number; vehicleId: string | number }[]) => {
+      setFleetJobs((prev) => {
+        const next = [...prev];
+        assignments.forEach(({ jobId, vehicleId }) => {
+          const index = next.findIndex((j) => String(j.id) === String(jobId));
+          if (index !== -1) {
+            next[index] = { ...next[index], assignedVehicleId: vehicleId };
+          }
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  /**
+   * Update a specific job's status
+   */
+  const updateJobStatus = useCallback(
+    (jobId: string | number, status: FleetJob["status"]) => {
+      setFleetJobs((prev) =>
+        prev.map((j) => (String(j.id) === String(jobId) ? { ...j, status } : j)),
+      );
+    },
+    [],
+  );
+
   // Return state and functions that other components can use
   return {
     // State
@@ -316,5 +351,7 @@ export function useFleet(
     updateVehicleLabel,
     updateVehicleLicensePlate,
     assignDriverToVehicle,
+    setJobAssignments,
+    updateJobStatus,
   };
 }

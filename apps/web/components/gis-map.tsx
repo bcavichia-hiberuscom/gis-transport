@@ -98,6 +98,8 @@ export function GISMap() {
     updateVehicleLabel,
     updateVehicleLicensePlate,
     assignDriverToVehicle,
+    setJobAssignments,
+    updateJobStatus,
   } = useFleet();
 
   const {
@@ -217,6 +219,7 @@ export function GISMap() {
     customPOIs,
     activeZones: combinedActiveZones,
     removeJob,
+    setJobAssignments,
     setLayers,
   });
 
@@ -237,7 +240,9 @@ export function GISMap() {
     selectedVehicleId,
     updateVehiclePosition: handleUpdateVehiclePosition,
     updateVehicleMetrics: handleUpdateVehicleMetrics,
+    updateJobStatus,
     fleetVehicles,
+    fleetJobs,
   });
 
   // Alert monitoring (includes speeding persistence)
@@ -380,9 +385,9 @@ export function GISMap() {
   );
 
   const handleAddStopSubmit = useCallback(
-    (coords: [number, number], label: string) => {
+    (coords: [number, number], label: string, eta?: string) => {
       if (selectedVehicleId) {
-        addStopToVehicle(selectedVehicleId, coords, label);
+        addStopToVehicle(selectedVehicleId, coords, label, eta);
         // Recalculate route after adding stop
         // If tracking is active, the useEffect in use-live-tracking will auto-update with new routes
         // The setTimeout allows state updates to complete before routing
@@ -391,7 +396,7 @@ export function GISMap() {
       dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: false });
       dispatch({ type: "SET_PICKED_STOP_COORDS", payload: null });
     },
-    [addStopToVehicle, selectedVehicleId, startRouting],
+    [addStopToVehicle, selectedVehicleId, startRouting, dispatch],
   );
 
   // Memoize computed addMode to prevent object recreation
