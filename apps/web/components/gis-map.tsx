@@ -540,6 +540,8 @@ export function GISMap() {
         navigateToTab={sidebarNavigateTab}
         navigateToDriverId={sidebarNavigateDriverId}
         onNavigateConsumed={handleNavigateConsumed}
+        routeData={routeData}
+        interactionMode={state.interactionMode}
       />
       <div className="relative flex-1">
         <MapContainer

@@ -17,6 +17,8 @@ import {
   LayoutDashboard,
   Users,
   Search,
+  ChevronDown,
+  ChevronRight,
   Pencil,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -30,6 +32,7 @@ import type {
   LayerVisibility,
   POI,
   VehicleType,
+  RouteData,
 } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
@@ -41,8 +44,6 @@ import {
   FleetHeaderButtons,
   FleetActionButtons,
   FleetFooterButtons,
-  SectionHeader,
-  EmptyState,
 } from "@/components/sidebar-components";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 
@@ -102,6 +103,7 @@ interface SidebarProps {
   onStartPickingStop: () => void;
   addMode: "vehicle" | "job" | null;
   isLoadingDrivers?: boolean;
+  interactionMode?: string | null;
   fetchDrivers?: () => Promise<void>;
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
   drivers?: Driver[];
@@ -114,6 +116,7 @@ interface SidebarProps {
   navigateToTab?: SidebarTab | null;
   navigateToDriverId?: string | null;
   onNavigateConsumed?: () => void;
+  routeData?: RouteData | null;
 }
 
 export type SidebarTab =
@@ -139,49 +142,45 @@ const NavigationRail = memo(
     onToggleExpand,
     totalAlerts,
   }: NavigationRailProps) => (
-    <div className="w-16 h-full bg-background/80 backdrop-blur-xl border-r border-border/10 flex flex-col items-center py-6 gap-4 shadow-[1px_0_10px_rgba(0,0,0,0.02)] pointer-events-auto z-[1002] transition-all duration-300">
-      <div className="mb-2">
-        <SidebarLogo />
-      </div>
+    <div className="w-14 h-full bg-background/95 backdrop-blur-md border border-border/30 rounded-2xl flex flex-col items-center py-4 gap-3 shadow-lg pointer-events-auto z-[1002] transition-all duration-200">
+      <SidebarLogo />
 
-      <div className="flex flex-col gap-3 w-full items-center">
-        <NavigationButton
-          tabId="fleet"
-          activeTab={activeTab}
-          isExpanded={isExpanded}
-          onClick={onSetTab}
-          label="Operaciones"
-          icon={Route}
-        />
+      <NavigationButton
+        tabId="fleet"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onClick={onSetTab}
+        label="Gestión de Flota"
+        icon={Route}
+      />
 
-        <NavigationButton
-          tabId="layers"
-          activeTab={activeTab}
-          isExpanded={isExpanded}
-          onClick={onSetTab}
-          label="Capas"
-          icon={Layers}
-        />
+      <NavigationButton
+        tabId="layers"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onClick={onSetTab}
+        label="Capas y POIs"
+        icon={Layers}
+      />
 
-        <NavigationButton
-          tabId="drivers"
-          activeTab={activeTab}
-          isExpanded={isExpanded}
-          onClick={onSetTab}
-          label="Equipo"
-          icon={Users}
-        />
+      <NavigationButton
+        tabId="drivers"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onClick={onSetTab}
+        label="Conductores"
+        icon={Users}
+      />
 
-        <NavigationButton
-          tabId="dashboard"
-          activeTab={activeTab}
-          isExpanded={isExpanded}
-          onClick={onSetTab}
-          label="Reportes"
-          icon={LayoutDashboard}
-          alertCount={totalAlerts}
-        />
-      </div>
+      <NavigationButton
+        tabId="dashboard"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onClick={onSetTab}
+        label="Dashboard"
+        icon={LayoutDashboard}
+        alertCount={totalAlerts}
+      />
 
       <div className="flex-1" />
 
@@ -243,20 +242,10 @@ const FleetTab = memo(
     hasRoute,
   }: FleetTabProps) => {
     const [searchQuery, setSearchQuery] = useState("");
-
-    // Smart auto-expand: groups with ≤ 8 items start expanded
-    const AUTO_EXPAND_THRESHOLD = 8;
-    // Progressive disclosure: groups with > 15 items show truncated
-    const DISCLOSURE_THRESHOLD = 15;
-
-    const [expandedGroups, setExpandedGroups] = useState(() => ({
-      vehicles: fleetVehicles.length <= AUTO_EXPAND_THRESHOLD,
-      jobs: fleetJobs.length <= AUTO_EXPAND_THRESHOLD,
-    }));
-
-    // Disclosure state: track whether the user has requested "show all"
-    const [showAllVehicles, setShowAllVehicles] = useState(false);
-    const [showAllJobs, setShowAllJobs] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState({
+      vehicles: false,
+      jobs: false,
+    });
 
     const toggleGroup = (group: "vehicles" | "jobs") => {
       setExpandedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
@@ -272,36 +261,17 @@ const FleetTab = memo(
       j.label.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
-    // Auto-expand groups when search is active and has results
-    const isSearching = searchQuery.length > 0;
-
-    // Progressive disclosure: visible items
-    const visibleVehicles =
-      !showAllVehicles && !isSearching && filteredVehicles.length > DISCLOSURE_THRESHOLD
-        ? filteredVehicles.slice(0, 10)
-        : filteredVehicles;
-
-    const visibleJobs =
-      !showAllJobs && !isSearching && filteredJobs.length > DISCLOSURE_THRESHOLD
-        ? filteredJobs.slice(0, 10)
-        : filteredJobs;
-
-    // Active trail: does the selected vehicle exist in the filtered list?
-    const vehicleHasActiveChild = selectedVehicleId != null &&
-      filteredVehicles.some((v) => v.id === selectedVehicleId);
-
     return (
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
-        <div className="p-5 pb-4 flex flex-col gap-4 border-b border-border/5 bg-gradient-to-b from-primary/[0.02] to-transparent shrink-0">
+        <div className="p-4 pb-3 flex flex-col gap-3 border-b border-border/10 bg-gradient-to-b from-primary/3 to-transparent shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex flex-col">
+            <div>
               <h2 className="text-lg font-bold tracking-tight text-foreground leading-none">
-                Flota
+                Fleet
               </h2>
-              <span className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-[0.1em] mt-1.5 flex items-center gap-1.5">
-                <div className="h-1 w-1 rounded-full bg-primary/40" />
-                Control de activos
-              </span>
+              <p className="text-[9px] uppercase font-semibold text-muted-foreground/50 tracking-wider mt-0.5">
+                Gestión de Operaciones
+              </p>
             </div>
             <FleetHeaderButtons
               isLoading={isLoadingVehicles}
@@ -311,16 +281,14 @@ const FleetTab = memo(
             />
           </div>
 
-          {/* Compact Search Bar - Refined */}
-          <div className="relative group/search">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
-              <Search className="h-3.5 w-3.5 text-muted-foreground/30 group-focus-within/search:text-primary transition-colors duration-300" />
-            </div>
+          {/* Compact Search Bar */}
+          <div className="relative group">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
             <Input
-              placeholder="Filtro rápido..."
+              placeholder="Buscar vehículo o pedido..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 bg-muted/30 border-transparent hover:bg-muted/50 focus:bg-background focus:ring-1 focus:ring-primary/20 transition-all duration-300 rounded-xl text-[12px] font-medium placeholder:text-muted-foreground/30"
+              className="pl-8 h-8 bg-muted/20 border-border/30 hover:border-primary/15 focus:bg-background transition-all rounded-lg text-xs"
             />
           </div>
         </div>
@@ -332,11 +300,10 @@ const FleetTab = memo(
           onAddJob={onAddJobClick}
         />
 
-        {/* Single scroll container — no nested scrollable regions */}
         <ScrollArea className="flex-1 min-h-0 px-4 py-3">
-          <div className="space-y-1 pb-6">
+          <div className="space-y-5 pb-6">
             {addMode && (
-              <div className="bg-primary text-primary-foreground p-3 rounded-xl flex items-center justify-between shadow-md shadow-primary/15 animate-in fade-in slide-in-from-top-1 mb-3">
+              <div className="bg-primary text-primary-foreground p-3 rounded-xl flex items-center justify-between shadow-md shadow-primary/15 animate-in fade-in slide-in-from-top-1">
                 <span className="text-[10px] font-semibold uppercase tracking-tight">
                   Selecciona el punto en el mapa
                 </span>
@@ -351,76 +318,77 @@ const FleetTab = memo(
               </div>
             )}
 
-            {/* Vehicles Group — sticky header, no inner scroll */}
-            <div>
-              <SectionHeader
-                label="Vehículos"
-                count={filteredVehicles.length}
-                dotColorClass="bg-primary"
-                dotShadowClass="shadow-primary/40"
-                isExpanded={expandedGroups.vehicles || isSearching}
-                onToggle={() => toggleGroup("vehicles")}
-                hasActiveChild={vehicleHasActiveChild}
-                sticky
-              />
+            {/* Vehicles Group */}
+            <div className="space-y-2">
+              <button
+                onClick={() => toggleGroup("vehicles")}
+                className="w-full flex items-center justify-between px-0.5 hover:opacity-70 transition-opacity"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_6px_rgba(var(--primary),0.4)]" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground/70">
+                    Vehículos ({filteredVehicles.length})
+                  </span>
+                </div>
+                {expandedGroups.vehicles ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </button>
 
-              {(expandedGroups.vehicles || isSearching) && (
-                <div className="space-y-2 pt-1 pl-1">
-                  {visibleVehicles.length === 0 ? (
-                    <EmptyState icon={Car} message="Sin vehículos" />
+              {expandedGroups.vehicles && (
+                <div className="max-h-[300px] overflow-y-auto space-y-3 pt-1 pr-1">
+                  {filteredVehicles.length === 0 ? (
+                    <div className="py-6 text-center bg-muted/15 rounded-xl border border-dashed border-border/30">
+                      <Car className="h-6 w-6 text-muted-foreground/15 mx-auto mb-1.5" />
+                      <p className="text-[9px] text-muted-foreground/35 font-semibold uppercase tracking-wide">
+                        Sin vehículos
+                      </p>
+                    </div>
                   ) : (
-                    <>
-                      <VehiclesList
-                        vehicles={visibleVehicles}
-                        selectedVehicleId={selectedVehicleId}
-                        vehicleAlerts={vehicleAlerts}
-                        onSelect={setSelectedVehicleId}
-                        onRemove={removeVehicle}
-                      />
-                      {/* Progressive disclosure link */}
-                      {!showAllVehicles && !isSearching && filteredVehicles.length > DISCLOSURE_THRESHOLD && (
-                        <button
-                          onClick={() => setShowAllVehicles(true)}
-                          className="w-full py-2 text-[10px] font-semibold text-primary hover:text-primary/80 uppercase tracking-wide transition-colors"
-                        >
-                          Mostrar todos ({filteredVehicles.length})
-                        </button>
-                      )}
-                    </>
+                    <VehiclesList
+                      vehicles={filteredVehicles}
+                      selectedVehicleId={selectedVehicleId}
+                      vehicleAlerts={vehicleAlerts}
+                      onSelect={setSelectedVehicleId}
+                      onRemove={removeVehicle}
+                    />
                   )}
                 </div>
               )}
             </div>
 
-            {/* Jobs Group — sticky header, no inner scroll */}
-            <div>
-              <SectionHeader
-                label="Pedidos"
-                count={filteredJobs.length}
-                dotColorClass="bg-orange-500"
-                dotShadowClass="shadow-orange-500/40"
-                isExpanded={expandedGroups.jobs || isSearching}
-                onToggle={() => toggleGroup("jobs")}
-                sticky
-              />
+            {/* Jobs Group */}
+            <div className="space-y-2">
+              <button
+                onClick={() => toggleGroup("jobs")}
+                className="w-full flex items-center justify-between px-0.5 hover:opacity-70 transition-opacity"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.4)]" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground/70">
+                    Pedidos ({filteredJobs.length})
+                  </span>
+                </div>
+                {expandedGroups.jobs ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </button>
 
-              {(expandedGroups.jobs || isSearching) && (
-                <div className="space-y-2 pt-1 pl-1">
-                  {visibleJobs.length === 0 ? (
-                    <EmptyState icon={Package} message="Sin pedidos" />
+              {expandedGroups.jobs && (
+                <div className="max-h-[300px] overflow-y-auto space-y-3 pt-1 pr-1">
+                  {filteredJobs.length === 0 ? (
+                    <div className="py-6 text-center bg-muted/15 rounded-xl border border-dashed border-border/30">
+                      <Package className="h-6 w-6 text-muted-foreground/15 mx-auto mb-1.5" />
+                      <p className="text-[9px] text-muted-foreground/35 font-semibold uppercase tracking-wide">
+                        Sin pedidos
+                      </p>
+                    </div>
                   ) : (
-                    <>
-                      <JobsList jobs={visibleJobs} onRemove={removeJob} />
-                      {/* Progressive disclosure link */}
-                      {!showAllJobs && !isSearching && filteredJobs.length > DISCLOSURE_THRESHOLD && (
-                        <button
-                          onClick={() => setShowAllJobs(true)}
-                          className="w-full py-2 text-[10px] font-semibold text-primary hover:text-primary/80 uppercase tracking-wide transition-colors"
-                        >
-                          Mostrar todos ({filteredJobs.length})
-                        </button>
-                      )}
-                    </>
+                    <JobsList jobs={filteredJobs} onRemove={removeJob} />
                   )}
                 </div>
               )}
@@ -492,46 +460,36 @@ const LayersTab = memo(
 
     return (
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
-        <div className="p-5 pb-4 flex flex-col gap-1 border-b border-border/5 bg-gradient-to-b from-primary/[0.02] to-transparent shrink-0">
+        <div className="p-4 pb-3 flex flex-col gap-1.5 border-b border-border/10 bg-gradient-to-b from-primary/3 to-transparent shrink-0">
           <h2 className="text-lg font-bold tracking-tight text-foreground leading-none">
-            Visibilidad
+            Layers
           </h2>
-          <span className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-[0.1em] mt-1.5 flex items-center gap-1.5">
-            <div className="h-1 w-1 rounded-full bg-cyan-500/40" />
-            Configuración de mapa
-          </span>
+          <p className="text-[9px] uppercase font-semibold text-muted-foreground/50 tracking-wider">
+            Personalización del Mapa
+          </p>
         </div>
-        {/* Single scroll container — no nested scrollable regions */}
-        <ScrollArea className="flex-1 min-h-0 px-4 py-2">
+        <ScrollArea className="flex-1 min-h-0 px-4 py-3">
           <div className="space-y-6 pb-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-bold uppercase text-foreground/40 tracking-wider">
-                  Capas Base
-                </span>
-                <Badge variant="outline" className="text-[9px] font-bold h-4 px-1.5 border-border/40 text-muted-foreground/60 uppercase">
-                  SISTEMA
-                </Badge>
-              </div>
-              <div className="space-y-1.5 px-0.5">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase text-foreground/70 tracking-wide pl-0.5">
+                Elementos del Mapa
+              </Label>
+              <div className="space-y-2 pt-1">
                 {Object.entries(layers).map(([key, value]) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-muted/20 border border-transparent hover:border-border/40 hover:bg-muted/30 transition-all group"
+                    className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/30 hover:border-primary/15 hover:shadow-sm transition-all"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div
                         className={cn(
-                          "h-1.5 w-1.5 rounded-full transition-all duration-300",
+                          "h-1.5 w-1.5 rounded-full shadow-[0_0_5px]",
                           value
-                            ? "bg-primary shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)] scale-125"
-                            : "bg-muted-foreground/20",
+                            ? "bg-primary shadow-primary/40"
+                            : "bg-muted shadow-transparent",
                         )}
                       />
-                      <span className={cn(
-                        "text-[12px] font-bold capitalize transition-colors",
-                        value ? "text-foreground" : "text-foreground/50 group-hover:text-foreground/70"
-                      )}>
+                      <span className="text-xs font-medium capitalize text-foreground/85">
                         {key.replace(/([A-Z])/g, " $1").trim()}
                       </span>
                     </div>
@@ -540,144 +498,160 @@ const LayersTab = memo(
                       onCheckedChange={() =>
                         toggleLayer(key as keyof LayerVisibility)
                       }
-                      className="scale-75 origin-right"
+                      className="scale-85 origin-right transition-all data-[state=checked]:bg-primary"
                     />
                   </div>
                 ))}
               </div>
             </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-bold uppercase text-foreground/40 tracking-wider">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pl-0.5">
+                <Label className="text-[10px] font-semibold uppercase text-foreground/70 tracking-wide">
                   Puntos de Interés
-                </span>
+                </Label>
                 <Badge
                   variant="outline"
-                  className="text-[9px] font-bold border-primary/20 text-primary h-4 bg-primary/5 px-1.5"
+                  className="text-[9px] font-semibold border-primary/15 text-primary h-4 bg-primary/5"
                 >
                   {pointPOIs.length}
                 </Badge>
               </div>
-
               <Button
                 variant="outline"
-                className="w-full justify-center text-[10px] font-bold uppercase tracking-wider h-9 rounded-xl border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/[0.02] hover:text-primary transition-all duration-300"
+                className="w-full justify-start text-[10px] font-semibold uppercase tracking-wide h-9 rounded-lg border-dashed border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all"
                 onClick={onAddPOIClick}
               >
-                <Plus className="h-3 w-3 mr-2" /> Nuevo Registro
+                <Plus className="h-3.5 w-3.5 mr-1.5 text-primary" /> Nuevo Punto
               </Button>
-
               {pointPOIs.length > 0 && (
-                <div className="space-y-1.5 px-0.5">
+                <div className="max-h-[250px] overflow-y-auto space-y-2 mt-1.5 pr-1">
                   {pointPOIs.map((poi: CustomPOI) => (
                     <div
                       key={poi.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/40 hover:border-cyan-500/20 hover:bg-cyan-500/[0.01] transition-all group relative overflow-hidden"
+                      className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/30 hover:border-primary/15 hover:shadow-sm transition-all group relative overflow-hidden"
                     >
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       <div className="flex items-center gap-3 overflow-hidden relative z-10">
-                        <div className="h-8 w-8 rounded-lg bg-cyan-50/50 border border-cyan-100/50 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300">
-                          <Warehouse className="h-3.5 w-3.5 text-cyan-600" />
+                        <div className="h-8 w-8 rounded-lg bg-cyan-50 border border-cyan-100 flex items-center justify-center shrink-0">
+                          <Warehouse className="h-4 w-4 text-cyan-600" />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-[12px] font-bold text-foreground/80 truncate group-hover:text-foreground">
+                          <span className="text-xs font-semibold text-foreground truncate">
                             {poi.name}
                           </span>
-                          <span className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-tighter mt-0.5">
-                            {poi.position?.[0].toFixed(3)}°N, {poi.position?.[1].toFixed(3)}°E
+                          <span className="text-[8px] font-medium text-muted-foreground/50 uppercase tracking-tight">
+                            {poi.position?.[0].toFixed(4)},{" "}
+                            {poi.position?.[1].toFixed(4)}
                           </span>
                         </div>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground/30 hover:text-red-500 hover:bg-red-50/50 rounded-lg transition-all"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 rounded-md transition-opacity relative z-10"
                         onClick={() => removeCustomPOI?.(poi.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   ))}
+                  {(pointPOIs.length > 0 || zonePOIs.length > 0) && (
+                    <div className="pt-3 border-t border-border/10 mt-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full h-8 text-[9px] font-semibold uppercase tracking-wide rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
+                        onClick={clearAllCustomPOIs}
+                      >
+                        Limpiar Todo
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-bold uppercase text-foreground/40 tracking-wider">
-                  Zonas Definidas
-                </span>
+            {/* Custom Zones Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pl-0.5">
+                <Label className="text-[10px] font-semibold uppercase text-foreground/70 tracking-wide">
+                  Zonas Customizadas
+                </Label>
                 <Badge
                   variant="outline"
-                  className="text-[9px] font-bold border-blue-200/50 text-blue-600 h-4 bg-blue-50/20 px-1.5"
+                  className="text-[9px] font-semibold border-blue-200 text-blue-600 h-4 bg-blue-50/15"
                 >
                   {zonePOIs.length}
                 </Badge>
               </div>
-
               {zonePOIs.length > 0 ? (
-                <div className="space-y-1.5 px-0.5">
+                <div className="max-h-[250px] overflow-y-auto space-y-2 mt-1.5 pr-1">
                   {zonePOIs.map((zone: CustomPOI) => (
                     <div
                       key={zone.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/40 hover:border-blue-500/20 hover:bg-blue-500/[0.01] transition-all group relative overflow-hidden"
+                      className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/30 hover:border-blue-200 hover:shadow-sm transition-all group relative overflow-hidden"
                     >
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       <div className="flex items-center gap-3 overflow-hidden relative z-10">
-                        <div className="h-8 w-8 rounded-lg bg-blue-50/50 border border-blue-100/50 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300">
-                          <Package className="h-3.5 w-3.5 text-blue-600" />
+                        <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                          <Package className="h-4 w-4 text-blue-600" />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-[12px] font-bold text-foreground/80 truncate group-hover:text-foreground">
+                          <span className="text-xs font-semibold text-foreground truncate">
                             {zone.name}
                           </span>
-                          <span className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-tighter mt-0.5">
-                            {zone.zoneType || "CUSTOM"} • {zone.requiredTags?.length || 0} TAGS
+                          {zone.description && (
+                            <span className="text-[9px] text-muted-foreground/70 line-clamp-1">
+                              {zone.description}
+                            </span>
+                          )}
+                          <span className="text-[8px] font-medium text-muted-foreground/50 uppercase tracking-tight">
+                            {zone.zoneType || "CUSTOM"} ·{" "}
+                            {zone.requiredTags?.length || 0} tags
                           </span>
                         </div>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground/30 hover:text-blue-500 hover:bg-blue-50/50 rounded-lg"
+                          className="h-7 w-7 text-muted-foreground hover:text-blue-600 rounded-md"
                           onClick={() => onEditZone?.(zone.id)}
+                          title="Editar zona"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground/30 hover:text-red-500 hover:bg-red-50/50 rounded-lg"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-600 rounded-md"
                           onClick={() => removeCustomPOI?.(zone.id)}
+                          title="Eliminar zona"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
                   ))}
+                  {(pointPOIs.length > 0 || zonePOIs.length > 0) && (
+                    <div className="pt-3 border-t border-border/10 mt-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full h-8 text-[9px] font-semibold uppercase tracking-wide rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
+                        onClick={clearAllCustomPOIs}
+                      >
+                        Limpiar Todo
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="p-6 text-center bg-muted/10 rounded-2xl border border-dashed border-border/30">
-                  <span className="text-[9px] font-bold text-muted-foreground/20 uppercase tracking-widest">
-                    Sin zonas activas
-                  </span>
-                </div>
+                <p className="text-[10px] text-muted-foreground/50 p-3 rounded-lg bg-muted/20 text-center">
+                  No tienes zonas customizadas
+                </p>
               )}
             </div>
-
-            {/* Consolidated clear action — single button for all custom data */}
-            {(pointPOIs.length > 0 || zonePOIs.length > 0) && (
-              <div className="pt-3 border-t border-border/10">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full h-8 text-[9px] font-semibold uppercase tracking-wide rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
-                  onClick={clearAllCustomPOIs}
-                >
-                  Limpiar Todo
-                </Button>
-              </div>
-            )}
           </div>
         </ScrollArea>
       </div>
@@ -737,6 +711,8 @@ export const Sidebar = memo(
     navigateToTab,
     navigateToDriverId,
     onNavigateConsumed,
+    routeData,
+    interactionMode,
   }: SidebarProps) {
     // Local state for sidebar visibility
     const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
@@ -807,6 +783,12 @@ export const Sidebar = memo(
       setIsExpanded((prev) => !prev);
     }, []);
 
+    // Derived expansion state based on picking mode
+    const finalIsExpanded = useMemo(() => {
+      if (interactionMode && interactionMode.startsWith("pick-")) return false;
+      return isExpanded;
+    }, [isExpanded, interactionMode]);
+
     const handleShowAddJob = useCallback(() => {
       setIsAddJobOpen?.(true);
     }, [setIsAddJobOpen]);
@@ -835,7 +817,7 @@ export const Sidebar = memo(
       <div className="fixed left-3 top-3 z-[1000] flex max-h-[calc(100vh-1.5rem)]">
         <NavigationRail
           activeTab={activeTab}
-          isExpanded={isExpanded}
+          isExpanded={finalIsExpanded}
           onSetTab={setActiveTab}
           onToggleExpand={handleToggleExpand}
           totalAlerts={totalAlerts}
@@ -843,19 +825,22 @@ export const Sidebar = memo(
 
         <div
           className={cn(
-            "ml-2.5 rounded-2xl border border-border/30 bg-background/95 backdrop-blur-lg shadow-lg ease-out overflow-hidden flex flex-col pointer-events-auto max-h-[calc(100vh-6rem)]",
-            isExpanded
+            "ml-2.5 rounded-2xl border border-border/30 bg-background/95 backdrop-blur-lg shadow-lg transition-all duration-300 ease-out overflow-hidden flex flex-col pointer-events-auto",
+            finalIsExpanded
               ? cn(
                 "opacity-100 translate-x-0",
                 activeTab === "dashboard"
-                  ? "w-[28rem]"
-                  : activeTab === "drivers"
-                    ? selectedDriver
-                      ? "w-96"
-                      : "w-96"
-                    : "w-96",
+                  ? "w-[calc(100vw-10rem)] h-[calc(100vh-3rem)]"
+                  : cn(
+                    "max-h-[calc(100vh-6rem)]",
+                    activeTab === "drivers"
+                      ? selectedDriver
+                        ? "w-80"
+                        : "w-80"
+                      : "w-72",
+                  ),
               )
-              : "w-0 opacity-0 -translate-x-8",
+              : "w-0 opacity-0 -translate-x-8 h-0",
           )}
         >
           {activeTab === "fleet" && (
@@ -899,28 +884,25 @@ export const Sidebar = memo(
               onEditZone={onEditZone}
             />
           )}
-          {activeTab === "drivers" && (
-            <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col">
-              {selectedDriver ? (
-                <DriverDetailsSheet
-                  driver={selectedDriver}
-                  onClose={() => setSelectedDriverId(null)}
-                />
-              ) : (
-                <DriversTab
-                  drivers={drivers || []}
-                  fleetVehicles={fleetVehicles || []}
-                  isLoading={isLoadingDrivers || false}
-                  fetchDrivers={fetchDrivers || (async () => { })}
-                  addDriver={addDriver || (async () => undefined)}
-                  onDriverSelect={(d) => setSelectedDriverId(d.id)}
-                  onVehicleSelect={onVehicleSelectFromDrivers}
-                  expandedGroups={driversExpandedGroups}
-                  onToggleGroup={handleToggleDriverGroup}
-                />
-              )}
-            </div>
-          )}
+          {activeTab === "drivers" &&
+            (selectedDriver ? (
+              <DriverDetailsSheet
+                driver={selectedDriver}
+                onClose={() => setSelectedDriverId(null)}
+              />
+            ) : (
+              <DriversTab
+                drivers={drivers || []}
+                fleetVehicles={fleetVehicles || []}
+                isLoading={isLoadingDrivers || false}
+                fetchDrivers={fetchDrivers || (async () => { })}
+                addDriver={addDriver || (async () => undefined)}
+                onDriverSelect={(d) => setSelectedDriverId(d.id)}
+                onVehicleSelect={onVehicleSelectFromDrivers}
+                expandedGroups={driversExpandedGroups}
+                onToggleGroup={handleToggleDriverGroup}
+              />
+            ))}
           {activeTab === "dashboard" && (
             <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
               <FleetDashboard
@@ -942,6 +924,7 @@ export const Sidebar = memo(
                 onAddStopSubmit={onAddStopSubmit}
                 drivers={drivers}
                 onAssignDriver={onAssignDriver}
+                routeData={routeData}
               />
             </div>
           )}
@@ -971,7 +954,8 @@ export const Sidebar = memo(
       prev.onAssignDriver === next.onAssignDriver &&
       prev.gasStations === next.gasStations &&
       prev.navigateToTab === next.navigateToTab &&
-      prev.navigateToDriverId === next.navigateToDriverId
+      prev.navigateToDriverId === next.navigateToDriverId &&
+      prev.interactionMode === next.interactionMode
     );
   },
 );

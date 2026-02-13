@@ -21,11 +21,8 @@ import {
   Package,
   Trash2,
   MapPin,
-  Map,
-  ChevronRight,
-  UserPlus
 } from "lucide-react";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, memo } from "react";
 import type {
   FleetVehicle,
   VehicleMetrics,
@@ -37,7 +34,6 @@ import { GeocodingService } from "@/lib/services/geocoding-service";
 import { AddStopDialog } from "./add-stop-dialog";
 import { AssignDriverDialog } from "./assign-driver-dialog";
 import { useAlertLogs } from "@/hooks/use-alert-logs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface VehicleDetailSheetProps {
   vehicle: FleetVehicle | null;
@@ -61,7 +57,7 @@ interface VehicleDetailSheetProps {
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
 }
 
-export function VehicleDetailSheet({
+export const VehicleDetailSheet = memo(function VehicleDetailSheet({
   vehicle,
   metrics,
   jobs = [],
@@ -80,25 +76,30 @@ export function VehicleDetailSheet({
 }: VehicleDetailSheetProps) {
   const [address, setAddress] = useState<string | null>(null);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
-  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-
+  const [isAssignDriverOpen, setIsAssignDriverOpen] = useState(false);
   const geocodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { getVehicleLogs, clearVehicleLogs } = useAlertLogs();
 
+  // Filter jobs assigned to this vehicle — computed every render for guaranteed reactivity
   const assignedJobs = jobs
     .filter((j) => String(j.assignedVehicleId) === String(vehicle?.id))
     .sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
+  // Separate real Vroom jobs from custom stops
   const realJobs = assignedJobs.filter((j) => j.source === "vroom" || !j.source);
   const customStops = assignedJobs.filter((j) => j.source === "custom_stop");
   const completedJobs = realJobs.filter((j) => j.status === "completed").length;
 
   useEffect(() => {
+    // Reset local address state when vehicle changes
     setAddress(null);
     setIsLoadingAddress(false);
+
     const isMoving = (metrics?.speed ?? 0) > 0;
+
     if (vehicle?.position && isMoving) {
       if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+
       geocodeTimeoutRef.current = setTimeout(async () => {
         setIsLoadingAddress(true);
         try {
@@ -113,12 +114,14 @@ export function VehicleDetailSheet({
           setIsLoadingAddress(false);
         }
       }, 5000);
+
       return () => {
         if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
       };
     }
-  }, [vehicle?.id, metrics?.speed === 0]);
+  }, [vehicle?.id, metrics?.speed === 0]); // Re-run when vehicle changes OR it stops/starts
 
+  // Get alert logs for this vehicle - MUST be before early return
   const vehicleLogs = useMemo(
     () => (vehicle ? getVehicleLogs(vehicle.id) : []),
     [vehicle?.id, getVehicleLogs],
@@ -134,324 +137,302 @@ export function VehicleDetailSheet({
   const speed = metrics?.speed || 0;
   const maxSpeed = metrics?.maxSpeed;
   const displaySpeedLimit = maxSpeed || (speed > 0 ? 60 : undefined);
-  const energyLevel = (isElectric ? metrics?.batteryLevel : metrics?.fuelLevel) ?? 100;
+  const energyLevel =
+    (isElectric ? metrics?.batteryLevel : metrics?.fuelLevel) ?? 100;
   const movement = metrics?.movementState || "stopped";
+
+  // Check if vehicle is speeding
   const isOverSpeeding = displaySpeedLimit ? speed > displaySpeedLimit : false;
+
+  // Check if there are any critical alerts
   const hasCriticalAlerts = alerts.some((a) => a.severity === "critical");
+  const hasAnyAlerts = alerts.length > 0;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-background border-l border-border/10 overflow-hidden font-sans">
-      {/* Premium Header Container (Matching Driver DNA) */}
-      <div className="relative shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.05] via-transparent to-transparent h-48" />
-
-        {/* Navigation & Title */}
-        <div className="px-5 py-4 flex items-center gap-4 relative z-10">
+    <div className="flex flex-col h-full bg-background overflow-hidden font-sans text-xs">
+      {/* Header - Minimalist */}
+      <div className="px-3 py-2.5 border-b border-border/40 flex items-center justify-between shrink-0 bg-background sticky top-0 z-20">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-foreground/40 hover:text-foreground hover:bg-muted/50 rounded-lg"
+            className="h-7 w-7 -ml-1.5 text-muted-foreground hover:text-foreground rounded-full"
             onClick={onClose}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold text-foreground tracking-tight truncate">
-              Monitor de Vehículo
+          <div>
+            <h2 className="text-sm font-bold text-foreground leading-none">
+              {vehicle.label}
             </h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase opacity-70">
                 {vehicle.licensePlate}
+              </span>
+              <span className="text-[10px] text-muted-foreground/30">•</span>
+              <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter opacity-70">
+                {isElectric ? "Electric" : "Combustion"}
               </span>
             </div>
           </div>
         </div>
-
-        {/* Hero Section */}
-        <div className="px-5 pb-6 relative z-10 flex flex-col items-center">
-          <div className="relative group">
-            <div className="h-20 w-20 rounded-[2rem] bg-muted/20 border-4 border-background shadow-2xl flex items-center justify-center overflow-hidden">
-              <Zap className={cn(
-                "h-10 w-10 opacity-20",
-                isElectric ? "text-blue-500" : "text-orange-500"
-              )} />
-            </div>
-          </div>
-
-          <h1 className="mt-4 text-xl font-bold text-foreground tracking-tighter">
-            {vehicle.label}
-          </h1>
-          <Badge
-            variant="outline"
-            className={cn(
-              "mt-2 text-[10px] uppercase font-bold tracking-[0.1em] px-3 py-0.5 border-border/10",
-              movement === "on_route"
-                ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/20"
-                : movement === "moving"
-                  ? "bg-blue-500/5 text-blue-600 border-blue-500/20"
-                  : "bg-muted/20 text-muted-foreground border-border/20"
-            )}
-          >
-            {movement === "on_route" ? "En Ruta" : movement === "moving" ? "En Marcha" : "Detenido"}
-          </Badge>
+        <div
+          className={cn(
+            "px-2 py-0.5 rounded-full text-[9px] font-bold border tracking-wider",
+            movement === "on_route"
+              ? "bg-emerald-100/80 text-emerald-800 border-emerald-200"
+              : movement === "moving"
+                ? "bg-blue-100/80 text-blue-800 border-blue-200"
+                : "bg-zinc-100/80 text-zinc-600 border-zinc-200",
+          )}
+        >
+          {movement === "on_route"
+            ? "ON ROUTE"
+            : movement === "moving"
+              ? "MOVING"
+              : "STOPPED"}
         </div>
       </div>
 
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="px-5 pb-10 space-y-7">
+      {/* Scrollable Body - High Density */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {/* Unified Monitor Block (Speed + Location) */}
+        <div className="space-y-1.5">
+          <h3 className="text-[9px] font-bold text-muted-foreground/50 flex items-center gap-1 uppercase tracking-wider pl-0.5">
+            <ShieldCheck className="h-3 w-3" /> Monitor de Seguridad
+          </h3>
 
-          {/* Main Telemetry Monitor */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pl-1">
-              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Telemetría en Vivo</h3>
-              <Activity className="h-3.5 w-3.5 text-muted-foreground/60" />
-            </div>
-
-            <div className={cn(
-              "bg-muted/10 border border-border/15 rounded-2xl p-5 relative overflow-hidden",
-              isOverSpeeding && "bg-red-500/[0.02] border-red-500/20"
-            )}>
-              <div className="flex justify-between items-end mb-6">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.1em] mb-1">Velocidad Actual</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className={cn(
-                      "text-4xl font-black tracking-tighter",
-                      isOverSpeeding ? "text-red-500" : "text-foreground"
-                    )}>
-                      {speed}
-                    </span>
-                    <span className="text-sm font-bold text-muted-foreground/40">km/h</span>
+          <div
+            className={cn(
+              "relative border rounded-lg p-3 shadow-sm min-h-[110px] flex flex-col justify-between overflow-hidden transition-all duration-200",
+              hasCriticalAlerts
+                ? "bg-red-50/50 border-red-200/50"
+                : hasAnyAlerts
+                  ? "bg-amber-50/30 border-amber-200/40"
+                  : "bg-card border-border/50",
+            )}
+          >
+            <div className="flex justify-between items-start relative z-10 gap-3">
+              <div className="space-y-2.5 flex-1 min-w-0">
+                {/* Current Speed */}
+                <div className="space-y-0.5">
+                  <div className="text-[8px] font-semibold text-muted-foreground/50 uppercase tracking-wide leading-none">
+                    Velocidad
                   </div>
-                </div>
-
-                <div className={cn(
-                  "h-14 w-14 rounded-full border-4 flex flex-col items-center justify-center shadow-lg bg-background",
-                  isOverSpeeding ? "border-red-500" : "border-primary"
-                )}>
-                  <span className="text-[8px] font-black text-muted-foreground leading-none">LIMIT</span>
-                  <span className="text-xl font-black text-foreground">{displaySpeedLimit || "--"}</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 pt-4 border-t border-border/5">
-                <div className="h-8 w-8 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
-                  <MapPin className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Ubicación</span>
-                  <p className={cn(
-                    "text-[12px] font-bold text-foreground/80 leading-snug mt-0.5 truncate",
-                    isLoadingAddress && "animate-pulse"
-                  )}>
-                    {metrics?.address || address || "Detectando dirección..."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Energy Level */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pl-1">
-              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Estado del Sistema</h3>
-              <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground/60" />
-            </div>
-            <div className="bg-muted/10 border border-border/15 rounded-2xl p-5">
-              <div className="flex justify-between items-end mb-3">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "h-10 w-10 rounded-xl flex items-center justify-center",
-                    isElectric ? "bg-blue-500/10 text-blue-600" : "bg-orange-500/10 text-orange-600"
-                  )}>
-                    {isElectric ? <Battery className="h-5 w-5" /> : <Fuel className="h-5 w-5" />}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
-                      {isElectric ? "Batería" : "Combustible"}
-                    </span>
-                    <span className="text-2xl font-black text-foreground tracking-tighter">
-                      {energyLevel}<span className="text-sm font-bold text-muted-foreground/40 ml-1">%</span>
+                  <div
+                    className={cn(
+                      "text-2xl font-bold tracking-tight leading-none",
+                      "text-foreground",
+                    )}
+                  >
+                    {speed}
+                    <span className="text-[10px] font-medium text-muted-foreground/40 ml-0.5">
+                      km/h
                     </span>
                   </div>
                 </div>
-                <Badge className={cn(
-                  "border-none text-[9px] font-black px-2 py-0",
-                  energyLevel > 20 ? "bg-emerald-500 text-white" : "bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.4)]"
-                )}>
-                  {energyLevel > 20 ? "ÓPTIMO" : "BAJO"}
-                </Badge>
+
+                {/* Integrated Location */}
+                <div className="space-y-0.5">
+                  <div className="text-[8px] font-semibold text-muted-foreground/50 uppercase tracking-wide leading-none">
+                    Ubicación
+                  </div>
+                  <div
+                    className={cn(
+                      "text-[10px] font-medium text-foreground leading-tight truncate transition-opacity duration-300",
+                      isLoadingAddress
+                        ? "opacity-50 animate-pulse"
+                        : "opacity-100",
+                    )}
+                  >
+                    {metrics?.address ||
+                      address ||
+                      (isLoadingAddress
+                        ? "Consultando..."
+                        : speed > 0
+                          ? "Detectando vía..."
+                          : "Sin movimiento")}
+                  </div>
+                </div>
               </div>
-              <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
+
+              {/* Speed Limit Sign */}
+              <div className="flex flex-col items-end shrink-0">
+                <div className="text-[8px] font-semibold text-muted-foreground/50 uppercase tracking-wide leading-none mb-0.5">
+                  Límite
+                </div>
                 <div
                   className={cn(
-                    "h-full rounded-full",
-                    isElectric ? "bg-blue-500" : "bg-orange-500"
+                    "relative inline-flex items-center justify-center h-9 w-9 rounded-full border-2 bg-white shadow-sm",
+                    isOverSpeeding ? "border-red-600" : "border-blue-600",
                   )}
-                  style={{ width: `${energyLevel}%` }}
-                />
+                >
+                  <span className="text-sm font-bold text-zinc-900 leading-none">
+                    {displaySpeedLimit || "--"}
+                  </span>
+                </div>
               </div>
             </div>
+            <Zap
+              className={cn(
+                "absolute -top-3 -right-3 h-14 w-14 opacity-[0.02] rotate-12",
+                "text-primary",
+              )}
+            />
           </div>
+        </div>
 
-          {/* Operator Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pl-1">
-              <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Operador Asignado</h3>
-              <Users className="h-3.5 w-3.5 text-muted-foreground/60" />
+        {/* Simplified Data Grid (Energy Only) */}
+        <div className="space-y-1.5">
+          <h3 className="text-[9px] font-bold text-muted-foreground/50 flex items-center gap-1 uppercase tracking-wider pl-0.5">
+            <Activity className="h-3 w-3" /> Telemetría
+          </h3>
+          <div className="bg-card border border-border/50 rounded-lg p-3 shadow-sm space-y-2 group hover:border-primary/20 transition-all">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[9px] uppercase tracking-wide opacity-70">
+                {isElectric ? (
+                  <Battery className="h-3 w-3 text-blue-500" />
+                ) : (
+                  <Fuel className="h-3 w-3 text-orange-500" />
+                )}
+                {isElectric ? "Batería" : "Combustible"}
+              </div>
+              <div className="flex items-baseline gap-0.5">
+                <span
+                  className={cn(
+                    "text-base font-bold tracking-tight",
+                    energyLevel < 20 ? "text-red-500" : "text-foreground",
+                  )}
+                >
+                  {energyLevel}
+                </span>
+                <span className="text-[9px] text-muted-foreground/60 font-semibold">
+                  %
+                </span>
+              </div>
             </div>
-            <div className="bg-muted/10 border border-border/15 rounded-2xl p-5">
-              {vehicle?.driver ? (
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 rounded-2xl bg-muted/20 border-2 border-background shadow-md overflow-hidden shrink-0">
-                    {vehicle.driver.imageUrl ? (
-                      <img src={vehicle.driver.imageUrl} alt={vehicle.driver.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-primary/5">
-                        <Users className="h-6 w-6 text-primary/40" />
+            <Progress
+              value={energyLevel}
+              className={cn(
+                "h-1.5 bg-muted/50 rounded-full",
+                isElectric ? "[&>div]:bg-blue-500" : "[&>div]:bg-orange-500",
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Route Controls Section (Restored) */}
+        <div className="space-y-1.5">
+          <h3 className="text-[9px] font-bold text-muted-foreground/50 flex items-center gap-1 uppercase tracking-wider pl-0.5">
+            <Route className="h-3 w-3" /> Gestión de Ruta
+          </h3>
+          <div className="bg-card border border-border/50 rounded-lg p-3 shadow-sm space-y-3 group hover:border-primary/20 transition-all">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-foreground/70 uppercase">Paradas Activas</span>
+                <Badge variant="outline" className="text-[8px] border-primary/10 text-primary">{assignedJobs.length}</Badge>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-[10px] font-bold uppercase tracking-wider h-8 rounded-lg border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 transition-all gap-2"
+                onClick={() => setIsAddStopOpen?.(true)}
+              >
+                <Plus className="h-3 w-3" />
+                Añadir Parada Manual
+              </Button>
+
+              {customStops.length > 0 && (
+                <div className="mt-1 space-y-1">
+                  <p className="text-[8px] font-black uppercase text-muted-foreground/40 tracking-widest px-1">Paradas Personalizadas</p>
+                  {customStops.map((stop) => (
+                    <div key={stop.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md border border-border/10">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin className="h-3 w-3 text-orange-500 shrink-0" />
+                        <span className="text-[10px] font-bold truncate text-foreground/80 lowercase first-letter:uppercase">{stop.label}</span>
                       </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-[13px] font-black text-foreground truncate">{vehicle.driver.name}</h4>
-                      <Badge variant="outline" className="text-[8px] font-black border-primary/20 text-primary">
-                        {vehicle.driver.licenseType || "CAT. B"}
-                      </Badge>
+                      <Badge className="text-[7px] h-3.5 px-1 bg-orange-100 text-orange-700 border-none uppercase font-black">Manual</Badge>
                     </div>
-                    <div className="flex items-center gap-4 mt-2">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-[10px] font-bold text-muted-foreground">{vehicle.driver.onTimeDeliveryRate}% Score</span>
-                      </div>
-                      {vehicle.driver.speedingEvents && vehicle.driver.speedingEvents.length > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <AlertTriangle className="h-3 w-3 text-red-500" />
-                          <span className="text-[10px] font-black text-red-600">
-                            {vehicle.driver.speedingEvents.length} Incid.
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Driver Section */}
+        <div className="space-y-1.5">
+          <h3 className="text-[9px] font-bold text-muted-foreground/50 flex items-center gap-1 uppercase tracking-wider pl-0.5">
+            <Users className="h-3 w-3" /> Conductor
+          </h3>
+          <div className="bg-card border border-border/50 rounded-lg p-3 shadow-sm group hover:border-primary/20 transition-all">
+            {vehicle?.driver ? (
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-lg bg-primary/5 flex items-center justify-center overflow-hidden shrink-0">
+                  {vehicle.driver.imageUrl ? (
+                    <img
+                      src={vehicle.driver.imageUrl}
+                      alt={vehicle.driver.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Users className="h-4 w-4 text-primary/40" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold truncate">
+                      {vehicle.driver.name}
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className="text-[8px] uppercase font-semibold px-1.5 h-4 border-primary/20 text-primary"
+                    >
+                      {vehicle.driver.licenseType || "Cat. B"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-0.5">
+                      <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                      <span className="text-[9px] font-medium text-muted-foreground">
+                        {vehicle.driver.onTimeDeliveryRate}% puntual
+                      </span>
+                    </div>
+                    {vehicle.driver.speedingEvents &&
+                      vehicle.driver.speedingEvents.length > 0 && (
+                        <div className="flex items-center gap-0.5">
+                          <AlertTriangle className="h-2.5 w-2.5 text-orange-500" />
+                          <span className="text-[9px] font-medium text-orange-500">
+                            {vehicle.driver.speedingEvents.length} Exc.
                           </span>
                         </div>
                       )}
-                    </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/5 rounded-lg shrink-0"
-                    onClick={() => onAssignDriver?.(vehicle.id, null)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center gap-4 py-4">
-                  <div className="h-16 w-16 bg-muted/5 rounded-[2rem] flex items-center justify-center border-2 border-dashed border-border/20">
-                    <UserPlus className="h-6 w-6 text-muted-foreground/30" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Sin operador asignado</p>
-                    <p className="text-[11px] font-bold text-muted-foreground/50">Vincule un conductor para iniciar operaciones</p>
-                  </div>
-                  <Button
-                    onClick={() => setIsAssignDialogOpen(true)}
-                    className="mt-2 w-full bg-primary/10 hover:bg-primary/20 text-primary border-none font-black text-[10px] uppercase tracking-widest h-10 rounded-xl"
-                  >
-                    Asignar Conductor
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Improved Route List */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pl-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Hoja de Ruta</h3>
-                <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[8px] font-black px-1.5">
-                  {completedJobs}/{realJobs.length} OK
-                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => onAssignDriver?.(vehicle.id, null)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
               </div>
-              <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black text-primary hover:bg-primary/5 rounded-lg" onClick={() => setIsAddStopOpen?.(true)}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> PARADA
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-[10px] font-bold uppercase tracking-wider h-8 rounded-lg border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 transition-all gap-2"
+                onClick={() => setIsAssignDriverOpen(true)}
+              >
+                <Plus className="h-3 w-3" />
+                Asignar Conductor
               </Button>
-            </div>
-            <div className="bg-muted/10 border border-border/15 rounded-2xl overflow-hidden">
-              {assignedJobs.length === 0 ? (
-                <div className="p-10 text-center flex flex-col items-center gap-2">
-                  <Map className="h-10 w-10 text-muted-foreground/10" />
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sin paradas activas</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border/5">
-                  {assignedJobs.map((job, idx) => (
-                    <div key={job.id} className="p-4 flex items-center gap-4 hover:bg-muted/10">
-                      <div className={cn(
-                        "h-7 w-7 rounded-full flex items-center justify-center border-2 text-[11px] font-black shrink-0",
-                        job.status === "completed" ? "bg-emerald-500 border-emerald-500 text-white" : "border-border/30 text-muted-foreground"
-                      )}>
-                        {job.status === "completed" ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-black text-foreground truncate">{job.label}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[9px] font-bold text-muted-foreground flex items-center gap-1">
-                            <Clock className="h-3 w-3 opacity-40" /> {job.estimatedArrival || "--:--"}
-                          </span>
-                          <span className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 truncate">
-                            <MapPin className="h-3 w-3 opacity-40" /> {job.address || "Dirección..."}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
           </div>
-
-          {/* Security History */}
-          {vehicleLogs.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pl-1">
-                <h3 className="text-[10px] font-black text-red-600/50 uppercase tracking-[0.2em]">Historial de Seguridad</h3>
-                <button onClick={() => clearVehicleLogs(vehicle.id)} className="text-[9px] font-bold text-red-600/40 hover:text-red-600">LIMPIAR</button>
-              </div>
-              <div className="bg-red-500/[0.02] border border-red-500/20 rounded-2xl overflow-hidden">
-                <div className="divide-y divide-red-500/5">
-                  {vehicleLogs.map((log, idx) => (
-                    <div key={log.id + idx} className="p-4 flex items-start gap-3 hover:bg-red-500/[0.02]">
-                      <div className={cn(
-                        "h-2 w-2 rounded-full mt-1.5 shrink-0",
-                        log.severity === "critical" ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-orange-500"
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-black text-foreground">{log.alertTitle}</p>
-                        <p className="text-[10px] font-bold text-muted-foreground mt-0.5 leading-snug">{log.message}</p>
-                        <time className="text-[9px] font-bold text-muted-foreground/40 mt-1.5 block uppercase tracking-tighter">
-                          {new Date(log.timestamp).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' })} • {new Date(log.timestamp).toLocaleDateString("es-ES", { day: 'numeric', month: 'short' })}
-                        </time>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
         </div>
-      </ScrollArea>
-
-      <AssignDriverDialog
-        open={isAssignDialogOpen}
-        onOpenChange={setIsAssignDialogOpen}
-        drivers={drivers}
-        vehicleLabel={vehicle.label}
-        onAssign={(driver) => {
-          onAssignDriver?.(vehicle.id, driver);
-          setIsAssignDialogOpen(false);
-        }}
-      />
+      </div>
 
       {vehicle && (
         <AddStopDialog
@@ -465,12 +446,21 @@ export function VehicleDetailSheet({
             onAddStopSubmit ||
             ((pos, lbl) => {
               addStopToVehicle?.(vehicle.id, pos, lbl);
-              setIsAddStopOpen?.(false);
+              setIsAddStopOpen?.(false); // Close dialog after adding
               setTimeout(() => startRouting?.(), 500);
             })
           }
         />
       )}
+      {vehicle && (
+        <AssignDriverDialog
+          open={isAssignDriverOpen}
+          onOpenChange={setIsAssignDriverOpen}
+          drivers={drivers}
+          vehicleLabel={vehicle.label}
+          onAssign={(driver) => onAssignDriver?.(vehicle.id, driver)}
+        />
+      )}
     </div>
   );
-}
+});
