@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { repository } from "@/lib/db";
+import { DriverService } from "@/lib/services/driver-service";
 import { FetchError } from "@/lib/types";
 
 export async function GET() {
   try {
-    const drivers = await repository.getDrivers();
+    const drivers = await DriverService.getAllDrivers();
     return NextResponse.json({ success: true, data: drivers });
   } catch (err) {
     const error = err as FetchError;
@@ -21,38 +21,22 @@ export async function POST(req: NextRequest) {
 
     // Special action to clear all driver assignments
     if (body.action === "clear-assignments") {
-      const drivers = await repository.getDrivers();
-      const updates = drivers.map((driver) =>
-        repository.updateDriver(driver.id, {
-          isAvailable: true,
-          currentVehicleId: null,
-        }),
-      );
-      await Promise.all(updates);
+      const data = await DriverService.clearAssignments();
       return NextResponse.json({
         success: true,
         message: "All driver assignments cleared",
-        data: await repository.getDrivers(),
+        data,
       });
     }
 
-    // Regular driver creation
-    // BACKEND VALIDATION: New drivers must start with no vehicle assignment
-    if (body.currentVehicleId && body.currentVehicleId !== null) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "New drivers cannot be created with an existing vehicle assignment. Drivers start available with no assignment.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const driver = await repository.addDriver(body);
+    const driver = await DriverService.createDriver(body);
     return NextResponse.json({ success: true, data: driver });
   } catch (err) {
     const error = err as FetchError;
+    // Handle validation errors from service
+    if (error.message.includes("New drivers cannot be created") || error.message.includes("Invalid vehicle ID")) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },

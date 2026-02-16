@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { repository } from "@/lib/db";
+import { DriverService } from "@/lib/services/driver-service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await repository.logSpeeding(driverId, {
-      speed: Number(speed),
-      limit: Number(limit),
-      latitude: Number(latitude),
-      longitude: Number(longitude),
+    await DriverService.logSpeeding(driverId, {
+      speed,
+      limit,
+      latitude,
+      longitude,
     });
 
     return NextResponse.json({ success: true });

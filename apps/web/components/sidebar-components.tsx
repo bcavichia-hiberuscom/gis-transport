@@ -21,18 +21,22 @@ import { cn } from "@/lib/utils";
 
 // --- SidebarLogo ---
 export const SidebarLogo = memo(
-  () => {
-    const Icon = React.useMemo(
-      () => <MapPin className="h-5 w-5 text-primary" />,
-      [],
-    );
+  ({ onClick }: { onClick?: () => void }) => {
     return (
-      <div className="h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center mb-1">
-        {Icon}
-      </div>
+      <button
+        onClick={onClick}
+        className="h-10 w-10 bg-white rounded-full flex items-center justify-center mb-2 overflow-hidden border border-border/20 shadow-md hover:scale-110 active:scale-95 transition-all group relative shrink-0"
+        title="Reset Vista"
+      >
+        <img
+          src="/brand-logo.png"
+          alt="Logo"
+          className="h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </button>
     );
   },
-  () => true,
 );
 SidebarLogo.displayName = "SidebarLogo";
 

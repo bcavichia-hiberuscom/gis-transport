@@ -8,12 +8,13 @@
 
 import { NextResponse } from "next/server";
 import { RoadService } from "@/lib/services/road-service";
+import { VehicleTrackingService } from "@/lib/services/vehicle-tracking-service";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const selectedVehicleId = searchParams.get("vehicleId");
 
-  if (!global.gpsSimulation || !global.gpsSimulation.isRunning) {
+  if (!VehicleTrackingService.isRunning()) {
     return NextResponse.json({
       positions: {},
       metrics: {},
@@ -24,16 +25,20 @@ export async function GET(request: Request) {
   const positions: Record<string, [number, number]> = {};
   const metrics: Record<string, any> = {};
 
+  const allPositions = VehicleTrackingService.getAllPositions();
+  const allTelemetry = VehicleTrackingService.getAllTelemetry();
+  const completedJobs = VehicleTrackingService.getCompletedJobs();
+
   // Process read-only snapshot
-  const updates = Object.entries(global.gpsSimulation.positions).map(
+  const updates = Object.entries(allPositions).map(
     async ([vehicleId, data]) => {
-      const tel = global.gpsSimulation!.telemetry?.[vehicleId];
+      const tel = allTelemetry[vehicleId];
 
       if (tel) {
         positions[vehicleId] = data.coords;
 
         // Calculate speed first
-        const isMoving = global.gpsSimulation!.isRunning;
+        const isMoving = VehicleTrackingService.isRunning();
         const speed = isMoving ? Math.round(40 + Math.random() * 40) : 0;
 
         // Fetch road info ONLY for the selected vehicle AND if it's moving
@@ -74,7 +79,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     positions,
     metrics,
-    completedJobs: Array.from(global.gpsSimulation.completedJobs || []),
+    completedJobs: Array.from(completedJobs),
     timestamp: Date.now(),
   });
 }

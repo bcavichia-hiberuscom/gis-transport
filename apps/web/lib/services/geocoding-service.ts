@@ -1,8 +1,9 @@
 import { NominatimResult, GeocodingResult } from "@/lib/types";
+import { TIMEOUTS } from "@/lib/config";
 
 export class GeocodingService {
     private static readonly USER_AGENT = "GIS-Transport-Demo/1.0";
-    private static readonly TIMEOUT = 5000;
+    private static readonly TIMEOUT = TIMEOUTS.GEOCODE;
     private static reverseCache = new Map<string, { address: string; timestamp: number }>();
     private static readonly CACHE_TTL = 3600000; // 1 hour
 
@@ -16,10 +17,11 @@ export class GeocodingService {
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
                     query
-                )}&limit=10&addressdetails=1`,
+                )}&countrycodes=es&limit=10&addressdetails=1`,
                 {
                     headers: { "User-Agent": this.USER_AGENT },
                     signal: AbortSignal.timeout(this.TIMEOUT),
+                    next: { revalidate: 3600 },
                 }
             );
 
@@ -38,12 +40,22 @@ export class GeocodingService {
                 const road = item.address?.road;
                 const housenumber = item.address?.house_number;
 
+                // Construir un nombre descriptivo
+                let displayName = item.display_name;
+                if (city && road && housenumber) {
+                    displayName = `${road} ${housenumber}, ${city}`;
+                } else if (city && road) {
+                    displayName = `${road}, ${city}`;
+                } else if (city) {
+                    displayName = city;
+                }
+
                 return {
                     point: {
                         lat: Number.parseFloat(item.lat),
                         lng: Number.parseFloat(item.lon),
                     },
-                    name: item.display_name,
+                    name: displayName,
                     country: item.address?.country || "Spain",
                     city,
                     state: item.address?.state,
