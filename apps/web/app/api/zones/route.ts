@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { repository } from "@/lib/db";
+import { ZoneService } from "@/lib/services/zone-service";
 import { extractParams } from "@/app/helpers/api-helpers";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const { lat, lon, radius, limit } = result.params;
 
   try {
-    const allZones = await repository.getZones(lat, lon, radius);
+    const allZones = await ZoneService.getZones(lat, lon, radius);
     const zones = allZones.slice(0, limit);
 
     console.log(

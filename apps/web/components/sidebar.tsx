@@ -132,6 +132,7 @@ interface NavigationRailProps {
   isExpanded: boolean;
   onSetTab: (tab: SidebarTab) => void;
   onToggleExpand: () => void;
+  onReset?: () => void;
   totalAlerts: number;
 }
 
@@ -141,10 +142,11 @@ const NavigationRail = memo(
     isExpanded,
     onSetTab,
     onToggleExpand,
+    onReset,
     totalAlerts,
   }: NavigationRailProps) => (
     <div className="w-14 h-full bg-background/95 backdrop-blur-md border border-border/30 rounded-2xl flex flex-col items-center py-4 gap-3 shadow-lg pointer-events-auto z-[1002] transition-all duration-200">
-      <SidebarLogo />
+      <SidebarLogo onClick={onReset} />
 
       <NavigationButton
         tabId="fleet"
@@ -685,6 +687,8 @@ export const Sidebar = memo(
     cancelAddMode,
     startRouting,
     isCalculatingRoute = false,
+    setMapCenter,
+    addJob,
     customPOIs = [],
     removeCustomPOI,
     clearAllCustomPOIs,
@@ -814,6 +818,15 @@ export const Sidebar = memo(
       return count;
     }, [vehicleAlerts]);
 
+    const handleReset = useCallback(() => {
+      // Reposicionamiento al centro de Madrid (punto de inicio)
+      setMapCenter([40.4168, -3.7038]);
+      // Cerrar sidebar y estados de selección
+      setIsExpanded(false);
+      setSelectedVehicleId(null);
+      setSelectedDriverId(null);
+    }, [setMapCenter, setSelectedVehicleId]);
+
     return (
       <div className="fixed left-3 top-3 z-[1000] flex max-h-[calc(100vh-1.5rem)]">
         <NavigationRail
@@ -821,6 +834,7 @@ export const Sidebar = memo(
           isExpanded={finalIsExpanded}
           onSetTab={setActiveTab}
           onToggleExpand={handleToggleExpand}
+          onReset={handleReset}
           totalAlerts={totalAlerts}
         />
 
