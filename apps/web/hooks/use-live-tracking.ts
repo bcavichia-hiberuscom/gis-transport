@@ -1,15 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { RouteData, VehicleRoute } from "@/lib/types";
-import { VehicleMetrics, FleetVehicle, FleetJob } from "@gis/shared";
+import { VehicleMetrics, FleetVehicle } from "@gis/shared";
 
 interface UseLiveTrackingProps {
   routeData: RouteData | null;
   selectedVehicleId: string | number | null;
   updateVehiclePosition: (vehicleId: string, coords: [number, number]) => void;
   updateVehicleMetrics: (vehicleId: string, metrics: VehicleMetrics) => void;
-  updateJobStatus: (jobId: string | number, status: FleetJob["status"]) => void;
   fleetVehicles: FleetVehicle[];
-  fleetJobs: FleetJob[];
 }
 
 export function useLiveTracking({
@@ -17,9 +15,7 @@ export function useLiveTracking({
   selectedVehicleId,
   updateVehiclePosition,
   updateVehicleMetrics,
-  updateJobStatus,
   fleetVehicles,
-  fleetJobs,
 }: UseLiveTrackingProps) {
   const [isTracking, setIsTracking] = useState(false);
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -30,10 +26,8 @@ export function useLiveTracking({
   const routeDataRef = useRef(routeData);
   const updateVehiclePositionRef = useRef(updateVehiclePosition);
   const updateVehicleMetricsRef = useRef(updateVehicleMetrics);
-  const updateJobStatusRef = useRef(updateJobStatus);
   const selectedVehicleIdRef = useRef(selectedVehicleId);
   const fleetVehiclesRef = useRef(fleetVehicles);
-  const fleetJobsRef = useRef(fleetJobs);
 
   // Keep refs in sync
   useEffect(() => {
@@ -49,17 +43,11 @@ export function useLiveTracking({
     updateVehicleMetricsRef.current = updateVehicleMetrics;
   }, [updateVehicleMetrics]);
   useEffect(() => {
-    updateJobStatusRef.current = updateJobStatus;
-  }, [updateJobStatus]);
-  useEffect(() => {
     selectedVehicleIdRef.current = selectedVehicleId;
   }, [selectedVehicleId]);
   useEffect(() => {
     fleetVehiclesRef.current = fleetVehicles;
   }, [fleetVehicles]);
-  useEffect(() => {
-    fleetJobsRef.current = fleetJobs;
-  }, [fleetJobs]);
 
   const fetchPositions = useCallback(async () => {
     const updatePos = updateVehiclePositionRef.current;
@@ -91,15 +79,6 @@ export function useLiveTracking({
         if (data.metrics) {
           Object.entries(data.metrics).forEach(([vid, metrics]) => {
             updateMet(vid, metrics as VehicleMetrics);
-          });
-        }
-
-        if (data.completedJobs && Array.isArray(data.completedJobs)) {
-          if (data.completedJobs.length > 0) {
-            console.log("[useLiveTracking] Completed jobs received from server:", data.completedJobs);
-          }
-          data.completedJobs.forEach((jobId: string) => {
-            updateJobStatusRef.current(jobId, "completed");
           });
         }
       }
@@ -143,11 +122,7 @@ export function useLiveTracking({
       fetch("/api/gps/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          routes: simulationData,
-          jobs: fleetJobsRef.current,
-          action: "update"
-        }),
+        body: JSON.stringify({ routes: simulationData, action: "update" }),
       }).catch((err) => console.error("Failed to update simulation:", err));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,11 +159,7 @@ export function useLiveTracking({
         fetch("/api/gps/simulate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            routes: simulationData,
-            jobs: fleetJobsRef.current,
-            action: "start"
-          }),
+          body: JSON.stringify({ routes: simulationData, action: "start" }),
         }).catch((err) => console.error("Failed to start simulation:", err));
       }
 
