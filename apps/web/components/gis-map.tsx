@@ -235,14 +235,12 @@ export function GISMap() {
     [updateVehicleMetrics],
   );
 
-  const { isTracking, toggleTracking, setIsTracking } = useLiveTracking({
+  const { isTracking, toggleTracking } = useLiveTracking({
     routeData,
     selectedVehicleId,
     updateVehiclePosition: handleUpdateVehiclePosition,
     updateVehicleMetrics: handleUpdateVehicleMetrics,
-    updateJobStatus,
     fleetVehicles,
-    fleetJobs,
   });
 
   // Alert monitoring (includes speeding persistence)
