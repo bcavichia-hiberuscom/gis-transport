@@ -11,6 +11,7 @@ import {
   TileLayer,
   Marker,
   ZoomControl,
+  Popup,
 } from "react-leaflet";
 import type {
   RouteData,
@@ -68,7 +69,6 @@ interface MapContainerProps {
   fleetVehicles?: FleetVehicle[];
   fleetJobs?: FleetJob[];
   selectedVehicleId?: string | null;
-  pickedPOICoords?: [number, number] | null;
   pickedJobCoords?: [number, number] | null;
   zonePoints?: [number, number][]; // For zone drawing preview
   zoneIsClosed?: boolean; // Whether zone polygon has been explicitly closed
@@ -88,6 +88,9 @@ interface MapContainerProps {
   ) => void;
   onVehicleHoverOut?: () => void;
   toggleLayer?: (layer: keyof LayerVisibility) => void;
+  hiddenZones?: string[];
+  onToggleZoneVisibility?: (zoneId: string) => void;
+  onDeleteZone?: (zoneId: string) => void;
 }
 
 export default function MapContainer({
@@ -109,7 +112,6 @@ export default function MapContainer({
   fleetJobs,
   selectedVehicleId,
   onMapClick,
-  pickedPOICoords,
   pickedJobCoords,
   zonePoints = [],
   zoneIsClosed = false,
@@ -125,6 +127,9 @@ export default function MapContainer({
   onVehicleSelect,
   onVehicleHover,
   onVehicleHoverOut,
+  hiddenZones = [],
+  onToggleZoneVisibility,
+  onDeleteZone,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
@@ -199,8 +204,9 @@ export default function MapContainer({
         description: zone.description,
         requiredTags: zone.requiredTags,
         isCustom: true,
-      }));
-  }, [customPOIs]);
+      }))
+      .filter((zone) => !hiddenZones.includes(zone.id));
+  }, [customPOIs, hiddenZones]);
 
   const renderedJobs = useMemo(() => {
     return renderJobMarkers({
@@ -234,7 +240,6 @@ export default function MapContainer({
         maxZoom={16}
         preferCanvas={true}
       >
-        <ZoomControl position="topright" />
         <TileLayer attribution={MAP_ATTRIBUTION} url={MAP_TILE_URL} />
 
         <MapCenterHandler center={mapCenter} />
@@ -262,6 +267,9 @@ export default function MapContainer({
           isInteracting={isInteracting}
           canAccessZone={canAccessZone}
           onEditZone={onEditZone}
+          onDeleteZone={onDeleteZone}
+          hiddenZones={hiddenZones}
+          onToggleVisibility={onToggleZoneVisibility}
         />
 
         {/* Custom Zones Layer - renders custom zones with same behavior as LEZ */}
@@ -271,9 +279,11 @@ export default function MapContainer({
           isInteracting={isInteracting}
           canAccessZone={canAccessZone}
           onEditZone={onEditZone}
+          onDeleteZone={onDeleteZone}
+          hiddenZones={hiddenZones}
+          onToggleVisibility={onToggleZoneVisibility}
         />
 
-        {/* Zone Drawing Preview - shows polygon being created */}
         <ZoneDrawingPreview
           points={zonePoints}
           visible={interactionMode === "pick-zone"}
@@ -282,6 +292,33 @@ export default function MapContainer({
           onRemovePoint={onRemoveZonePoint}
           onUpdatePoint={onUpdateZonePoint}
         />
+
+        {/* Floating Confirmation Tooltip on Map */}
+        {interactionMode === "pick-zone" && zonePoints.length >= 3 && (
+          <Popup
+            position={zonePoints[zonePoints.length - 1]}
+            closeButton={false}
+            offset={[0, -10]}
+          >
+            <div className="p-1 flex flex-col items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground text-center leading-tight">
+                ¿Finalizar diseño <br /> de la zona?
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // The Confirm handler is passed from GISMap
+                  if ((window as any).confirmZoneDrawing) {
+                    (window as any).confirmZoneDrawing();
+                  }
+                }}
+                className="w-full py-1.5 px-3 bg-primary text-white text-[10px] font-bold rounded-lg shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+              >
+                Confirmar Zona
+              </button>
+            </div>
+          </Popup>
+        )}
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
           <>
@@ -317,9 +354,6 @@ export default function MapContainer({
           icons={{ snow, rain, ice, wind, fog }}
         />
 
-        {pickedPOICoords && (
-          <Marker position={pickedPOICoords} icon={picking} />
-        )}
         {pickedJobCoords && (
           <Marker position={pickedJobCoords} icon={picking} />
         )}

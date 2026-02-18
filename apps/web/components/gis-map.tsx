@@ -9,10 +9,14 @@ import { Truck } from "lucide-react";
 // UI Components
 import { Sidebar } from "@/components/sidebar";
 
-import { GISMapToolbar } from "@/components/gis-map-toolbar";
 import { GISMapDialogs } from "@/components/gis-map-dialogs";
 import { GISMapPanels } from "@/components/gis-map-panels";
 import { GISMapPopup } from "@/components/gis-map-popup";
+
+// Dashboard Monitoring Components
+import { MapMonitoringSidebar } from "@/components/dashboard/map-monitoring-sidebar";
+import { MapTrackingStatusBar } from "@/components/dashboard/map-tracking-status-bar";
+import { MapLayersOverlay } from "@/components/dashboard/map-layers-overlay";
 
 // Custom Hooks
 import { useGISState } from "@/hooks/use-gis-state";
@@ -33,6 +37,12 @@ import { useJobCoordination } from "@/hooks/use-job-coordination";
 import { useMapCoordination } from "@/hooks/use-map-coordination";
 import { useDialogCoordination } from "@/hooks/use-dialog-coordination";
 import { useZoneDrawing } from "@/hooks/use-zone-drawing";
+
+// Dashboard Components
+import { Dashboard, type DashboardModule } from "@/components/dashboard/dashboard";
+import { DriversTab } from "./drivers-tab";
+import { DriverDetailsSheet } from "./driver-details-sheet";
+import { FuelDetailsSheet } from "./fuel-details-sheet";
 
 // Types
 import type {
@@ -125,6 +135,7 @@ export function GISMap() {
   // Map layers management
   const { layers, setLayers, toggleLayer } = useMapLayers();
 
+
   // Vehicle popup management
   const {
     vehiclePopupData,
@@ -185,6 +196,15 @@ export function GISMap() {
     addCustomZone,
     updateCustomPOI,
   });
+
+  // Expose confirmZoneDrawing to window for map popup access
+  // This is needed for the Leaflet popup "Confirmar" button
+  useEffect(() => {
+    (window as any).confirmZoneDrawing = handleConfirmZoneDrawing;
+    return () => {
+      delete (window as any).confirmZoneDrawing;
+    };
+  }, [handleConfirmZoneDrawing]);
 
   // Combine API zones with custom zones for routing
   const combinedActiveZones = useMemo(() => {
@@ -304,9 +324,7 @@ export function GISMap() {
     isDrawingZone,
   });
 
-  // Dialog coordination (open/close dialogs)
   const {
-    handleSetFleetMode,
     handleSetShowCustomPOIs,
     handleSetIsAddCustomPOIOpen,
     handleOpenAddCustomPOIChange,
@@ -316,6 +334,24 @@ export function GISMap() {
     interactionMode: state.interactionMode,
     isDrawingZone,
   });
+
+  // Dashboard State
+  const [activeModule, setActiveModule] = useState<DashboardModule>("map");
+
+  const handleModuleChange = useCallback(
+    (module: DashboardModule) => {
+      setActiveModule(module);
+    },
+    [],
+  );
+
+  // Sync with sidebar navigation (legacy support for deep links)
+  useEffect(() => {
+    if (sidebarNavigateTab) {
+      if (sidebarNavigateTab === "drivers") setActiveModule("drivers");
+      else setActiveModule("map");
+    }
+  }, [sidebarNavigateTab]);
 
   // Get selected vehicle object
   const selectedVehicleObject = useMemo(() => {
@@ -360,14 +396,6 @@ export function GISMap() {
     [dispatch],
   );
 
-  const handleAddCustomPOISubmit = useCallback(
-    (name: string, coords: [number, number], desc?: string) => {
-      addCustomPOI(name, coords, desc);
-      dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
-      dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
-    },
-    [addCustomPOI],
-  );
 
   const handleOpenAddStopChange = useCallback(
     (open: boolean) => {
@@ -434,6 +462,7 @@ export function GISMap() {
 
   const handleDriverDetailsClose = useCallback(() => {
     dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false });
+    dispatch({ type: "SET_SELECTED_DRIVER", payload: null });
   }, [dispatch]);
 
   const handleCloseVehiclePropertiesPanel = useCallback(() => {
@@ -485,68 +514,8 @@ export function GISMap() {
   ]);
 
   return (
-    <div className="relative flex h-full w-full">
-      <Sidebar
-        layers={layers}
-        setMapCenter={handleSetMapCenter}
-        toggleLayer={toggleLayer}
-        selectedVehicle={state.selectedVehicle}
-        setSelectedVehicle={handleSetSelectedVehicle}
-        fleetMode={state.fleetMode}
-        setFleetMode={handleSetFleetMode}
-        clearFleet={handleClearAll}
-        fleetVehicles={fleetVehicles}
-        fleetJobs={fleetJobs}
-        selectedVehicleId={selectedVehicleId}
-        setSelectedVehicleId={handleSelectVehicleIdOnly}
-        highlightVehicleOnly={handleHighlightVehicleOnly}
-        vehicleAlerts={vehicleAlerts}
-        addVehicle={handleAddVehicle}
-        addJob={handleAddJob}
-        addStopToVehicle={addStopToVehicle}
-        addJobDirectly={handleAddJobDirectly}
-        removeVehicle={handleRemoveVehicle}
-        removeJob={handleRemoveJob}
-        addMode={computedAddMode}
-        cancelAddMode={handleCancelAddMode}
-        startRouting={startRouting}
-        isCalculatingRoute={isCalculatingRoute}
-        customPOIs={customPOIs}
-        removeCustomPOI={removeCustomPOI}
-        clearAllCustomPOIs={clearAllCustomPOIs}
-        showCustomPOIs={state.showCustomPOIs}
-        setShowCustomPOIs={handleSetShowCustomPOIs}
-        onEditZone={handleEditZone}
-        isAddCustomPOIOpen={state.isAddCustomPOIOpen}
-        setIsAddCustomPOIOpen={handleSetIsAddCustomPOIOpen}
-        isAddJobOpen={state.isAddJobOpen}
-        drivers={drivers}
-        isLoadingDrivers={isLoadingDrivers}
-        fetchDrivers={fetchDrivers}
-        addDriver={addDriver}
-        onAssignDriver={handleAssignDriver}
-        setIsAddJobOpen={handleSetIsAddJobOpen}
-        isLoadingVehicles={isLoadingVehicles}
-        fetchVehicles={fetchVehicles}
-        isTracking={isTracking}
-        toggleTracking={toggleTracking}
-        hasRoute={hasRoute}
-        isAddStopOpen={state.isAddStopOpen}
-        setIsAddStopOpen={handleOpenAddStopChange}
-        onStartPickingStop={handleStartPickingStop}
-        pickedStopCoords={state.pickedStopCoords}
-        onAddStopSubmit={handleAddStopSubmit}
-        gasStations={state.dynamicGasStations}
-        isGasStationLayerVisible={layers.gasStations}
-        onToggleGasStationLayer={handleToggleGasStationLayer}
-        onVehicleSelectFromDrivers={handleVehicleSelectFromDriversWithDispatch}
-        navigateToTab={sidebarNavigateTab}
-        navigateToDriverId={sidebarNavigateDriverId}
-        onNavigateConsumed={handleNavigateConsumed}
-        routeData={routeData}
-        interactionMode={state.interactionMode}
-      />
-      <div className="relative flex-1">
+    <Dashboard activeModule={activeModule} onModuleChange={handleModuleChange}>
+      <div className={cn("h-full w-full relative", activeModule !== "map" && "hidden")}>
         <MapContainer
           layers={layers}
           toggleLayer={toggleLayer}
@@ -569,7 +538,6 @@ export function GISMap() {
           selectedVehicleId={selectedVehicleId}
           vehicleAlerts={vehicleAlerts}
           onMapClick={handleMapClick}
-          pickedPOICoords={state.pickedPOICoords}
           pickedJobCoords={state.pickedJobCoords}
           zonePoints={state.zonePoints}
           zoneIsClosed={zoneIsClosed}
@@ -585,78 +553,135 @@ export function GISMap() {
           onVehicleSelect={handleVehicleClick}
           onVehicleHover={handleVehicleHover}
           onVehicleHoverOut={handleVehicleHoverOut}
+          hiddenZones={state.hiddenZones}
+          onToggleZoneVisibility={(id) => dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })}
+          onDeleteZone={removeCustomPOI}
         />
 
-        <GISMapToolbar
-          isDrawingZone={isDrawingZone}
-          zonePointsCount={state.zonePoints.length}
-          isEditingZone={isEditingZone}
-          onUndoZonePoint={handleUndoZonePoint}
-          onToggleEditingMode={toggleEditingMode}
-          onCancelZoneDrawing={handleCancelZoneDrawing}
-          onConfirmZoneDrawing={handleConfirmZoneDrawing}
+        {/* Professional Monitoring Overlays */}
+        <MapMonitoringSidebar
+          vehicles={fleetVehicles}
+          jobs={fleetJobs}
+          selectedId={selectedVehicleId}
+          onSelect={(id) => setSelectedVehicleId(id ? String(id) : null)}
+          vehicleAlerts={vehicleAlerts}
         />
 
-        <GISMapDialogs
-          isAddJobOpen={state.isAddJobOpen}
-          onOpenAddJobChange={handleOpenAddJobChange}
-          onAddJobSubmit={handleAddJobSubmit}
-          mapCenter={state.mapCenter}
-          onStartPickingJob={handleStartPickingJob}
-          pickedJobCoords={state.pickedJobCoords}
-          isAddCustomPOIOpen={state.isAddCustomPOIOpen}
-          onOpenAddCustomPOIChange={handleOpenAddCustomPOIChange}
-          onSubmitPOI={handleAddCustomPOISubmit}
-          onSubmitZone={handleAddCustomZoneSubmit}
-          onStartPicking={handleStartPicking}
-          onStartZonePicking={handleStartZonePicking}
-          onContinueZonePicking={handleContinueZonePicking}
-          onCloseShape={handleCloseZoneShape}
-          pickedPOICoords={state.pickedPOICoords}
-          zonePoints={state.zonePoints}
-          zoneIsClosed={zoneIsClosed}
-          isDrawingZone={isDrawingZone}
-          isEditingZone={isEditingZone}
-          editingZoneData={editingZoneData}
-          routeErrors={routeErrors}
-          routeNotices={routeNotices}
-          onClearRouteErrors={handleClearRouteErrors}
+        <MapTrackingStatusBar
+          vehicle={selectedVehicleObject}
+          isTracking={isTracking}
         />
 
-        <GISMapPanels
-          selectedDriver={state.selectedDriver}
-          isDriverDetailsOpen={state.isDriverDetailsOpen}
-          onDriverDetailsOpenChange={handleDriverDetailsOpenChange}
-          onDriverDetailsClose={handleDriverDetailsClose}
-          showVehiclePropertiesPanel={state.showVehiclePropertiesPanel}
-          selectedVehicleId={selectedVehicleId}
-          isVehicleDetailsOpen={state.isVehicleDetailsOpen}
-          selectedVehicleObject={selectedVehicleObject}
-          onCloseVehiclePropertiesPanel={handleCloseVehiclePropertiesPanel}
-          drivers={drivers}
-          onAssignDriver={handleAssignDriver}
-          onChangeEnvironmentalTag={handleChangeEnvironmentalTag}
-          onUpdateLabel={updateVehicleLabel}
-          onUpdateLicensePlate={updateVehicleLicensePlate}
-          onViewDriverProfile={handleViewDriverProfile}
-          onCloseVehicleDetails={handleCloseVehicleDetails}
-          fleetJobs={fleetJobs}
-          addStopToVehicle={addStopToVehicle}
-          startRouting={startRouting}
-          isAddStopOpen={state.isAddStopOpen}
-          setIsAddStopOpen={handleOpenAddStopChange}
-          onStartPickingStop={handleStartPickingStop}
-          pickedStopCoords={state.pickedStopCoords}
-          onAddStopSubmit={handleAddStopSubmit}
-        />
-
-        <GISMapPopup
-          vehiclePopupData={vehiclePopupData}
-          onMouseEnter={clearHoverTimeout}
-          onMouseLeave={clearPopup}
-          onOpenVehiclePanel={handleOpenVehiclePanel}
+        <MapLayersOverlay
+          layers={layers}
+          toggleLayer={toggleLayer}
+          onAddZone={() => {
+            // Start zone picking flow directly
+            handleStartZonePicking();
+          }}
+          customZones={customPOIs.filter(poi => poi.entityType === 'zone')}
+          hiddenZones={state.hiddenZones}
+          onToggleZoneVisibility={(id) => dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })}
+          onDeleteZone={removeCustomPOI}
         />
       </div>
-    </div>
+
+
+
+      {/* 4. Drivers Module */}
+      {activeModule === "drivers" && (
+        <div className="h-full flex flex-col bg-background overflow-hidden relative">
+          <DriversTab
+            drivers={drivers || []}
+            fleetVehicles={fleetVehicles || []}
+            isLoading={isLoadingDrivers || false}
+            fetchDrivers={fetchDrivers || (async () => { })}
+            addDriver={addDriver || (async () => undefined)}
+            onDriverSelect={(d) => {
+              const fullDriver = drivers.find(drv => drv.id === d.id);
+              if (fullDriver) {
+                dispatch({ type: "SET_SELECTED_DRIVER", payload: fullDriver });
+                dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: true });
+              }
+            }}
+            onFuelDetailSelect={(driverId) => {
+              const fullDriver = drivers.find(drv => drv.id === driverId);
+              if (fullDriver) {
+                dispatch({ type: "SET_SELECTED_DRIVER", payload: fullDriver });
+                dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: true });
+              }
+            }}
+            onVehicleSelect={handleVehicleSelectFromDriversWithDispatch}
+            expandedGroups={state.driversExpandedGroups}
+            onToggleGroup={(group, isExpanded) =>
+              dispatch({ type: "SET_DRIVERS_EXPANDED_GROUPS", payload: { ...state.driversExpandedGroups, [group]: isExpanded } })
+            }
+          />
+        </div>
+      )}
+
+      {/* 5. Layers Module - DELETED (Handled via Overlay) */}
+
+      {/* Global HUD elements (Dialogs, Popups, etc) */}
+      <GISMapDialogs
+        isAddJobOpen={state.isAddJobOpen}
+        onOpenAddJobChange={handleOpenAddJobChange}
+        onAddJobSubmit={handleAddJobSubmit}
+        mapCenter={state.mapCenter}
+        onStartPickingJob={handleStartPickingJob}
+        pickedJobCoords={state.pickedJobCoords}
+        isAddCustomPOIOpen={state.isAddCustomPOIOpen}
+        onOpenAddCustomPOIChange={handleOpenAddCustomPOIChange}
+        onSubmitZone={handleAddCustomZoneSubmit}
+        onStartZonePicking={handleStartZonePicking}
+        onContinueZonePicking={handleContinueZonePicking}
+        onCloseShape={handleCloseZoneShape}
+        zonePoints={state.zonePoints}
+        zoneIsClosed={zoneIsClosed}
+        isDrawingZone={isDrawingZone}
+        isEditingZone={isEditingZone}
+        editingZoneData={editingZoneData}
+        routeErrors={routeErrors}
+        routeNotices={routeNotices}
+        onClearRouteErrors={handleClearRouteErrors}
+      />
+
+      <GISMapPanels
+        selectedDriver={state.selectedDriver}
+        isDriverDetailsOpen={state.isDriverDetailsOpen}
+        onDriverDetailsOpenChange={(open) => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: open })}
+        onDriverDetailsClose={() => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false })}
+        isFuelDetailsOpen={state.isFuelDetailsOpen}
+        onFuelDetailsOpenChange={(open) => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: open })}
+        onFuelDetailsClose={() => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: false })}
+        showVehiclePropertiesPanel={state.showVehiclePropertiesPanel}
+        selectedVehicleId={selectedVehicleId}
+        isVehicleDetailsOpen={state.isVehicleDetailsOpen}
+        selectedVehicleObject={selectedVehicleObject}
+        onCloseVehiclePropertiesPanel={handleCloseVehiclePropertiesPanel}
+        drivers={drivers}
+        onAssignDriver={handleAssignDriver}
+        onChangeEnvironmentalTag={handleChangeEnvironmentalTag}
+        onUpdateLabel={updateVehicleLabel}
+        onUpdateLicensePlate={updateVehicleLicensePlate}
+        onViewDriverProfile={handleViewDriverProfile}
+        onCloseVehicleDetails={handleCloseVehicleDetails}
+        fleetJobs={fleetJobs}
+        addStopToVehicle={addStopToVehicle}
+        startRouting={startRouting}
+        isAddStopOpen={state.isAddStopOpen}
+        setIsAddStopOpen={handleOpenAddStopChange}
+        onStartPickingStop={handleStartPickingStop}
+        pickedStopCoords={state.pickedStopCoords}
+        onAddStopSubmit={handleAddStopSubmit}
+      />
+
+      <GISMapPopup
+        vehiclePopupData={vehiclePopupData}
+        onMouseEnter={clearHoverTimeout}
+        onMouseLeave={clearPopup}
+        onOpenVehiclePanel={handleOpenVehiclePanel}
+      />
+    </Dashboard>
   );
 }

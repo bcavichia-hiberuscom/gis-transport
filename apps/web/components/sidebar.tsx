@@ -20,6 +20,8 @@ import {
   ChevronDown,
   ChevronRight,
   Pencil,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -118,6 +120,8 @@ interface SidebarProps {
   navigateToDriverId?: string | null;
   onNavigateConsumed?: () => void;
   routeData?: RouteData | null;
+  hiddenZones?: string[];
+  toggleZoneVisibility?: (id: string) => void;
 }
 
 export type SidebarTab =
@@ -162,7 +166,7 @@ const NavigationRail = memo(
         activeTab={activeTab}
         isExpanded={isExpanded}
         onClick={onSetTab}
-        label="Capas y POIs"
+        label="Gestión de Mapas"
         icon={Layers}
       />
 
@@ -222,7 +226,7 @@ interface FleetTabProps {
   addMode: "vehicle" | "job" | null;
 }
 
-const FleetTab = memo(
+export const FleetTab = memo(
   ({
     isLoadingVehicles,
     fetchVehicles,
@@ -243,6 +247,13 @@ const FleetTab = memo(
     isTracking,
     toggleTracking,
     hasRoute,
+    isAddStopOpen,
+    setIsAddStopOpen,
+    onStartPickingStop,
+    pickedStopCoords,
+    onAddStopSubmit,
+    onAssignDriver,
+    drivers,
   }: FleetTabProps) => {
     const [searchQuery, setSearchQuery] = useState("");
     const [expandedGroups, setExpandedGroups] = useState({
@@ -431,17 +442,21 @@ interface LayersTabProps {
   layers: LayerVisibility;
   toggleLayer: (layer: keyof LayerVisibility) => void;
   customPOIs: CustomPOI[];
+  hiddenZones?: string[];
+  toggleZoneVisibility?: (id: string) => void;
   onAddPOIClick: () => void;
   removeCustomPOI?: (id: string) => void;
   clearAllCustomPOIs?: () => void;
   onEditZone?: (zoneId: string) => void;
 }
 
-const LayersTab = memo(
+export const LayersTab = memo(
   ({
     layers,
     toggleLayer,
     customPOIs,
+    hiddenZones = [],
+    toggleZoneVisibility,
     onAddPOIClick,
     removeCustomPOI,
     clearAllCustomPOIs,
@@ -468,7 +483,7 @@ const LayersTab = memo(
             Layers
           </h2>
           <p className="text-[9px] uppercase font-semibold text-muted-foreground/50 tracking-wider">
-            Personalización del Mapa
+            Zonas de Gestión y Geovallas
           </p>
         </div>
         <ScrollArea className="flex-1 min-h-0 px-4 py-3">
@@ -478,107 +493,46 @@ const LayersTab = memo(
                 Elementos del Mapa
               </Label>
               <div className="space-y-2 pt-1">
-                {Object.entries(layers).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/30 hover:border-primary/15 hover:shadow-sm transition-all"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full shadow-[0_0_5px]",
-                          value
-                            ? "bg-primary shadow-primary/40"
-                            : "bg-muted shadow-transparent",
-                        )}
-                      />
-                      <span className="text-xs font-medium capitalize text-foreground/85">
-                        {key.replace(/([A-Z])/g, " $1").trim()}
-                      </span>
-                    </div>
-                    <Switch
-                      checked={value as boolean}
-                      onCheckedChange={() =>
-                        toggleLayer(key as keyof LayerVisibility)
-                      }
-                      className="scale-85 origin-right transition-all data-[state=checked]:bg-primary"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pl-0.5">
-                <Label className="text-[10px] font-semibold uppercase text-foreground/70 tracking-wide">
-                  Puntos de Interés
-                </Label>
-                <Badge
-                  variant="outline"
-                  className="text-[9px] font-semibold border-primary/15 text-primary h-4 bg-primary/5"
-                >
-                  {pointPOIs.length}
-                </Badge>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-[10px] font-semibold uppercase tracking-wide h-9 rounded-lg border-dashed border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all"
-                onClick={onAddPOIClick}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5 text-primary" /> Nuevo Punto
-              </Button>
-              {pointPOIs.length > 0 && (
-                <div className="max-h-[250px] overflow-y-auto space-y-2 mt-1.5 pr-1">
-                  {pointPOIs.map((poi: CustomPOI) => (
+                {Object.entries(layers)
+                  .filter(([key]) => key !== "customZones") // Remove global toggle
+                  .map(([key, value]) => (
                     <div
-                      key={poi.id}
-                      className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/30 hover:border-primary/15 hover:shadow-sm transition-all group relative overflow-hidden"
+                      key={key}
+                      className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/30 hover:border-primary/15 hover:shadow-sm transition-all"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="flex items-center gap-3 overflow-hidden relative z-10">
-                        <div className="h-8 w-8 rounded-lg bg-cyan-50 border border-cyan-100 flex items-center justify-center shrink-0">
-                          <Warehouse className="h-4 w-4 text-cyan-600" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-semibold text-foreground truncate">
-                            {poi.name}
-                          </span>
-                          <span className="text-[8px] font-medium text-muted-foreground/50 uppercase tracking-tight">
-                            {poi.position?.[0].toFixed(4)},{" "}
-                            {poi.position?.[1].toFixed(4)}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full shadow-[0_0_5px]",
+                            value
+                              ? "bg-primary shadow-primary/40"
+                              : "bg-muted shadow-transparent",
+                          )}
+                        />
+                        <span className="text-xs font-medium capitalize text-foreground/85">
+                          {key === "gasStations" ? "Gasolineras" :
+                            key === "evStations" ? "Estaciones EV" :
+                              key === "cityZones" ? "Zonas de Bajas Emisiones" :
+                                key.replace(/([A-Z])/g, " $1").trim()}
+                        </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 rounded-md transition-opacity relative z-10"
-                        onClick={() => removeCustomPOI?.(poi.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <Switch
+                        checked={value as boolean}
+                        onCheckedChange={() =>
+                          toggleLayer(key as keyof LayerVisibility)
+                        }
+                        className="scale-85 origin-right transition-all data-[state=checked]:bg-primary"
+                      />
                     </div>
                   ))}
-                  {(pointPOIs.length > 0 || zonePOIs.length > 0) && (
-                    <div className="pt-3 border-t border-border/10 mt-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full h-8 text-[9px] font-semibold uppercase tracking-wide rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
-                        onClick={clearAllCustomPOIs}
-                      >
-                        Limpiar Todo
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Custom Zones Section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between pl-0.5">
                 <Label className="text-[10px] font-semibold uppercase text-foreground/70 tracking-wide">
-                  Zonas Customizadas
+                  Zonas de Gestión
                 </Label>
                 <Badge
                   variant="outline"
@@ -618,6 +572,24 @@ const LayersTab = memo(
                         <Button
                           variant="ghost"
                           size="icon"
+                          className={cn(
+                            "h-7 w-7 rounded-md transition-colors",
+                            hiddenZones.includes(zone.id)
+                              ? "text-muted-foreground hover:text-foreground"
+                              : "text-blue-600 hover:bg-blue-50"
+                          )}
+                          onClick={() => toggleZoneVisibility?.(zone.id)}
+                          title={hiddenZones.includes(zone.id) ? "Mostrar zona" : "Ocultar zona"}
+                        >
+                          {hiddenZones.includes(zone.id) ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-blue-600 rounded-md"
                           onClick={() => onEditZone?.(zone.id)}
                           title="Editar zona"
@@ -651,7 +623,7 @@ const LayersTab = memo(
                 </div>
               ) : (
                 <p className="text-[10px] text-muted-foreground/50 p-3 rounded-lg bg-muted/20 text-center">
-                  No tienes zonas customizadas
+                  No tienes zonas de gestión creadas
                 </p>
               )}
             </div>
@@ -718,6 +690,8 @@ export const Sidebar = memo(
     onNavigateConsumed,
     routeData,
     interactionMode,
+    hiddenZones,
+    toggleZoneVisibility,
   }: SidebarProps) {
     // Local state for sidebar visibility
     const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
@@ -730,8 +704,8 @@ export const Sidebar = memo(
     const [driversExpandedGroups, setDriversExpandedGroups] = useState<
       Record<string, boolean>
     >({
-      available: false,
-      assigned: false,
+      available: true,
+      assigned: true,
     });
 
     const handleToggleDriverGroup = useCallback(
@@ -892,7 +866,9 @@ export const Sidebar = memo(
             <LayersTab
               layers={layers}
               toggleLayer={toggleLayer}
-              customPOIs={customPOIs}
+              customPOIs={customPOIs || []}
+              hiddenZones={hiddenZones}
+              toggleZoneVisibility={toggleZoneVisibility}
               onAddPOIClick={handleShowAddPOI}
               removeCustomPOI={removeCustomPOI}
               clearAllCustomPOIs={clearAllCustomPOIs}

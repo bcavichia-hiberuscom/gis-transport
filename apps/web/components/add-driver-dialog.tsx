@@ -69,141 +69,117 @@ export function AddDriverDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-none shadow-2xl bg-background/95 backdrop-blur-xl">
-        <div className="bg-gradient-to-br from-primary/10 via-background to-background p-6">
-          <DialogHeader className="mb-6">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="p-2 bg-primary/10 rounded-xl">
-                <UserPlus className="h-5 w-5 text-primary" />
+      <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border border-slate-200 shadow-2xl bg-white">
+        <div className="p-8">
+          <DialogHeader className="mb-8">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 shrink-0">
+                <UserPlus className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <DialogTitle className="text-xl font-bold tracking-tight">
-                  Alta de Conductor
-                </DialogTitle>
-                <DialogDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground/60">
+              <div className="flex-1">
+                <DialogTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-900 leading-none mb-1">
                   Registro de Personal
+                </DialogTitle>
+                <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                  Integración de Nuevo Operativo en Flota
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="driver-name" className="text-xs font-semibold">
-                Nombre Completo
+              <Label htmlFor="driver-name" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Nombre y Apellidos
               </Label>
               <Input
                 id="driver-name"
-                placeholder="Ej: Juan Pérez..."
+                placeholder="Introducir nombre completo..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all"
+                className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="license-type" className="text-xs font-semibold">
-                  Tipo de Licencia
+                <Label htmlFor="license-type" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Tipo Permiso
                 </Label>
                 <Input
                   id="license-type"
-                  placeholder="Ej: B, C1..."
+                  placeholder="B, C1, etc..."
                   value={licenseType}
                   onChange={(e) => setLicenseType(e.target.value)}
-                  className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all"
+                  className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
                 />
               </div>
               <div className="space-y-2">
                 <Label
                   htmlFor="license-number"
-                  className="text-xs font-semibold"
+                  className="text-[10px] font-black text-slate-400 uppercase tracking-widest"
                 >
-                  Nº Permiso
+                  Identificación
                 </Label>
                 <Input
                   id="license-number"
-                  placeholder="Ej: 1234567..."
+                  placeholder="DNI / NIE / ID..."
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
-                  className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all"
+                  className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone-number" className="text-xs font-semibold">
-                Número de Teléfono
+              <Label htmlFor="phone-number" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Contacto Directo
               </Label>
               <Input
                 id="phone-number"
-                placeholder="Ej: +34 600 123 456..."
+                placeholder="+34"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all"
+                className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="image-file" className="text-xs font-semibold">
-                Foto del Conductor (Opcional)
-              </Label>
-              <div className="flex items-center gap-3">
-                {imagePreview && (
-                  <div className="h-16 w-16 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                )}
-                <Input
-                  id="image-file"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                />
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-4">
+              <div className="h-10 w-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                <ShieldPlus className="h-5 w-5 text-emerald-600" />
               </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-4">
-              <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
-                <ShieldPlus className="h-5 w-5 text-primary/70" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">
-                  Estado Inicial
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none">
+                  Estado de Auditoría
                 </p>
-                <p className="text-xs font-bold text-foreground/80">
-                  Disponible para Asignación
+                <p className="text-[11px] font-bold text-slate-900 uppercase italic">
+                  Alta Disponible para Operaciones
                 </p>
               </div>
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-4 flex items-center gap-3">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
-                className="text-muted-foreground hover:text-foreground text-xs"
+                className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={isLoading || !name.trim()}
-                className="font-bold shadow-lg shadow-primary/20 text-xs"
+                className="flex-1 bg-slate-950 text-white font-black uppercase italic tracking-widest text-[10px] h-11 border border-slate-800 shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />{" "}
-                    Registrando...
+                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />{" "}
+                    Procesando...
                   </>
                 ) : (
-                  "Registrar Conductor"
+                  "Finalizar Alta"
                 )}
               </Button>
             </DialogFooter>

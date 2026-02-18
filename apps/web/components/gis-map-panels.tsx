@@ -3,6 +3,7 @@ import React from "react";
 import { DriverDetailsSheet } from "@/components/driver-details-sheet";
 import { VehicleDetailsPanel } from "@/components/vehicle-details-panel";
 import { VehicleDetailSheet } from "@/components/vehicle-detail-sheet";
+import { FuelDetailsSheet } from "@/components/fuel-details-sheet";
 import type { Driver, FleetVehicle, FleetJob, VehicleType } from "@gis/shared";
 
 interface GISMapPanelsProps {
@@ -11,6 +12,9 @@ interface GISMapPanelsProps {
   isDriverDetailsOpen: boolean;
   onDriverDetailsOpenChange: (open: boolean) => void;
   onDriverDetailsClose: () => void;
+  isFuelDetailsOpen: boolean;
+  onFuelDetailsOpenChange: (open: boolean) => void;
+  onFuelDetailsClose: () => void;
 
   // Vehicle Properties Panel
   showVehiclePropertiesPanel: boolean;
@@ -46,6 +50,9 @@ export function GISMapPanels({
   isDriverDetailsOpen,
   onDriverDetailsOpenChange,
   onDriverDetailsClose,
+  isFuelDetailsOpen,
+  onFuelDetailsOpenChange,
+  onFuelDetailsClose,
   showVehiclePropertiesPanel,
   selectedVehicleId,
   selectedVehicleObject,
@@ -74,6 +81,13 @@ export function GISMapPanels({
         isOpen={isDriverDetailsOpen}
         onOpenChange={onDriverDetailsOpenChange}
         onClose={onDriverDetailsClose}
+      />
+
+      <FuelDetailsSheet
+        driverId={selectedDriver?.id || null}
+        isOpen={isFuelDetailsOpen}
+        onOpenChange={onFuelDetailsOpenChange}
+        onClose={onFuelDetailsClose}
       />
 
       {/* Vehicle Properties Panel - opens explicitly from sidebar or popup */}

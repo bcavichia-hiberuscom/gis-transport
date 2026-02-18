@@ -5,27 +5,29 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Users,
   UserPlus,
-  Clock,
-  ShieldCheck,
-  AlertTriangle,
-  Car,
-  Search,
   ChevronDown,
   ChevronRight,
+  Search,
+  Activity,
+  Layers,
+  Clock,
 } from "lucide-react";
 import {
   cn,
   getDriverIsAvailable,
   getDriverOnTimeRate,
-  getDriverCurrentVehicle,
 } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import type { Driver, FleetVehicle } from "@gis/shared";
 
-type FilterType = "all" | "available" | "assigned";
+// Analytical & Corporate Components
+import { DriversSubNav } from "./analytics/drivers-sub-nav";
+import { DriversKPIStrip } from "./analytics/drivers-kpi-strip";
+import { DriversTrendChart } from "./analytics/drivers-trend-chart";
+import { DriversFactorsChart } from "./analytics/drivers-factors-chart";
+import { DriversLeaderboard } from "./analytics/drivers-leaderboard";
+import { PeriodSelector, TimePeriod } from "./analytics/period-selector";
+import { FuelManagementView } from "./analytics/fuel-management-view";
 
 interface DriversTabProps {
   drivers: Driver[];
@@ -34,8 +36,8 @@ interface DriversTabProps {
   addDriver: (driver: Partial<Driver>) => Promise<Driver | undefined>;
   fetchDrivers: () => Promise<void>;
   onDriverSelect?: (driver: Driver) => void;
+  onFuelDetailSelect?: (driverId: string) => void;
   onVehicleSelect?: (vehicleId: string) => void;
-  // Persisted toggle state from parent
   expandedGroups?: Record<string, boolean>;
   onToggleGroup?: (group: string, isExpanded: boolean) => void;
 }
@@ -47,243 +49,237 @@ export function DriversTab({
   addDriver,
   fetchDrivers,
   onDriverSelect,
+  onFuelDetailSelect,
   onVehicleSelect,
-  expandedGroups: externalExpandedGroups,
+  expandedGroups,
   onToggleGroup,
 }: DriversTabProps) {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [currentPeriod, setCurrentPeriod] = useState<TimePeriod>("30d");
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Use external state if provided, otherwise use local state
-  const [localExpandedGroups, setLocalExpandedGroups] = useState<
-    Record<string, boolean>
-  >({
-    available: true,
-    assigned: true,
-  });
-
-  const expandedGroups = externalExpandedGroups ?? localExpandedGroups;
 
   const toggleGroup = (group: string) => {
-    const newValue = !expandedGroups[group];
-    if (onToggleGroup) {
-      onToggleGroup(group, newValue);
-    } else {
-      setLocalExpandedGroups((prev) => ({ ...prev, [group]: newValue }));
+    if (onToggleGroup && expandedGroups) {
+      onToggleGroup(group, !expandedGroups[group]);
     }
   };
 
-  // Filter and group drivers
-  const groups = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    const filtered = drivers.filter(
-      (d) =>
-        d.name.toLowerCase().includes(q) ||
-        d.licenseType?.toLowerCase().includes(q) ||
-        d.currentVehicleId?.toString().includes(q),
-    );
+  const analyticsData = useMemo(() => {
+    const now = new Date();
+    let thresholdDate = new Date();
+
+    if (currentPeriod === "7d") thresholdDate.setDate(now.getDate() - 7);
+    else if (currentPeriod === "30d") thresholdDate.setDate(now.getDate() - 30);
+    else if (currentPeriod === "90d") thresholdDate.setDate(now.getDate() - 90);
+    else if (currentPeriod === "year") thresholdDate.setFullYear(now.getFullYear(), 0, 1);
+
+    const filteredDrivers = drivers.map(d => ({
+      ...d,
+      filteredEvents: (d.speedingEvents || []).filter(e => new Date(e.timestamp) >= thresholdDate)
+    }));
+
+    const totalSpeeding = filteredDrivers.reduce((acc, d) => acc + d.filteredEvents.length, 0);
+    const baseScore = filteredDrivers.reduce((acc, d) => acc + (d.onTimeDeliveryRate || 100), 0) / (drivers.length || 1);
+    const penaltyPerEvent = 5;
+    const finalAvgScore = Math.max(0, Math.round(baseScore - (totalSpeeding * penaltyPerEvent / (drivers.length || 1))));
+
+    const trendData = [
+      { name: "Semana 1", score: Math.min(100, finalAvgScore - 4), goal: 95 },
+      { name: "Semana 2", score: Math.min(100, finalAvgScore - 2), goal: 95 },
+      { name: "Semana 3", score: Math.min(100, finalAvgScore + 1), goal: 95 },
+      { name: "Semana Actual", score: finalAvgScore, goal: 95 },
+    ];
+
+    const factorData = totalSpeeding > 0 ? [
+      { name: "Excesos de Velocidad", impact: totalSpeeding, color: "#0f172a" },
+      { name: "Demoras en Entrega", impact: Math.round(100 - baseScore), color: "#334155" },
+    ] : [];
 
     return {
-      available: filtered.filter((d) => getDriverIsAvailable(d)),
-      assigned: filtered.filter((d) => !getDriverIsAvailable(d)),
+      totalSpeeding,
+      avgScore: finalAvgScore,
+      trendData: drivers.length > 0 ? trendData : [],
+      factorData
     };
-  }, [drivers, searchQuery]);
+  }, [drivers, currentPeriod]);
+
+  const groups = useMemo(() => {
+    return {
+      available: drivers.filter((d) => getDriverIsAvailable(d)),
+      assigned: drivers.filter((d) => !getDriverIsAvailable(d)),
+    };
+  }, [drivers]);
 
   const renderDriverCard = (driver: Driver) => (
     <div
       key={driver.id}
       onClick={() => onDriverSelect?.(driver)}
-      className="group relative bg-card border border-border/40 rounded-2xl p-4 transition-all hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 cursor-pointer overflow-hidden mb-3 last:mb-0"
+      className="group relative bg-white border-b border-slate-100 p-5 transition-all hover:bg-slate-50 cursor-pointer overflow-hidden border-r last:border-r-0"
     >
-      <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full -mr-8 -mt-8 blur-2xl group-hover:bg-primary/10 transition-colors" />
-
       <div className="flex gap-4 items-center relative z-10">
         <div className="relative">
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-muted to-background border border-border/50 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+          <div className="h-10 w-10 bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200">
             {driver.imageUrl ? (
-              <img
-                src={driver.imageUrl}
-                alt={driver.name}
-                className="h-full w-full object-cover rounded-xl"
-              />
+              <img src={driver.imageUrl} alt={driver.name} className="h-full w-full object-cover grayscale opacity-90" />
             ) : (
-              <Users className="h-6 w-6 text-primary/30" />
+              <span className="text-[10px] font-black text-slate-400 uppercase italic">
+                {driver.id.substring(0, 2)}
+              </span>
             )}
           </div>
           <div className={cn(
-            "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-background shadow-sm",
-            driver.isAvailable ? "bg-emerald-500" : "bg-orange-500"
+            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white",
+            driver.isAvailable ? "bg-emerald-500" : "bg-slate-900"
           )} />
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex flex-col gap-0.5">
-            <h3 className="text-sm font-black italic tracking-tight text-foreground truncate uppercase">
+          <div className="flex flex-col">
+            <h3 className="text-[12px] font-black italic tracking-tighter text-slate-900 truncate uppercase group-hover:text-blue-600 transition-colors leading-tight">
               {driver.name}
             </h3>
-
-            <div className="flex items-center gap-2.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tight">
-              <div className="flex items-center gap-1">
-                <ShieldCheck className="h-3 w-3" />
-                <span>{driver.licenseType || "Cat. B"}</span>
-              </div>
-              <span className="h-0.5 w-0.5 rounded-full bg-border" />
-              <div className="flex items-center gap-1 text-blue-600/70">
-                <Clock className="h-3 w-3" />
-                <span>{getDriverOnTimeRate(driver)}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:translate-x-1 group-hover:text-primary transition-all shrink-0" />
-      </div>
-
-      {driver.currentVehicleId && (
-        <div className="mt-3 pt-3 border-t border-border/10 relative z-10">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-muted/20 rounded-xl border border-border/30 group/tag">
-              <Car className="h-3 w-3 text-primary/40 group-hover/tag:text-primary transition-colors" />
-              <span className="text-[9px] font-black uppercase text-foreground/60 tracking-wider truncate">
-                {fleetVehicles.find(
-                  (v) => String(v.id) === String(driver.currentVehicleId),
-                ) && `ID: ${driver.currentVehicleId}`}
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                {driver.licenseType || "Cat. B"}
               </span>
+              <span className="h-0.5 w-0.5 bg-slate-300" />
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">
+                  {getDriverOnTimeRate(driver)}% Eficacia
+                </span>
+              </div>
             </div>
-
-            {onVehicleSelect && fleetVehicles.some(v => String(v.id) === String(driver.currentVehicleId)) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-8 text-[9px] font-black uppercase tracking-[0.1em] rounded-xl hover:bg-primary/5 hover:text-primary transition-all border border-transparent hover:border-primary/10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onVehicleSelect(String(driver.currentVehicleId));
-                }}
-              >
-                Monitorear en Dashboard
-              </Button>
-            )}
           </div>
         </div>
-      )}
+        <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:translate-x-1 group-hover:text-slate-900 transition-all shrink-0" />
+      </div>
     </div>
   );
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
-      {/* Header Section */}
-      <div className="p-6 pb-5 flex flex-col gap-4 border-b border-border/10 bg-gradient-to-br from-primary/5 via-background to-transparent shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <h2 className="text-xl font-black tracking-tighter text-foreground uppercase italic leading-none">
-              Conductores
+    <div className="flex flex-col grow h-full bg-white overflow-hidden">
+      {/* High-Level Corporate Header */}
+      <div className="shrink-0 bg-white border-b border-slate-100">
+        <div className="px-8 py-10 pb-8 flex items-end justify-between">
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Auditoría Operativa de Flota</p>
+            <h2 className="text-4xl font-black tracking-tighter text-slate-900 uppercase italic leading-none">
+              Personal
             </h2>
-            <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-[0.2em] mt-1.5">
-              Gestión de Personal Activo
-            </p>
           </div>
-          <Button
-            size="icon"
-            className="h-10 w-10 rounded-2xl bg-primary text-white shadow-xl shadow-primary/20 hover:scale-[1.05] active:scale-[0.95] transition-all"
-            onClick={() => setIsAddOpen(true)}
-          >
-            <UserPlus className="h-5 w-5" />
-          </Button>
+
+          {activeTab === "drivers" && (
+            <Button
+              className="h-10 px-8 bg-slate-900 text-white hover:bg-black transition-all text-[10px] font-black uppercase italic tracking-widest rounded-none border border-slate-900"
+              onClick={() => setIsAddOpen(true)}
+            >
+              <UserPlus className="h-4 w-4 mr-2.5" />
+              Registrar Operativo
+            </Button>
+          )}
         </div>
 
-        {/* Search Bar - Modern Style */}
-        <div className="relative group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-          <Input
-            placeholder="Buscar por nombre o licencia..."
-            value={searchQuery}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setSearchQuery(e.target.value)
-            }
-            className="pl-11 h-11 bg-muted/20 border-border/40 hover:border-primary/20 focus:bg-background focus:border-primary/30 transition-all rounded-2xl text-[13px] font-medium"
-          />
-        </div>
+        <DriversSubNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
 
-      {/* Main Content Area */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-6 space-y-6">
-          {/* Available Drivers Group */}
-          <div className="space-y-3">
-            <button
-              onClick={() => toggleGroup("available")}
-              className="w-full flex items-center justify-between px-2 py-1 hover:opacity-70 transition-opacity"
-            >
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-foreground/70">
-                  Disponibles
-                </span>
-                <Badge variant="outline" className="text-[8px] font-black bg-emerald-50/50 border-emerald-500/10 text-emerald-600 h-4 px-1.5">
-                  {groups.available.length}
-                </Badge>
+        <div className="flex flex-col">
+          {activeTab === "overview" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* Auditoría de Desempeño */}
+              <div className="px-8 py-8 flex items-center justify-between border-b border-slate-100 bg-slate-50/10">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 flex items-center justify-center border border-slate-200">
+                    <Activity className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 leading-none">Desempeño Operativo</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Métricas de Riesgo y Seguridad</p>
+                  </div>
+                </div>
+                <PeriodSelector currentPeriod={currentPeriod} onPeriodChange={setCurrentPeriod} />
               </div>
-              {expandedGroups.available ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground/40" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-              )}
-            </button>
 
-            {expandedGroups.available && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                {groups.available.length > 0 ? (
-                  groups.available.map(renderDriverCard)
-                ) : (
-                  <div className="py-8 text-center bg-muted/10 rounded-3xl border-2 border-dashed border-border/30">
-                    <Users className="h-8 w-8 text-muted-foreground/10 mx-auto mb-2" />
-                    <p className="text-[10px] text-muted-foreground/40 font-black uppercase tracking-widest">
-                      Sin disponibles
-                    </p>
+              <DriversKPIStrip
+                activeDriversCount={drivers.length}
+                totalSpeedingEvents={analyticsData.totalSpeeding}
+                avgScore={analyticsData.avgScore}
+              />
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 bg-white">
+                <DriversTrendChart data={analyticsData.trendData} />
+                <DriversFactorsChart data={analyticsData.factorData} />
+              </div>
+
+              <DriversLeaderboard drivers={drivers} onDriverSelect={onDriverSelect} />
+            </div>
+          )}
+
+          {activeTab === "drivers" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 bg-white">
+              {/* Grupo: Disponibles */}
+              <div className="border-b border-slate-100">
+                <button
+                  onClick={() => toggleGroup("available")}
+                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Disponibles</span>
+                    <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
+                      {groups.available.length}
+                    </span>
+                  </div>
+                  {expandedGroups?.available ? <ChevronDown className="h-3 w-3 text-slate-400" /> : <ChevronRight className="h-3 w-3 text-slate-400" />}
+                </button>
+                {expandedGroups?.available && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
+                    {groups.available.length > 0 ? groups.available.map(renderDriverCard) : (
+                      <div className="col-span-full py-12 text-center border-t border-slate-50">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">No se detecta personal disponible</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Assigned Drivers Group */}
-          <div className="space-y-3">
-            <button
-              onClick={() => toggleGroup("assigned")}
-              className="w-full flex items-center justify-between px-2 py-1 hover:opacity-70 transition-opacity"
-            >
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-foreground/70">
-                  En Servicio
-                </span>
-                <Badge variant="outline" className="text-[8px] font-black bg-orange-50/50 border-orange-500/10 text-orange-600 h-4 px-1.5">
-                  {groups.assigned.length}
-                </Badge>
-              </div>
-              {expandedGroups.assigned ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground/40" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-              )}
-            </button>
-
-            {expandedGroups.assigned && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                {groups.assigned.length > 0 ? (
-                  groups.assigned.map(renderDriverCard)
-                ) : (
-                  <div className="py-8 text-center bg-muted/10 rounded-3xl border-2 border-dashed border-border/30">
-                    <Users className="h-8 w-8 text-muted-foreground/10 mx-auto mb-2" />
-                    <p className="text-[10px] text-muted-foreground/40 font-black uppercase tracking-widest">
-                      Sin asignaciones
-                    </p>
+              {/* Grupo: En Servicio */}
+              <div className="border-b border-slate-100">
+                <button
+                  onClick={() => toggleGroup("assigned")}
+                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-1.5 w-1.5 rounded-full bg-slate-900" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">En Servicio</span>
+                    <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
+                      {groups.assigned.length}
+                    </span>
+                  </div>
+                  {expandedGroups?.assigned ? <ChevronDown className="h-3 w-3 text-slate-400" /> : <ChevronRight className="h-3 w-3 text-slate-400" />}
+                </button>
+                {expandedGroups?.assigned && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
+                    {groups.assigned.length > 0 ? groups.assigned.map(renderDriverCard) : (
+                      <div className="col-span-full py-12 text-center border-t border-slate-50">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">Sin actividad operativa registrada</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {activeTab === "fuel" && (
+            <div className="bg-white">
+              <FuelManagementView
+                onDriverClick={(driverId) => {
+                  onFuelDetailSelect?.(driverId);
+                }}
+              />
+            </div>
+          )}
         </div>
       </ScrollArea>
 

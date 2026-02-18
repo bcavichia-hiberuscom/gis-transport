@@ -109,6 +109,15 @@ export const DriverSchema = z.object({
   imageUrl: z.string().optional(),
   currentVehicleId: z.union([z.string(), z.number()]).optional(),
   speedingEvents: z.array(SpeedingEventSchema).optional(),
+
+  // Compliance & Legal
+  hireDate: z.number().optional(), // Unix timestamp
+  licenseExpiryDate: z.number().optional(), // Unix timestamp
+  medicalCertStatus: z.enum(["approved", "pending", "expired"]).optional(),
+  medicalCertExpiryDate: z.number().optional(),
+
+  // Fuel management reference (populated on demand)
+  fuelSummary: z.any().optional(), // DriverFuelSummary - avoid circular dependency
 });
 export type Driver = z.infer<typeof DriverSchema>;
 
@@ -356,6 +365,7 @@ export const LayerVisibilitySchema = z.object({
   evStations: z.boolean(),
   cityZones: z.boolean(),
   route: z.boolean(),
+  customZones: z.boolean(),
 });
 export type LayerVisibility = z.infer<typeof LayerVisibilitySchema>;
 
@@ -564,3 +574,4 @@ export const GisDataContextSchema = z.record(z.string(), z.any());
 export type GisDataContext = z.infer<typeof GisDataContextSchema>;
 
 export * from "./overpass-client";
+export * from "./fuel-types";

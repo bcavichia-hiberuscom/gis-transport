@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { AddJobDialog } from "@/components/add-job-dialog";
-import { AddCustomPOIDialogV2 } from "@/components/add-custom-drawing-zone";
+import { AddCustomZoneDialog } from "@/components/add-custom-drawing-zone";
 import {
   RouteErrorAlert,
   type RouteError,
@@ -25,10 +25,9 @@ interface GISMapDialogsProps {
   onStartPickingJob: () => void;
   pickedJobCoords: [number, number] | null;
 
-  // POI/Zone Dialog
+  // Zone Dialog
   isAddCustomPOIOpen: boolean;
   onOpenAddCustomPOIChange: (open: boolean) => void;
-  onSubmitPOI: (name: string, coords: [number, number], desc?: string) => void;
   onSubmitZone: (
     name: string,
     coordinates: any,
@@ -36,11 +35,9 @@ interface GISMapDialogsProps {
     zoneType?: string,
     requiredTags?: string[],
   ) => void;
-  onStartPicking: () => void;
   onStartZonePicking: () => void;
   onContinueZonePicking: () => void;
   onCloseShape: () => void;
-  pickedPOICoords: [number, number] | null;
   zonePoints: [number, number][];
   zoneIsClosed: boolean;
   isDrawingZone: boolean;
@@ -51,6 +48,7 @@ interface GISMapDialogsProps {
   routeErrors: RouteError[];
   routeNotices: RouteNotice[];
   onClearRouteErrors: () => void;
+  customEntityMode?: "point" | "zone";
 }
 
 export function GISMapDialogs({
@@ -62,13 +60,10 @@ export function GISMapDialogs({
   pickedJobCoords,
   isAddCustomPOIOpen,
   onOpenAddCustomPOIChange,
-  onSubmitPOI,
   onSubmitZone,
-  onStartPicking,
   onStartZonePicking,
   onContinueZonePicking,
   onCloseShape,
-  pickedPOICoords,
   zonePoints,
   zoneIsClosed,
   isDrawingZone,
@@ -89,19 +84,11 @@ export function GISMapDialogs({
         pickedCoords={pickedJobCoords}
       />
 
-      <AddCustomPOIDialogV2
+      <AddCustomZoneDialog
         isOpen={isAddCustomPOIOpen}
         onOpenChange={onOpenAddCustomPOIChange}
-        onSubmitPOI={onSubmitPOI}
         onSubmitZone={onSubmitZone}
-        mapCenter={mapCenter}
-        onStartPicking={onStartPicking}
-        onStartZonePicking={onStartZonePicking}
-        onContinueZonePicking={onContinueZonePicking}
-        onCloseShape={onCloseShape}
-        pickedCoords={pickedPOICoords}
         zonePoints={zonePoints}
-        zoneIsClosed={zoneIsClosed}
         isDrawingZone={isDrawingZone}
         isEditingZone={isEditingZone}
         editingZoneData={editingZoneData}

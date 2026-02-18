@@ -65,11 +65,6 @@ export function useMapCoordination({
       const doAddJob = addJobAtRef.current;
 
       switch (mode) {
-        case "pick-poi":
-          dispatch({ type: "SET_PICKED_POI_COORDS", payload: coords });
-          dispatch({ type: "SET_INTERACTION_MODE", payload: null });
-          dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: true });
-          break;
         case "pick-zone":
           // Add point to zone and keep picking mode active
           dispatch({ type: "ADD_ZONE_POINT", payload: coords });

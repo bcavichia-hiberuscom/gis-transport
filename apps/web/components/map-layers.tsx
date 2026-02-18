@@ -2,7 +2,7 @@
 
 import { memo, useMemo } from "react";
 import { Polygon, Popup, Marker, Tooltip } from "react-leaflet";
-import { Edit2 } from "lucide-react";
+import { Edit2, Eye, Trash2 } from "lucide-react";
 import { THEME } from "@/lib/theme";
 import type { Zone, RouteWeather } from "@gis/shared";
 
@@ -12,6 +12,9 @@ interface ZoneLayerProps {
   isInteracting: boolean;
   canAccessZone: (zone: Zone) => boolean;
   onEditZone?: (zoneId: string) => void;
+  onDeleteZone?: (zoneId: string) => void;
+  hiddenZones?: string[];
+  onToggleVisibility?: (zoneId: string) => void;
 }
 
 // Helper functions moved outside component to avoid recreation
@@ -46,6 +49,9 @@ export const ZoneLayer = memo(
     isInteracting,
     canAccessZone,
     onEditZone,
+    onDeleteZone,
+    hiddenZones = [],
+    onToggleVisibility,
   }: ZoneLayerProps) {
     // Memoize zone processing to avoid recalculation on every render
     const processedZones = useMemo(() => {
@@ -114,23 +120,23 @@ export const ZoneLayer = memo(
             // API zones keep existing styling
             style = isLEZ
               ? {
-                  color: hasAccess ? THEME.colors.success : THEME.colors.danger,
-                  fillColor: hasAccess
-                    ? THEME.colors.success
-                    : THEME.colors.danger,
-                  fillOpacity: hasAccess
-                    ? 0.2 // Higher opacity for visibility
-                    : 0.3,
-                  weight: 2, // Thicker lines
-                  dashArray: undefined,
-                }
+                color: hasAccess ? THEME.colors.success : THEME.colors.danger,
+                fillColor: hasAccess
+                  ? THEME.colors.success
+                  : THEME.colors.danger,
+                fillOpacity: hasAccess
+                  ? 0.2 // Higher opacity for visibility
+                  : 0.3,
+                weight: 2, // Thicker lines
+                dashArray: undefined,
+              }
               : {
-                  color: THEME.colors.danger,
-                  fillColor: THEME.colors.danger,
-                  fillOpacity: 0.25,
-                  weight: 2,
-                  dashArray: THEME.map.polygons.restricted.dashArray,
-                };
+                color: THEME.colors.danger,
+                fillColor: THEME.colors.danger,
+                fillOpacity: 0.25,
+                weight: 2,
+                dashArray: THEME.map.polygons.restricted.dashArray,
+              };
           }
 
           return {
@@ -205,18 +211,46 @@ export const ZoneLayer = memo(
                         </div>
                       )}
                     </div>
-                    {isCustom && onEditZone && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditZone(zone.id);
-                        }}
-                        className="p-1.5 hover:bg-muted rounded transition-colors"
-                        title="Editar zona"
-                      >
-                        <Edit2 size={16} className="text-primary" />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {isCustom && onToggleVisibility && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleVisibility(zone.id);
+                          }}
+                          className="p-1.5 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-primary"
+                          title="Ocultar zona"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      )}
+                      {isCustom && onEditZone && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditZone(zone.id);
+                          }}
+                          className="p-1.5 hover:bg-muted rounded transition-colors"
+                          title="Editar zona"
+                        >
+                          <Edit2 size={16} className="text-primary" />
+                        </button>
+                      )}
+                      {isCustom && onDeleteZone && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`¿Estás seguro de eliminar la zona "${zone.name}"?`)) {
+                              onDeleteZone(zone.id);
+                            }
+                          }}
+                          className="p-1.5 hover:bg-red-50 rounded transition-colors text-red-500 hover:text-red-600"
+                          title="Eliminar zona"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Popup>
               )}
@@ -232,7 +266,10 @@ export const ZoneLayer = memo(
       prev.visible === next.visible &&
       prev.isInteracting === next.isInteracting &&
       prev.canAccessZone === next.canAccessZone &&
-      prev.onEditZone === next.onEditZone
+      prev.onEditZone === next.onEditZone &&
+      prev.onDeleteZone === next.onDeleteZone &&
+      prev.hiddenZones === next.hiddenZones &&
+      prev.onToggleVisibility === next.onToggleVisibility
     );
   },
 );
