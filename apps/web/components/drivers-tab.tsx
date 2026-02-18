@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   UserPlus,
-  ChevronDown,
   ChevronRight,
   Search,
   Activity,
   Layers,
   Clock,
+  MapPin,
+  Truck,
 } from "lucide-react";
 import { cn, getDriverIsAvailable, getDriverOnTimeRate } from "@/lib/utils";
 import type { Driver, FleetVehicle } from "@gis/shared";
@@ -132,54 +133,53 @@ export function DriversTab({
     };
   }, [drivers]);
 
+  // Two-column layout doesn't need local collapse state
+
   const renderDriverCard = (driver: Driver) => (
     <div
       key={driver.id}
       onClick={() => onDriverSelect?.(driver)}
-      className="group relative bg-white border-b border-slate-100 p-5 transition-all hover:bg-slate-50 cursor-pointer overflow-hidden border-r last:border-r-0"
+      className="group bg-white border border-slate-100 rounded-lg p-4 hover:shadow-sm transition-colors cursor-pointer"
     >
-      <div className="flex gap-4 items-center relative z-10">
+      <div className="flex items-start gap-4">
         <div className="relative">
-          <div className="h-10 w-10 bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 rounded-xl">
+          <div className="h-10 w-10 bg-slate-100 flex items-center justify-center rounded-xl overflow-hidden border border-slate-200">
             {driver.imageUrl ? (
-              <img
-                src={driver.imageUrl}
-                alt={driver.name}
-                className="h-full w-full object-cover grayscale opacity-90"
-              />
+              <img src={driver.imageUrl} alt={driver.name} className="h-full w-full object-cover" />
             ) : (
-              <span className="text-[10px] font-black text-slate-400 uppercase italic">
-                {driver.id.substring(0, 2)}
-              </span>
+              <span className="text-[10px] font-black text-slate-400 uppercase">{driver.id.substring(0, 2)}</span>
             )}
           </div>
-          <div
-            className={cn(
-              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white",
-              driver.isAvailable ? "bg-emerald-500" : "bg-slate-900",
-            )}
-          />
+          <span className={cn("absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full border border-white", driver.isAvailable ? "bg-emerald-500" : "bg-slate-900")} />
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex flex-col">
-            <h3 className="text-[12px] font-black italic tracking-tighter text-slate-900 truncate uppercase group-hover:text-blue-600 transition-colors leading-tight">
-              {driver.name}
-            </h3>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                {driver.licenseType || "Cat. B"}
-              </span>
-              <span className="h-0.5 w-0.5 bg-slate-300" />
-              <div className="flex items-center gap-1">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">
-                  {getDriverOnTimeRate(driver)}% Eficacia
-                </span>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-black italic tracking-tighter text-slate-900 uppercase truncate">{driver.name}</h4>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">{driver.licenseType || 'Cat. B'}</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">{getDriverOnTimeRate(driver)}% Eficacia</span>
               </div>
             </div>
+
+            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0" />
+          </div>
+
+          <div className="mt-3 flex items-center gap-3 text-[10px] text-slate-500">
+            <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-black uppercase", driver.isAvailable ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-800")}>{driver.isAvailable ? 'Disponible' : 'Asignado'}</span>
+            <span className="flex items-center gap-1 text-[11px]">
+              <Truck className="h-3 w-3 text-slate-400" />
+              <span className="text-[11px]">{fleetVehicles.find((v) => v.id === (driver as any).vehicleId)?.type?.label ?? 'Sin vehículo'}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-slate-400" />
+              <span>{(driver as any).location?.lat ? `${(driver as any).location.lat?.toFixed?.(3) || '—'}, ${(driver as any).location?.lng ? (driver as any).location.lng?.toFixed?.(3) || '—' : '—'}` : '—'}</span>
+            </span>
+            <span className="ml-auto text-slate-400">{(driver as any).kmToday ?? 0} km • {(driver as any).activeHoursToday ?? 0} h</span>
+            <span className="text-rose-500 font-bold ml-2">{(driver.speedingEvents?.length || 0) > 0 ? `${driver.speedingEvents?.length ?? 0} ⚠` : ''}</span>
           </div>
         </div>
-        <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:translate-x-1 group-hover:text-slate-900 transition-all shrink-0" />
       </div>
     </div>
   );
@@ -218,7 +218,7 @@ export function DriversTab({
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               {/* Auditoría de Desempeño */}
               <div className="px-8 py-8 flex items-center justify-between border-b border-slate-100 bg-slate-50/10">
-                <div className="flex items-center gap-4"></div>
+                <div className="flex items-center gap-4" />
                 <PeriodSelector
                   currentPeriod={currentPeriod}
                   onPeriodChange={setCurrentPeriod}
@@ -245,76 +245,127 @@ export function DriversTab({
 
           {activeTab === "drivers" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 bg-white">
-              {/* Grupo: Disponibles */}
-              <div className="border-b border-slate-100">
-                <button
-                  onClick={() => toggleGroup("available")}
-                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">
-                      Disponibles
-                    </span>
-                    <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
-                      {groups.available.length}
-                    </span>
-                  </div>
-                  {expandedGroups?.available ? (
-                    <ChevronDown className="h-3 w-3 text-slate-400" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3 text-slate-400" />
-                  )}
-                </button>
-                {expandedGroups?.available && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
-                    {groups.available.length > 0 ? (
-                      groups.available.map(renderDriverCard)
-                    ) : (
-                      <div className="col-span-full py-12 text-center border-t border-slate-50">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">
-                          No se detecta personal disponible
-                        </p>
+              {/* Manager KPI Panel */}
+              <div className="px-8 pt-6 pb-6 border-b border-slate-100 bg-white">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white border border-slate-100 rounded-lg p-4 flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Conductores
                       </div>
-                    )}
+                      <div className="text-xs font-bold text-slate-400">
+                        Total
+                      </div>
+                    </div>
+                    <div className="mt-3 text-2xl font-extrabold tabular-nums text-slate-900">
+                      {drivers.length}
+                    </div>
+                    <div className="mt-2 text-[10px] text-slate-400">
+                      Activos en la flota
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Grupo: En Servicio */}
-              <div className="border-b border-slate-100">
-                <button
-                  onClick={() => toggleGroup("assigned")}
-                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-1.5 w-1.5 rounded-full bg-slate-900" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">
-                      En Servicio
-                    </span>
-                    <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
-                      {groups.assigned.length}
-                    </span>
-                  </div>
-                  {expandedGroups?.assigned ? (
-                    <ChevronDown className="h-3 w-3 text-slate-400" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3 text-slate-400" />
-                  )}
-                </button>
-                {expandedGroups?.assigned && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
-                    {groups.assigned.length > 0 ? (
-                      groups.assigned.map(renderDriverCard)
-                    ) : (
-                      <div className="col-span-full py-12 text-center border-t border-slate-50">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">
-                          Sin actividad operativa registrada
-                        </p>
+                  <div className="bg-white border border-slate-100 rounded-lg p-4 flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Disponibles
                       </div>
-                    )}
+                      <div className="text-xs font-bold text-slate-400">
+                        Ahora
+                      </div>
+                    </div>
+                    <div className="mt-3 text-2xl font-extrabold tabular-nums text-emerald-600">
+                      {groups.available.length}
+                    </div>
+                    <div className="mt-2 text-[10px] text-slate-400">
+                      Listos para asignación
+                    </div>
                   </div>
-                )}
+
+                  <div className="bg-white border border-slate-100 rounded-lg p-4 flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Incidentes (30d)
+                      </div>
+                      <div className="text-xs font-bold text-slate-400">
+                        Telemetry
+                      </div>
+                    </div>
+                    <div className="mt-3 text-2xl font-extrabold tabular-nums text-rose-600">
+                      {analyticsData.totalSpeeding}
+                    </div>
+                    <div className="mt-2 text-[10px] text-slate-400">
+                      Eventos detectados
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-100 rounded-lg p-4 flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Puntaje Prom.
+                      </div>
+                      <div className="text-xs font-bold text-slate-400">
+                        Calidad
+                      </div>
+                    </div>
+                    <div className="mt-3 text-2xl font-extrabold tabular-nums text-sky-600">
+                      {analyticsData.avgScore}%
+                    </div>
+                    <div className="mt-2 text-[10px] text-slate-400">
+                      Rendimiento medio
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* ↑ KPI Panel closes here */}
+
+              {/* Two-column split: Disponibles | En Servicio */}
+              <div className="px-8 py-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Column: Disponibles */}
+                <div className="border border-slate-100 rounded-lg overflow-hidden">
+                  <div className="w-full flex items-center justify-between px-4 py-3 bg-white">
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
+                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Disponibles</span>
+                      <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">{groups.available.length}</span>
+                    </div>
+                  </div>
+
+                    <div className="bg-white max-h-[56vh] overflow-auto">
+                      <div className="p-4 grid grid-cols-1 gap-3">
+                        {groups.available.length > 0 ? (
+                          groups.available.map(renderDriverCard)
+                        ) : (
+                          <div className="py-12 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">No se detecta personal disponible</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                </div>
+
+                {/* Column: En Servicio */}
+                <div className="border border-slate-100 rounded-lg overflow-hidden">
+                  <div className="w-full flex items-center justify-between px-4 py-3 bg-white">
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 w-1.5 rounded-full bg-slate-900" />
+                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">En Servicio</span>
+                      <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">{groups.assigned.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white max-h-[56vh] overflow-auto">
+                    <div className="p-4 grid grid-cols-1 gap-3">
+                      {groups.assigned.length > 0 ? (
+                        groups.assigned.map(renderDriverCard)
+                      ) : (
+                        <div className="py-12 text-center">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">Sin actividad operativa registrada</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

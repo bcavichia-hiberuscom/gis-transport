@@ -15,6 +15,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
+
+
 interface DriverDetailsSheetProps {
   driver: Driver | null;
   isOpen: boolean;
@@ -88,14 +90,13 @@ export function DriverDetailsSheet({
             >
               <ArrowLeft className="h-4 w-4 text-slate-400" />
             </Button>
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "h-2 w-2 rounded-full",
-                driver.isAvailable ? "bg-emerald-500" : "bg-slate-900"
-              )} />
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-900 italic">
-                {driver.isAvailable ? "Personal Disponible" : "En Servicio Activo"}
-              </span>
+            <div className="flex items-center gap-4">
+              <div className={cn("h-1.5 w-1.5 rounded-full", driver.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" : "bg-slate-900")} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Disponibles</span>
+              <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">{driver.isAvailable ? 1 : 0}</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-900 ml-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">En Servicio</span>
+              <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">{driver.isAvailable ? 0 : 1}</span>
             </div>
           </div>
 

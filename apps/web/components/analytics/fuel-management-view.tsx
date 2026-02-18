@@ -23,25 +23,39 @@ interface KPIItemProps {
   icon: React.ElementType;
   trend?: string;
   trendType?: "positive" | "negative";
+  tone?: "blue" | "green" | "red" | "amber";
 }
 
-function KPIItem({ label, value, icon: Icon }: KPIItemProps) {
+function KPIItem({ label, value, icon: Icon, tone = "blue" }: KPIItemProps) {
+  const toneMap: Record<string, { iconBg: string; iconText: string; divider: string; label: string }> = {
+    blue: { iconBg: "bg-sky-50", iconText: "text-sky-600", divider: "bg-sky-100", label: "text-sky-500" },
+    green: { iconBg: "bg-emerald-50", iconText: "text-emerald-600", divider: "bg-emerald-100", label: "text-emerald-500" },
+    red: { iconBg: "bg-rose-50", iconText: "text-rose-600", divider: "bg-rose-100", label: "text-rose-500" },
+    amber: { iconBg: "bg-amber-50", iconText: "text-amber-600", divider: "bg-amber-100", label: "text-amber-500" },
+  };
+
+  const toneCls = toneMap[tone] || toneMap.blue;
+
   return (
-    <div className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0 hover:bg-slate-50/30 transition-colors">
+    <div className="flex flex-col gap-4 border-r last:border-r-0 p-6 bg-white rounded-lg border border-slate-100 hover:shadow-sm transition-colors group">
       <div className="flex items-center">
-        <div className="h-9 w-9 flex items-center justify-center border border-slate-200 bg-white text-slate-400 rounded-xl">
+        <div className={cn(
+          "h-10 w-10 flex items-center justify-center border rounded-xl shadow-sm transition-colors",
+          toneCls.iconBg,
+          toneCls.iconText
+        )}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
       <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">
+        <p className={cn("text-[10px] font-semibold uppercase tracking-[0.18em] mb-1", toneCls.label)}>
           {label}
         </p>
-        <h4 className="text-2xl font-black italic tracking-tighter text-slate-900 uppercase">
+        <h4 className="text-lg md:text-xl font-extrabold tabular-nums tracking-tight text-slate-900">
           {value}
         </h4>
       </div>
-      <div className="h-[1px] w-full bg-slate-100 mt-1" />
+      <div className={cn("h-[1px] w-full mt-1", toneCls.divider)} />
     </div>
   );
 }
@@ -65,19 +79,11 @@ function FuelKPIStripInline({
         : `$${estimatedLossARS.toFixed(0)}`;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-t border-slate-100">
-      <KPIItem
-        label="Conductores"
-        value={discrepanciesCount}
-        icon={AlertTriangle}
-      />
-      <KPIItem
-        label="Desvío Total"
-        value={`${totalDiscrepancyLiters.toFixed(0)}L`}
-        icon={Fuel}
-      />
-      <KPIItem label="Estaciones" value={criticalStationsCount} icon={MapPin} />
-      <KPIItem label="Pérdida Est." value={formattedLoss} icon={DollarSign} />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-transparent border-t border-slate-100">
+      <KPIItem label="Conductores" value={discrepanciesCount} icon={AlertTriangle} tone="red" />
+      <KPIItem label="Desvío Total" value={`${totalDiscrepancyLiters.toFixed(0)}L`} icon={Fuel} tone="amber" />
+      <KPIItem label="Estaciones" value={criticalStationsCount} icon={MapPin} tone="blue" />
+      <KPIItem label="Pérdida Est." value={formattedLoss} icon={DollarSign} tone="red" />
     </div>
   );
 }

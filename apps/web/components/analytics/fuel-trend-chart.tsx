@@ -28,7 +28,6 @@ interface FuelTrendChartProps {
 
 export function FuelTrendChart({
   data,
-  className,
   title = "Tendencia de Consumo",
 }: FuelTrendChartProps) {
   const hasData = data && data.length > 0;
@@ -109,7 +108,7 @@ export function FuelTrendChart({
                 type="monotone"
                 dataKey="declared"
                 name="Facturado (L)"
-                stroke="#0f172a"
+                stroke="#ff8a53"
                 strokeWidth={3}
                 dot={{ r: 4, fill: "#0f172a", strokeWidth: 2, stroke: "#fff" }}
                 activeDot={{ r: 6, strokeWidth: 0 }}
@@ -119,7 +118,7 @@ export function FuelTrendChart({
                 type="monotone"
                 dataKey="expected"
                 name="Sensor (L)"
-                stroke="#64748b"
+                stroke="#a1e073"
                 strokeWidth={2}
                 strokeDasharray="6 4"
                 dot={{

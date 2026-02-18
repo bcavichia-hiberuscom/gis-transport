@@ -12,14 +12,14 @@ export function DriversTrendChart({ data }: DriversTrendChartProps) {
     const hasData = data && data.length > 0;
 
     return (
-        <div className="p-10 border-r border-slate-100 bg-white group">
+        <div className="p-10 border-r border-slate-100 bg-gradient-to-b from-white via-primary/3 to-white group rounded-lg">
             <div className="flex items-start justify-between mb-10">
                 <div className="flex flex-col gap-1.5">
                     <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-slate-400" />
+                        <Activity className="h-4 w-4 text-sky-500" />
                         Histórico de Rendimiento
                     </h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
                         Evolución de la Puntualidad Media por Periodo
                     </p>
                 </div>
@@ -36,11 +36,11 @@ export function DriversTrendChart({ data }: DriversTrendChartProps) {
                         <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1} />
-                                    <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
+                                    <stop offset="5%" stopColor="#075985" stopOpacity={0.12} />
+                                    <stop offset="95%" stopColor="#075985" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(0,0,0,0.04)" />
+                            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(7,41,68,0.04)" />
                             <XAxis
                                 dataKey="name"
                                 axisLine={false}
@@ -76,7 +76,7 @@ export function DriversTrendChart({ data }: DriversTrendChartProps) {
                                 type="monotone"
                                 dataKey="score"
                                 name="Rendimiento"
-                                stroke="#0f172a"
+                                stroke="#075985"
                                 strokeWidth={3}
                                 fillOpacity={1}
                                 fill="url(#colorScore)"

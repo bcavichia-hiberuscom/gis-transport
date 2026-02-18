@@ -17,13 +17,27 @@ interface KPIItemProps {
     icon: React.ElementType;
     trend?: string;
     trendType?: "positive" | "negative";
+    tone?: "blue" | "green" | "red" | "amber";
 }
 
-function KPIItem({ label, value, icon: Icon, trend, trendType }: KPIItemProps) {
+function KPIItem({ label, value, icon: Icon, trend, trendType, tone = "blue" }: KPIItemProps) {
+    const toneMap: Record<string, { iconBg: string; iconText: string; divider: string; label: string }> = {
+        blue: { iconBg: "bg-sky-50", iconText: "text-sky-600", divider: "bg-sky-100", label: "text-sky-500" },
+        green: { iconBg: "bg-emerald-50", iconText: "text-emerald-600", divider: "bg-emerald-100", label: "text-emerald-500" },
+        red: { iconBg: "bg-rose-50", iconText: "text-rose-600", divider: "bg-rose-100", label: "text-rose-500" },
+        amber: { iconBg: "bg-amber-50", iconText: "text-amber-600", divider: "bg-amber-100", label: "text-amber-500" },
+    };
+
+    const toneCls = toneMap[tone] || toneMap.blue;
+
     return (
-        <div className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0 hover:bg-slate-50/30 transition-colors">
+        <div className="flex flex-col gap-4 border-r last:border-r-0 p-6 bg-white rounded-lg border border-slate-100 hover:shadow-sm transition-colors group">
             <div className="flex items-center justify-between">
-                <div className="h-9 w-9 flex items-center justify-center border border-slate-200 bg-white text-slate-400 rounded-xl">
+                <div className={cn(
+                    "h-10 w-10 flex items-center justify-center border rounded-xl shadow-sm transition-colors",
+                    toneCls.iconBg,
+                    toneCls.iconText
+                )}>
                     <Icon className="h-4 w-4" />
                 </div>
                 {trend && (
@@ -36,12 +50,12 @@ function KPIItem({ label, value, icon: Icon, trend, trendType }: KPIItemProps) {
                 )}
             </div>
             <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">{label}</p>
-                <h4 className="text-3xl font-black tracking-tight text-slate-900 uppercase">
+                <p className={cn("text-[10px] font-semibold uppercase tracking-[0.18em] mb-1", toneCls.label)}>{label}</p>
+                <h4 className="text-xl md:text-2xl font-extrabold tabular-nums tracking-tight text-slate-900">
                     {value}
                 </h4>
             </div>
-            <div className="h-[1px] w-full bg-slate-100 mt-1" />
+            <div className={cn("h-[1px] w-full mt-1", toneCls.divider)} />
         </div>
     );
 }
@@ -69,12 +83,9 @@ export function FuelKPIStrip({ className, discrepanciesCount }: FuelKPIStripProp
 
     if (loading) {
         return (
-            <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 bg-white border-b border-slate-100", className)}>
+            <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-transparent border-b border-slate-100", className)}>
                 {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0 animate-pulse">
-                        <div className="h-4 bg-slate-200 rounded w-1/2" />
-                        <div className="h-8 bg-slate-200 rounded w-3/4" />
-                    </div>
+                    <div key={i} className="flex flex-col gap-4 border-r last:border-r-0 p-6 bg-white rounded-lg border border-slate-100 animate-pulse" />
                 ))}
             </div>
         );
@@ -82,8 +93,8 @@ export function FuelKPIStrip({ className, discrepanciesCount }: FuelKPIStripProp
 
     if (!fuelData) {
         return (
-            <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 bg-white border-b border-slate-100", className)}>
-                <div className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0">
+            <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-transparent border-b border-slate-100", className)}>
+                <div className="flex flex-col gap-4 border-r last:border-r-0 p-6 bg-white rounded-lg border border-slate-100">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">No hay datos</p>
                 </div>
             </div>
@@ -99,27 +110,11 @@ export function FuelKPIStrip({ className, discrepanciesCount }: FuelKPIStripProp
                 : "good";
 
     return (
-        <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 bg-white border-b border-slate-100", className)}>
-            <KPIItem
-                label="Combustible"
-                value={`${fuelData.totals.declaredLiters.toFixed(0)}L`}
-                icon={Fuel}
-            />
-            <KPIItem
-                label="Conformidad"
-                value={`${complianceRate.toFixed(1)}%`}
-                icon={TrendingUp}
-            />
-            <KPIItem
-                label="Discrepancias"
-                value={discrepanciesCount ?? fuelData.statusBreakdown.flagged}
-                icon={AlertTriangle}
-            />
-            <KPIItem
-                label="Pérdida Est."
-                value={`€${(fuelData.totals.estimatedLossEuro || 0).toFixed(0)}`}
-                icon={TrendingDown}
-            />
+        <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-transparent border-b border-slate-100", className)}>
+            <KPIItem label="Combustible" value={`${fuelData.totals.declaredLiters.toFixed(0)}L`} icon={Fuel} tone="amber" />
+            <KPIItem label="Conformidad" value={`${complianceRate.toFixed(1)}%`} icon={TrendingUp} tone="green" />
+            <KPIItem label="Discrepancias" value={discrepanciesCount ?? fuelData.statusBreakdown.flagged} icon={AlertTriangle} tone="red" />
+            <KPIItem label="Pérdida Est." value={`€${(fuelData.totals.estimatedLossEuro || 0).toFixed(0)}`} icon={TrendingDown} tone="amber" />
         </div>
     );
 }
