@@ -6,6 +6,7 @@ import {
     LayoutDashboard,
     Route,
     Users,
+    Truck,
     Layers,
     Map as MapIcon,
     Settings,
@@ -22,6 +23,7 @@ interface NavPanelProps {
 const navItems = [
     { id: "map", label: "Monitorización", icon: MapIcon },
     { id: "drivers", label: "Conductores", icon: Users },
+    { id: "vehicles", label: "Vehículos", icon: Truck },
 ] as const;
 
 export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {

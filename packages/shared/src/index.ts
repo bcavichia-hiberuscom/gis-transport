@@ -172,6 +172,17 @@ export const FleetVehicleSchema = z.object({
   licensePlate: z.string().optional(),
   driver: DriverSchema.optional(),
   metrics: VehicleMetricsSchema.optional(),
+  // Vehicle specifications
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  year: z.number().optional(),
+  mileage: z.number().optional(),
+  fuelConsumption: z.number().optional(), // L/100km
+  // Maintenance tracking
+  status: z.enum(["active", "idle", "maintenance", "offline"]).optional(),
+  lastMaintenanceDate: z.number().optional(), // Unix timestamp
+  nextMaintenanceDate: z.number().optional(), // Unix timestamp
+  maintenanceHours: z.number().optional(),
 });
 export type FleetVehicle = z.infer<typeof FleetVehicleSchema>;
 

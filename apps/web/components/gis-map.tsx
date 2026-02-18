@@ -21,6 +21,7 @@ import { MapLayersOverlay } from "@/components/dashboard/map-layers-overlay";
 // Custom Hooks
 import { useGISState } from "@/hooks/use-gis-state";
 import { useFleet } from "@/hooks/use-fleet";
+import { useVehicles } from "@/hooks/use-vehicles";
 import { useDrivers } from "@/hooks/use-drivers";
 import { useDriverManagement } from "@/hooks/use-driver-management";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
@@ -41,6 +42,7 @@ import { useZoneDrawing } from "@/hooks/use-zone-drawing";
 // Dashboard Components
 import { Dashboard, type DashboardModule } from "@/components/dashboard/dashboard";
 import { DriversTab } from "./drivers-tab";
+import { VehiclesTab } from "./vehicles-tab";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 import { FuelDetailsSheet } from "./fuel-details-sheet";
 
@@ -111,6 +113,13 @@ export function GISMap() {
     setJobAssignments,
     updateJobStatus,
   } = useFleet();
+
+  const {
+    vehicles: dataVehicles,
+    isLoading: isLoadingApiVehicles,
+    addVehicle: addApiVehicle,
+    fetchVehicles: fetchApiVehicles,
+  } = useVehicles();
 
   const {
     drivers,
@@ -620,7 +629,20 @@ export function GISMap() {
         </div>
       )}
 
-      {/* 5. Layers Module - DELETED (Handled via Overlay) */}
+      {/* 5. Vehicles Module */}
+      {activeModule === "vehicles" && (
+        <div className="h-full flex flex-col bg-background overflow-hidden relative">
+          <VehiclesTab
+            fleetVehicles={dataVehicles || []}
+            isLoading={isLoadingApiVehicles || false}
+            fetchVehicles={fetchApiVehicles || (async () => { })}
+            addVehicle={addApiVehicle || (async () => undefined)}
+            onVehicleSelect={(v) => {
+              setSelectedVehicleId(String(v.id));
+            }}
+          />
+        </div>
+      )}
 
       {/* Global HUD elements (Dialogs, Popups, etc) */}
       <GISMapDialogs
