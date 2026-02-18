@@ -43,6 +43,7 @@ import { useZoneDrawing } from "@/hooks/use-zone-drawing";
 import { Dashboard, type DashboardModule } from "@/components/dashboard/dashboard";
 import { DriversTab } from "./drivers-tab";
 import { VehiclesTab } from "./vehicles-tab";
+import { OrdersTab } from "./orders-tab";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 import { FuelDetailsSheet } from "./fuel-details-sheet";
 
@@ -542,7 +543,7 @@ export function GISMap() {
           setMapCenter={handleSetMapCenter}
           selectedVehicle={state.selectedVehicle}
           customPOIs={displayedCustomPOIs}
-          fleetVehicles={fleetVehicles}
+          fleetVehicles={dataVehicles && dataVehicles.length > 0 ? dataVehicles : fleetVehicles}
           fleetJobs={fleetJobs}
           selectedVehicleId={selectedVehicleId}
           vehicleAlerts={vehicleAlerts}
@@ -639,6 +640,26 @@ export function GISMap() {
             addVehicle={addApiVehicle || (async () => undefined)}
             onVehicleSelect={(v) => {
               setSelectedVehicleId(String(v.id));
+            }}
+          />
+        </div>
+      )}
+
+      {/* 6. Orders Module */}
+      {activeModule === "orders" && (
+        <div className="h-full flex flex-col bg-background overflow-hidden relative">
+          <OrdersTab
+            fleetJobs={fleetJobs || []}
+            isLoading={isLoadingVehicles || false}
+            addJob={() => {
+              dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: true });
+            }}
+            fetchJobs={async () => {
+              await fetchVehicles();
+            }}
+            removeJob={removeJob || (async () => { })}
+            onJobSelect={(job) => {
+              // Placeholder for future job selection functionality
             }}
           />
         </div>
