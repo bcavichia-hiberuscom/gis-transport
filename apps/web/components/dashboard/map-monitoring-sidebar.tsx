@@ -74,12 +74,12 @@ export function MapMonitoringSidebar({
     }
 
     return (
-        <div className="absolute top-2 left-2 z-[400] w-64 bg-card/98 backdrop-blur-xl border border-border/50 shadow-2xl flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-2xl pointer-events-auto overflow-hidden animate-slide-in-left">
+        <div className="absolute top-2 left-2 z-[400] w-64 bg-card/98 backdrop-blur-xl border border-border/50 shadow-2xl flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-xl pointer-events-auto overflow-hidden animate-slide-in-left">
             {/* Header */}
             <div className="p-4 border-b border-border/10 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-sm font-black uppercase italic tracking-tighter text-foreground/80">Monitorización</h2>
+                        <h2 className="text-xs font-black uppercase tracking-tight text-foreground/80">Monitorización</h2>
                         <Badge variant="outline" className="text-[10px] font-bold bg-primary/5 border-primary/20 text-primary h-5 px-1.5">
                             {vehicles.length}
                         </Badge>

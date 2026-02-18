@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { NavPanel } from "./nav-panel";
-import { TopHeader } from "./top-header";
 
 export type DashboardModule = "map" | "drivers";
 

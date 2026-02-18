@@ -13,11 +13,7 @@ import {
   Layers,
   Clock,
 } from "lucide-react";
-import {
-  cn,
-  getDriverIsAvailable,
-  getDriverOnTimeRate,
-} from "@/lib/utils";
+import { cn, getDriverIsAvailable, getDriverOnTimeRate } from "@/lib/utils";
 import type { Driver, FleetVehicle } from "@gis/shared";
 
 // Analytical & Corporate Components
@@ -71,17 +67,32 @@ export function DriversTab({
     if (currentPeriod === "7d") thresholdDate.setDate(now.getDate() - 7);
     else if (currentPeriod === "30d") thresholdDate.setDate(now.getDate() - 30);
     else if (currentPeriod === "90d") thresholdDate.setDate(now.getDate() - 90);
-    else if (currentPeriod === "year") thresholdDate.setFullYear(now.getFullYear(), 0, 1);
+    else if (currentPeriod === "year")
+      thresholdDate.setFullYear(now.getFullYear(), 0, 1);
 
-    const filteredDrivers = drivers.map(d => ({
+    const filteredDrivers = drivers.map((d) => ({
       ...d,
-      filteredEvents: (d.speedingEvents || []).filter(e => new Date(e.timestamp) >= thresholdDate)
+      filteredEvents: (d.speedingEvents || []).filter(
+        (e) => new Date(e.timestamp) >= thresholdDate,
+      ),
     }));
 
-    const totalSpeeding = filteredDrivers.reduce((acc, d) => acc + d.filteredEvents.length, 0);
-    const baseScore = filteredDrivers.reduce((acc, d) => acc + (d.onTimeDeliveryRate || 100), 0) / (drivers.length || 1);
+    const totalSpeeding = filteredDrivers.reduce(
+      (acc, d) => acc + d.filteredEvents.length,
+      0,
+    );
+    const baseScore =
+      filteredDrivers.reduce(
+        (acc, d) => acc + (d.onTimeDeliveryRate || 100),
+        0,
+      ) / (drivers.length || 1);
     const penaltyPerEvent = 5;
-    const finalAvgScore = Math.max(0, Math.round(baseScore - (totalSpeeding * penaltyPerEvent / (drivers.length || 1))));
+    const finalAvgScore = Math.max(
+      0,
+      Math.round(
+        baseScore - (totalSpeeding * penaltyPerEvent) / (drivers.length || 1),
+      ),
+    );
 
     const trendData = [
       { name: "Semana 1", score: Math.min(100, finalAvgScore - 4), goal: 95 },
@@ -90,16 +101,27 @@ export function DriversTab({
       { name: "Semana Actual", score: finalAvgScore, goal: 95 },
     ];
 
-    const factorData = totalSpeeding > 0 ? [
-      { name: "Excesos de Velocidad", impact: totalSpeeding, color: "#0f172a" },
-      { name: "Demoras en Entrega", impact: Math.round(100 - baseScore), color: "#334155" },
-    ] : [];
+    const factorData =
+      totalSpeeding > 0
+        ? [
+            {
+              name: "Excesos de Velocidad",
+              impact: totalSpeeding,
+              color: "#0f172a",
+            },
+            {
+              name: "Demoras en Entrega",
+              impact: Math.round(100 - baseScore),
+              color: "#334155",
+            },
+          ]
+        : [];
 
     return {
       totalSpeeding,
       avgScore: finalAvgScore,
       trendData: drivers.length > 0 ? trendData : [],
-      factorData
+      factorData,
     };
   }, [drivers, currentPeriod]);
 
@@ -118,19 +140,25 @@ export function DriversTab({
     >
       <div className="flex gap-4 items-center relative z-10">
         <div className="relative">
-          <div className="h-10 w-10 bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200">
+          <div className="h-10 w-10 bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 rounded-xl">
             {driver.imageUrl ? (
-              <img src={driver.imageUrl} alt={driver.name} className="h-full w-full object-cover grayscale opacity-90" />
+              <img
+                src={driver.imageUrl}
+                alt={driver.name}
+                className="h-full w-full object-cover grayscale opacity-90"
+              />
             ) : (
               <span className="text-[10px] font-black text-slate-400 uppercase italic">
                 {driver.id.substring(0, 2)}
               </span>
             )}
           </div>
-          <div className={cn(
-            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white",
-            driver.isAvailable ? "bg-emerald-500" : "bg-slate-900"
-          )} />
+          <div
+            className={cn(
+              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white",
+              driver.isAvailable ? "bg-emerald-500" : "bg-slate-900",
+            )}
+          />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -162,7 +190,9 @@ export function DriversTab({
       <div className="shrink-0 bg-white border-b border-slate-100">
         <div className="px-8 py-10 pb-8 flex items-end justify-between">
           <div className="flex flex-col gap-1.5">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Auditoría Operativa de Flota</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
+              Auditoría Operativa de Flota
+            </p>
             <h2 className="text-4xl font-black tracking-tighter text-slate-900 uppercase italic leading-none">
               Personal
             </h2>
@@ -170,7 +200,7 @@ export function DriversTab({
 
           {activeTab === "drivers" && (
             <Button
-              className="h-10 px-8 bg-slate-900 text-white hover:bg-black transition-all text-[10px] font-black uppercase italic tracking-widest rounded-none border border-slate-900"
+              className="h-10 px-8 bg-slate-900 text-white hover:bg-black transition-all text-[10px] font-black uppercase italic tracking-widest rounded-xl border border-slate-900"
               onClick={() => setIsAddOpen(true)}
             >
               <UserPlus className="h-4 w-4 mr-2.5" />
@@ -188,16 +218,11 @@ export function DriversTab({
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               {/* Auditoría de Desempeño */}
               <div className="px-8 py-8 flex items-center justify-between border-b border-slate-100 bg-slate-50/10">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 flex items-center justify-center border border-slate-200">
-                    <Activity className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 leading-none">Desempeño Operativo</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Métricas de Riesgo y Seguridad</p>
-                  </div>
-                </div>
-                <PeriodSelector currentPeriod={currentPeriod} onPeriodChange={setCurrentPeriod} />
+                <div className="flex items-center gap-4"></div>
+                <PeriodSelector
+                  currentPeriod={currentPeriod}
+                  onPeriodChange={setCurrentPeriod}
+                />
               </div>
 
               <DriversKPIStrip
@@ -211,7 +236,10 @@ export function DriversTab({
                 <DriversFactorsChart data={analyticsData.factorData} />
               </div>
 
-              <DriversLeaderboard drivers={drivers} onDriverSelect={onDriverSelect} />
+              <DriversLeaderboard
+                drivers={drivers}
+                onDriverSelect={onDriverSelect}
+              />
             </div>
           )}
 
@@ -225,18 +253,28 @@ export function DriversTab({
                 >
                   <div className="flex items-center gap-4">
                     <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Disponibles</span>
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">
+                      Disponibles
+                    </span>
                     <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
                       {groups.available.length}
                     </span>
                   </div>
-                  {expandedGroups?.available ? <ChevronDown className="h-3 w-3 text-slate-400" /> : <ChevronRight className="h-3 w-3 text-slate-400" />}
+                  {expandedGroups?.available ? (
+                    <ChevronDown className="h-3 w-3 text-slate-400" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 text-slate-400" />
+                  )}
                 </button>
                 {expandedGroups?.available && (
                   <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
-                    {groups.available.length > 0 ? groups.available.map(renderDriverCard) : (
+                    {groups.available.length > 0 ? (
+                      groups.available.map(renderDriverCard)
+                    ) : (
                       <div className="col-span-full py-12 text-center border-t border-slate-50">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">No se detecta personal disponible</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">
+                          No se detecta personal disponible
+                        </p>
                       </div>
                     )}
                   </div>
@@ -251,18 +289,28 @@ export function DriversTab({
                 >
                   <div className="flex items-center gap-4">
                     <div className="h-1.5 w-1.5 rounded-full bg-slate-900" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">En Servicio</span>
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">
+                      En Servicio
+                    </span>
                     <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
                       {groups.assigned.length}
                     </span>
                   </div>
-                  {expandedGroups?.assigned ? <ChevronDown className="h-3 w-3 text-slate-400" /> : <ChevronRight className="h-3 w-3 text-slate-400" />}
+                  {expandedGroups?.assigned ? (
+                    <ChevronDown className="h-3 w-3 text-slate-400" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 text-slate-400" />
+                  )}
                 </button>
                 {expandedGroups?.assigned && (
                   <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
-                    {groups.assigned.length > 0 ? groups.assigned.map(renderDriverCard) : (
+                    {groups.assigned.length > 0 ? (
+                      groups.assigned.map(renderDriverCard)
+                    ) : (
                       <div className="col-span-full py-12 text-center border-t border-slate-50">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">Sin actividad operativa registrada</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">
+                          Sin actividad operativa registrada
+                        </p>
                       </div>
                     )}
                   </div>

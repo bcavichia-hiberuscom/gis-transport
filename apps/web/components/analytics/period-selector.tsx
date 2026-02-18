@@ -20,21 +20,21 @@ const periods: { id: TimePeriod; label: string }[] = [
 
 export function PeriodSelector({ currentPeriod, onPeriodChange }: PeriodSelectorProps) {
     return (
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200">
-            <div className="px-3 py-1.5 flex items-center gap-2 border-r border-slate-200 mr-1">
-                <Calendar className="h-3 w-3 text-slate-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Filtrar</span>
+        <div className="flex items-center gap-2 p-2 bg-slate-100/50 rounded-xl border border-slate-100/40">
+            <div className="px-2 py-1 flex items-center gap-1.5 ml-1">
+                <Calendar className="h-3 w-3 text-slate-400" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Período</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 ml-auto">
                 {periods.map((period) => (
                     <button
                         key={period.id}
                         onClick={() => onPeriodChange(period.id)}
                         className={cn(
-                            "px-3 py-1.5 text-[10px] font-black uppercase tracking-tight rounded-lg transition-all",
+                            "px-2.5 py-1 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all",
                             currentPeriod === period.id
-                                ? "bg-white text-slate-900 shadow-sm border border-slate-200"
-                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/50"
+                                : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/30"
                         )}
                     >
                         {period.label}

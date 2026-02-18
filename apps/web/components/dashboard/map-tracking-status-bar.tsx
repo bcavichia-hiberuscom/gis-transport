@@ -30,7 +30,7 @@ export function MapTrackingStatusBar({ vehicle, isTracking }: MapTrackingStatusB
 
     return (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] w-full max-w-4xl px-4 pointer-events-none">
-            <div className="w-full bg-card/95 backdrop-blur-md border border-border/50 rounded-2xl shadow-2xl p-4 flex flex-col gap-4 pointer-events-auto ring-1 ring-black/5">
+            <div className="w-full bg-card/95 backdrop-blur-md border border-border/50 rounded-xl shadow-2xl p-4 flex flex-col gap-4 pointer-events-auto ring-1 ring-black/5">
                 {/* Main Stats Bar */}
                 <div className="flex items-center justify-between gap-6">
                     {/* Vehicle Identity */}
@@ -71,8 +71,8 @@ export function MapTrackingStatusBar({ vehicle, isTracking }: MapTrackingStatusB
                         {/* Speed */}
                         <div className="flex flex-col items-end">
                             <div className="flex items-baseline gap-1">
-                                <span className="text-xl font-black italic tracking-tighter leading-none">{speed}</span>
-                                <span className="text-[8px] font-black uppercase text-muted-foreground/40 italic">km/h</span>
+                                <span className="text-xl font-black tracking-tight leading-none">{speed}</span>
+                                <span className="text-[8px] font-black uppercase text-muted-foreground/40">km/h</span>
                             </div>
                             <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/30 mt-1">Velocidad</span>
                         </div>

@@ -8,9 +8,45 @@ import { cn } from "@/lib/utils";
 
 interface FuelKPIStripProps {
     className?: string;
+    discrepanciesCount?: number;
 }
 
-export function FuelKPIStrip({ className }: FuelKPIStripProps) {
+interface KPIItemProps {
+    label: string;
+    value: string | number;
+    icon: React.ElementType;
+    trend?: string;
+    trendType?: "positive" | "negative";
+}
+
+function KPIItem({ label, value, icon: Icon, trend, trendType }: KPIItemProps) {
+    return (
+        <div className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0 hover:bg-slate-50/30 transition-colors">
+            <div className="flex items-center justify-between">
+                <div className="h-9 w-9 flex items-center justify-center border border-slate-200 bg-white text-slate-400 rounded-xl">
+                    <Icon className="h-4 w-4" />
+                </div>
+                {trend && (
+                    <span className={cn(
+                        "text-[9px] font-black uppercase tracking-tighter",
+                        trendType === "positive" ? "text-emerald-600" : "text-rose-600"
+                    )}>
+                        {trend}
+                    </span>
+                )}
+            </div>
+            <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">{label}</p>
+                <h4 className="text-3xl font-black tracking-tight text-slate-900 uppercase">
+                    {value}
+                </h4>
+            </div>
+            <div className="h-[1px] w-full bg-slate-100 mt-1" />
+        </div>
+    );
+}
+
+export function FuelKPIStrip({ className, discrepanciesCount }: FuelKPIStripProps) {
     const [fuelData, setFuelData] = useState<FleetFuelOverview | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -33,13 +69,10 @@ export function FuelKPIStrip({ className }: FuelKPIStripProps) {
 
     if (loading) {
         return (
-            <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4", className)}>
-                {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                        key={i}
-                        className="bg-white border border-slate-200 rounded-xl p-6 animate-pulse"
-                    >
-                        <div className="h-4 bg-slate-200 rounded w-1/2 mb-3" />
+            <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 bg-white border-b border-slate-100", className)}>
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0 animate-pulse">
+                        <div className="h-4 bg-slate-200 rounded w-1/2" />
                         <div className="h-8 bg-slate-200 rounded w-3/4" />
                     </div>
                 ))}
@@ -49,14 +82,15 @@ export function FuelKPIStrip({ className }: FuelKPIStripProps) {
 
     if (!fuelData) {
         return (
-            <div className={cn("bg-white border border-slate-200 rounded-xl p-6", className)}>
-                <p className="text-sm text-slate-500 text-center">
-                    No hay datos de combustible disponibles
-                </p>
+            <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 bg-white border-b border-slate-100", className)}>
+                <div className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">No hay datos</p>
+                </div>
             </div>
         );
     }
 
+    const complianceRate = (fuelData.statusBreakdown.compliant / fuelData.totals.transactionCount) * 100;
     const discrepancyStatus =
         fuelData.totals.discrepancyPercentage > 10
             ? "critical"
@@ -64,143 +98,28 @@ export function FuelKPIStrip({ className }: FuelKPIStripProps) {
                 ? "warning"
                 : "good";
 
-    const complianceRate =
-        (fuelData.statusBreakdown.compliant / fuelData.totals.transactionCount) * 100;
-
     return (
-        <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4", className)}>
-            {/* Total Discrepancy */}
-            <div
-                className={cn(
-                    "bg-white border rounded-xl p-6 transition-all hover:shadow-md",
-                    discrepancyStatus === "critical"
-                        ? "border-red-200 bg-red-50/30"
-                        : discrepancyStatus === "warning"
-                            ? "border-yellow-200 bg-yellow-50/30"
-                            : "border-slate-200"
-                )}
-            >
-                <div className="flex items-center justify-between mb-3">
-                    <div
-                        className={cn(
-                            "h-10 w-10 rounded-lg flex items-center justify-center",
-                            discrepancyStatus === "critical"
-                                ? "bg-red-100"
-                                : discrepancyStatus === "warning"
-                                    ? "bg-yellow-100"
-                                    : "bg-slate-100"
-                        )}
-                    >
-                        <AlertTriangle
-                            className={cn(
-                                "h-5 w-5",
-                                discrepancyStatus === "critical"
-                                    ? "text-red-600"
-                                    : discrepancyStatus === "warning"
-                                        ? "text-yellow-600"
-                                        : "text-slate-600"
-                            )}
-                        />
-                    </div>
-                    {fuelData.totals.discrepancyLiters > 0 ? (
-                        <TrendingUp className="h-4 w-4 text-red-500" />
-                    ) : (
-                        <TrendingDown className="h-4 w-4 text-green-500" />
-                    )}
-                </div>
-                <div
-                    className={cn(
-                        "text-3xl font-black italic tracking-tight mb-1",
-                        discrepancyStatus === "critical"
-                            ? "text-red-900"
-                            : discrepancyStatus === "warning"
-                                ? "text-yellow-900"
-                                : "text-slate-900"
-                    )}
-                >
-                    {fuelData.totals.discrepancyLiters > 0 ? "+" : ""}
-                    {fuelData.totals.discrepancyLiters.toFixed(0)}L
-                </div>
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
-                    Discrepancia Total
-                </div>
-                <div className="mt-2 text-xs text-slate-600">
-                    {fuelData.totals.discrepancyPercentage.toFixed(1)}% del esperado
-                </div>
-            </div>
-
-            {/* Compliance Rate */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 transition-all hover:shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <Fuel className="h-5 w-5 text-emerald-600" />
-                    </div>
-                </div>
-                <div className="text-3xl font-black italic tracking-tight text-slate-900 mb-1">
-                    {complianceRate.toFixed(1)}%
-                </div>
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
-                    Tasa de Conformidad
-                </div>
-                <div className="mt-2 text-xs text-slate-600">
-                    {fuelData.statusBreakdown.compliant} de {fuelData.totals.transactionCount} cargas
-                </div>
-            </div>
-
-            {/* Flagged Transactions */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 transition-all hover:shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                        <AlertTriangle className="h-5 w-5 text-orange-600" />
-                    </div>
-                </div>
-                <div className="text-3xl font-black italic tracking-tight text-slate-900 mb-1">
-                    {fuelData.statusBreakdown.flagged}
-                </div>
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
-                    Cargas Flagueadas
-                </div>
-                <div className="mt-2 text-xs text-slate-600">
-                    Requieren revisión inmediata
-                </div>
-            </div>
-
-            {/* Estimated Loss */}
-            <div className="bg-white border border-rose-200 bg-rose-50/20 rounded-xl p-6 transition-all hover:shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="h-10 w-10 rounded-lg bg-rose-100 flex items-center justify-center">
-                        <AlertTriangle className="h-5 w-5 text-rose-600" />
-                    </div>
-                    <TrendingUp className="h-4 w-4 text-rose-500" />
-                </div>
-                <div className="text-3xl font-black italic tracking-tight text-rose-900 mb-1">
-                    €{(fuelData.totals.estimatedLossEuro || 0).toFixed(0)}
-                </div>
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
-                    Pérdida Económica Est.
-                </div>
-                <div className="mt-2 text-xs text-rose-600 font-bold">
-                    Impacto directo en margen
-                </div>
-            </div>
-
-            {/* Total Cost */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 transition-all hover:shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                        <Fuel className="h-5 w-5 text-slate-600" />
-                    </div>
-                </div>
-                <div className="text-3xl font-black italic tracking-tight text-slate-900 mb-1">
-                    €{(fuelData.totals.totalCost / 1000).toFixed(1)}k
-                </div>
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em]">
-                    Gasto Total Facturado
-                </div>
-                <div className="mt-2 text-xs text-slate-600">
-                    {fuelData.totals.declaredLiters.toFixed(0)}L cargados
-                </div>
-            </div>
+        <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 bg-white border-b border-slate-100", className)}>
+            <KPIItem
+                label="Combustible"
+                value={`${fuelData.totals.declaredLiters.toFixed(0)}L`}
+                icon={Fuel}
+            />
+            <KPIItem
+                label="Conformidad"
+                value={`${complianceRate.toFixed(1)}%`}
+                icon={TrendingUp}
+            />
+            <KPIItem
+                label="Discrepancias"
+                value={discrepanciesCount ?? fuelData.statusBreakdown.flagged}
+                icon={AlertTriangle}
+            />
+            <KPIItem
+                label="Pérdida Est."
+                value={`€${(fuelData.totals.estimatedLossEuro || 0).toFixed(0)}`}
+                icon={TrendingDown}
+            />
         </div>
     );
 }

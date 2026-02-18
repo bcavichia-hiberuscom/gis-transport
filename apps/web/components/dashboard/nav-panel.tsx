@@ -26,9 +26,9 @@ const navItems = [
 
 export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {
     return (
-        <aside className="w-64 bg-primary text-primary-foreground flex flex-col shadow-xl z-20">
+        <aside className="w-64 bg-card/98 backdrop-blur-xl border-r border-border/50 text-foreground flex flex-col shadow-2xl z-20 rounded-xl">
             {/* User Profile Section */}
-            <div className="p-6 flex items-center gap-3 border-b border-primary-foreground/10 bg-black/10">
+            <div className="p-4 flex items-center gap-3 border-b border-border/10 bg-muted/20">
                 <div className="h-10 w-10 rounded-full border-2 border-primary-foreground/20 overflow-hidden bg-primary-foreground/10 flex items-center justify-center">
                     <img
                         src="https://github.com/shadcn.png"
@@ -48,7 +48,7 @@ export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {
             </div>
 
             {/* Navigation Links */}
-            <nav className="flex-1 p-4 flex flex-col gap-1.5 mt-2">
+            <nav className="flex-1 p-3 flex flex-col gap-1 mt-2">
                 {navItems.map((item) => {
                     const isActive = activeModule === item.id;
                     return (
@@ -56,10 +56,10 @@ export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {
                             key={item.id}
                             onClick={() => onModuleChange(item.id as DashboardModule)}
                             className={cn(
-                                "group flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200",
+                                "group flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200",
                                 isActive
-                                    ? "bg-primary-foreground/15 text-primary-foreground shadow-sm"
-                                    : "hover:bg-primary-foreground/5 text-primary-foreground/70 hover:text-primary-foreground"
+                                    ? "bg-primary/10 text-primary shadow-sm border border-primary/20"
+                                    : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                             )}
                         >
                             <div className="flex items-center gap-3">

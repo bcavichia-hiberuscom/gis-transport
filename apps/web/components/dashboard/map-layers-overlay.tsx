@@ -58,13 +58,13 @@ export function MapLayersOverlay({
     }
 
     return (
-        <div className="absolute top-2 right-2 z-[400] w-64 bg-card/98 backdrop-blur-xl border border-border/50 shadow-2xl flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-2xl pointer-events-auto overflow-hidden animate-slide-in-right">
+        <div className="absolute top-2 right-2 z-[400] w-64 bg-card/98 backdrop-blur-xl border border-border/50 shadow-2xl flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-xl pointer-events-auto overflow-hidden animate-slide-in-right">
             {/* Header */}
             <div className="p-4 border-b border-border/10 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-sm font-black uppercase italic tracking-tighter text-foreground/80">Configuración</h2>
-                        <Badge variant="outline" className="text-[10px] font-bold bg-primary/5 border-primary/20 text-primary h-5 px-1.5 italic">
+                        <h2 className="text-xs font-black uppercase tracking-tight text-foreground/80">Configuración</h2>
+                        <Badge variant="outline" className="text-[10px] font-bold bg-primary/5 border-primary/20 text-primary h-5 px-1.5">
                             CAPAS
                         </Badge>
                     </div>
@@ -97,7 +97,7 @@ export function MapLayersOverlay({
                     {customZones && customZones.length > 0 && (
                         <>
                             <div className="h-px bg-border/5 my-2" />
-                            <div className="px-4 py-2 text-[10px] font-black uppercase text-muted-foreground/40 tracking-[0.2em] italic">
+                            <div className="px-4 py-2 text-[10px] font-black uppercase text-muted-foreground/40 tracking-tight">
                                 Zonas de Gestión
                             </div>
                             <div className="px-2 space-y-0.5">
