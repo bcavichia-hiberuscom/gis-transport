@@ -18,21 +18,18 @@ interface KPIItemProps {
 
 function KPIItem({ label, value, icon: Icon }: KPIItemProps) {
   return (
-    <div className="flex flex-col gap-5 border-r border-slate-100 p-8 last:border-r-0 hover:bg-slate-50/30 transition-colors">
+    <div className="flex flex-col gap-3 border-r border-border p-6 last:border-r-0 hover:bg-secondary/50 transition-colors">
       <div className="flex items-center justify-between">
-        <div className="h-9 w-9 flex items-center justify-center border border-slate-200 bg-white text-slate-400 rounded-xl">
-          <Icon className="h-4 w-4" />
-        </div>
+        <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
       <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-1">
+        <p className="text-[11px] text-muted-foreground mb-1">
           {label}
         </p>
-        <h4 className="text-3xl font-black italic tracking-tighter text-slate-900 uppercase">
+        <h4 className="text-2xl font-semibold tracking-tight text-foreground">
           {value}
         </h4>
       </div>
-      <div className="h-[1px] w-full bg-slate-100 mt-1" />
     </div>
   );
 }

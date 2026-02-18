@@ -20,22 +20,22 @@ const tabs = [
 
 export function DriversSubNav({ activeTab, onTabChange }: DriversSubNavProps) {
     return (
-        <div className="flex items-center gap-10 px-8 border-b border-slate-100 bg-white shrink-0">
+        <div className="flex items-center gap-6 px-8 border-b border-border bg-card shrink-0">
             {tabs.map((tab) => (
                 <button
                     key={tab.id}
                     onClick={() => onTabChange(tab.id)}
                     className={cn(
-                        "py-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative flex items-center gap-2",
+                        "py-3 text-xs font-medium transition-all relative flex items-center gap-2",
                         activeTab === tab.id
-                            ? "text-slate-900 font-black"
-                            : "text-slate-500 hover:text-slate-900"
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
                     )}
                 >
-                    <tab.icon className={cn("h-3.5 w-3.5", activeTab === tab.id ? "text-slate-950" : "text-slate-400")} />
+                    <tab.icon className={cn("h-3.5 w-3.5", activeTab === tab.id ? "text-foreground" : "text-muted-foreground")} />
                     {tab.label}
                     {activeTab === tab.id && (
-                        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-950 rounded-t-full" />
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
                     )}
                 </button>
             ))}

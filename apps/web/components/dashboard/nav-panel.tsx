@@ -26,10 +26,10 @@ const navItems = [
 
 export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {
     return (
-        <aside className="w-64 bg-card/98 backdrop-blur-xl border-r border-border/50 text-foreground flex flex-col shadow-2xl z-20 rounded-xl">
+        <aside className="w-56 bg-card border-r border-border text-foreground flex flex-col z-20">
             {/* User Profile Section */}
-            <div className="p-4 flex items-center gap-3 border-b border-border/10 bg-muted/20">
-                <div className="h-10 w-10 rounded-full border-2 border-primary-foreground/20 overflow-hidden bg-primary-foreground/10 flex items-center justify-center">
+            <div className="p-4 flex items-center gap-3 border-b border-border">
+                <div className="h-8 w-8 rounded-md overflow-hidden bg-secondary flex items-center justify-center shrink-0">
                     <img
                         src="https://github.com/shadcn.png"
                         alt="User"
@@ -39,16 +39,16 @@ export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {
                             e.currentTarget.nextElementSibling?.classList.remove('hidden');
                         }}
                     />
-                    <div className="hidden text-xs font-bold">BC</div>
+                    <div className="hidden text-[10px] font-medium text-muted-foreground">BC</div>
                 </div>
                 <div className="flex flex-col overflow-hidden">
-                    <span className="text-sm font-bold truncate">Hooli Dynamic</span>
-                    <span className="text-[10px] opacity-60 uppercase tracking-widest font-semibold">Jordan Finch</span>
+                    <span className="text-xs font-semibold truncate text-foreground">Hooli Dynamic</span>
+                    <span className="text-[10px] text-muted-foreground">Jordan Finch</span>
                 </div>
             </div>
 
             {/* Navigation Links */}
-            <nav className="flex-1 p-3 flex flex-col gap-1 mt-2">
+            <nav className="flex-1 p-3 flex flex-col gap-0.5 mt-1">
                 {navItems.map((item) => {
                     const isActive = activeModule === item.id;
                     return (
@@ -56,29 +56,29 @@ export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {
                             key={item.id}
                             onClick={() => onModuleChange(item.id as DashboardModule)}
                             className={cn(
-                                "group flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200",
+                                "group flex items-center justify-between px-3 py-2 rounded-md transition-all duration-150",
                                 isActive
-                                    ? "bg-primary/10 text-primary shadow-sm border border-primary/20"
-                                    : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                                    ? "bg-secondary text-foreground"
+                                    : "hover:bg-secondary text-muted-foreground hover:text-foreground"
                             )}
                         >
                             <div className="flex items-center gap-3">
-                                <item.icon className={cn("h-4 w-4 transition-transform group-hover:scale-110", isActive ? "opacity-100" : "opacity-60")} />
-                                <span className="text-xs font-semibold tracking-tight">{item.label}</span>
+                                <item.icon className={cn("h-4 w-4", isActive ? "text-foreground" : "text-muted-foreground")} />
+                                <span className="text-xs font-medium">{item.label}</span>
                             </div>
-                            {isActive && <ChevronRight className="h-3 w-3 opacity-50" />}
+                            {isActive && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                         </button>
                     );
                 })}
             </nav>
 
             {/* Bottom Actions */}
-            <div className="p-4 border-t border-primary-foreground/10 flex flex-col gap-1">
-                <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/5 transition-colors text-xs font-medium">
+            <div className="p-3 border-t border-border flex flex-col gap-0.5">
+                <button className="flex items-center gap-3 px-3 py-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-xs font-medium">
                     <Settings className="h-4 w-4" />
                     <span>Configuración</span>
                 </button>
-                <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-red-300 hover:text-red-200 hover:bg-red-500/10 transition-colors text-xs font-medium">
+                <button className="flex items-center gap-3 px-3 py-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors text-xs font-medium">
                     <LogOut className="h-4 w-4" />
                     <span>Cerrar Sesión</span>
                 </button>

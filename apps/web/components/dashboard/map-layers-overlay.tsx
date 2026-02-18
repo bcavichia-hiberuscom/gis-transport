@@ -49,28 +49,25 @@ export function MapLayersOverlay({
             <div className="absolute top-4 right-4 z-[400] pointer-events-auto">
                 <button
                     onClick={() => setIsCollapsed(false)}
-                    className="h-10 w-10 bg-card/95 backdrop-blur-md border border-border/40 rounded-xl shadow-2xl flex items-center justify-center hover:bg-primary/10 transition-all group relative ring-1 ring-black/5"
+                    className="h-9 w-9 bg-card border border-border rounded-md shadow-sm flex items-center justify-center hover:bg-secondary transition-all group relative"
                 >
-                    <Layers className="h-5 w-5 text-primary" />
+                    <Layers className="h-4 w-4 text-foreground" />
                 </button>
             </div>
         );
     }
 
     return (
-        <div className="absolute top-2 right-2 z-[400] w-64 bg-card/98 backdrop-blur-xl border border-border/50 shadow-2xl flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-xl pointer-events-auto overflow-hidden animate-slide-in-right">
+        <div className="absolute top-2 right-2 z-[400] w-60 bg-card border border-border shadow-md flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-lg pointer-events-auto overflow-hidden animate-slide-in-right">
             {/* Header */}
-            <div className="p-4 border-b border-border/10 flex flex-col gap-3">
+            <div className="p-4 border-b border-border flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-xs font-black uppercase tracking-tight text-foreground/80">Configuración</h2>
-                        <Badge variant="outline" className="text-[10px] font-bold bg-primary/5 border-primary/20 text-primary h-5 px-1.5">
-                            CAPAS
-                        </Badge>
+                        <h2 className="text-xs font-semibold text-foreground">Capas</h2>
                     </div>
                     <button
                         onClick={() => setIsCollapsed(true)}
-                        className="h-7 w-7 rounded-lg hover:bg-muted/50 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-all"
+                        className="h-7 w-7 rounded-md hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
                     >
                         <X className="h-3.5 w-3.5" />
                     </button>
@@ -96,8 +93,8 @@ export function MapLayersOverlay({
 
                     {customZones && customZones.length > 0 && (
                         <>
-                            <div className="h-px bg-border/5 my-2" />
-                            <div className="px-4 py-2 text-[10px] font-black uppercase text-muted-foreground/40 tracking-tight">
+                            <div className="h-px bg-border my-1" />
+                            <div className="px-4 py-2 text-[10px] font-medium text-muted-foreground">
                                 Zonas de Gestión
                             </div>
                             <div className="px-2 space-y-0.5">
@@ -173,12 +170,6 @@ export function MapLayersOverlay({
                     </div>
                 </div>
             </ScrollArea>
-
-            {/* Footer Summary */}
-            <div className="p-4 bg-muted/10 border-t border-border/5 text-[9px] font-black italic text-muted-foreground/30 uppercase tracking-[0.2em] flex items-center justify-between">
-                <span>Configuración de Mapa</span>
-                <ChevronRight className="h-3 w-3" />
-            </div>
         </div>
     );
 }
@@ -201,23 +192,23 @@ function LayerToggleItem({
                 onToggle();
             }}
             className={cn(
-                "flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer group",
-                checked ? "bg-primary/5 text-primary" : "text-muted-foreground/70 hover:bg-muted/30 hover:text-foreground"
+                "flex items-center justify-between px-3 py-2.5 rounded-md transition-all cursor-pointer group",
+                checked ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
         >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
                 <div className={cn(
-                    "opacity-50 transition-transform group-hover:scale-110",
-                    checked && "text-primary opacity-100"
+                    "transition-colors",
+                    checked ? "text-foreground" : "text-muted-foreground"
                 )}>
                     {icon}
                 </div>
-                <span className="text-xs font-black uppercase tracking-tight">{label}</span>
+                <span className="text-xs font-medium">{label}</span>
             </div>
             <Switch
                 checked={checked}
                 onCheckedChange={onToggle}
-                className="scale-75 data-[state=checked]:bg-primary"
+                className="scale-75"
             />
         </div>
     );

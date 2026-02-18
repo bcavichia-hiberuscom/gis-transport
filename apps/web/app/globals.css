@@ -2,41 +2,39 @@
 @import "tw-animate-css";
 
 :root {
-  --background: oklch(0.99 0.002 240);
-  /* Very faint off-white/blue for background */
-  --foreground: oklch(0.25 0.02 240);
-  /* Softer deep grey-blue */
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.15 0.01 250);
   --card: oklch(1 0 0);
-  /* Pure white cards */
-  --card-foreground: oklch(0.25 0.02 240);
+  --card-foreground: oklch(0.15 0.01 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 240);
-  --primary: oklch(0.35 0.08 240);
-  /* Calm blue-indigo primary */
-  --primary-foreground: oklch(0.99 0.002 240);
-  --secondary: oklch(0.96 0.01 240);
-  /* Subtle grey-blue for secondary */
-  --secondary-foreground: oklch(0.35 0.08 240);
-  --muted: oklch(0.94 0.01 240);
-  /* Clearer separation for muted areas */
-  --muted-foreground: oklch(0.5 0.03 240);
-  --accent: oklch(0.96 0.02 240);
-  --accent-foreground: oklch(0.35 0.08 240);
-  --destructive: oklch(0.6 0.18 20);
-  --destructive-foreground: oklch(0.99 0.002 240);
-  --border: oklch(0.91 0.01 240);
-  --input: oklch(0.98 0.005 240);
-  --ring: oklch(0.35 0.08 240);
-  --radius: 0.8rem;
-  --sidebar: oklch(0.98 0.005 240);
-  /* Subtle grey-blue sidebar background */
-  --sidebar-foreground: oklch(0.25 0.02 240);
-  --sidebar-primary: oklch(0.35 0.08 240);
+  --popover-foreground: oklch(0.15 0.01 250);
+  --primary: oklch(0.23 0.02 250);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.965 0.004 250);
+  --secondary-foreground: oklch(0.30 0.015 250);
+  --muted: oklch(0.955 0.004 250);
+  --muted-foreground: oklch(0.50 0.01 250);
+  --accent: oklch(0.955 0.006 250);
+  --accent-foreground: oklch(0.23 0.02 250);
+  --destructive: oklch(0.55 0.20 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.92 0.004 250);
+  --input: oklch(0.965 0.004 250);
+  --ring: oklch(0.23 0.02 250);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.975 0.004 250);
+  --sidebar-foreground: oklch(0.15 0.01 250);
+  --sidebar-primary: oklch(0.23 0.02 250);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.01 240);
-  --sidebar-accent-foreground: oklch(0.35 0.08 240);
-  --sidebar-border: oklch(0.92 0.01 240);
-  --sidebar-ring: oklch(0.35 0.08 240);
+  --sidebar-accent: oklch(0.955 0.004 250);
+  --sidebar-accent-foreground: oklch(0.23 0.02 250);
+  --sidebar-border: oklch(0.92 0.004 250);
+  --sidebar-ring: oklch(0.23 0.02 250);
+  --chart-1: oklch(0.23 0.02 250);
+  --chart-2: oklch(0.50 0.12 250);
+  --chart-3: oklch(0.55 0.15 160);
+  --chart-4: oklch(0.60 0.15 45);
+  --chart-5: oklch(0.50 0.10 25);
 }
 
 .leaflet-container {
@@ -102,8 +100,7 @@
 }
 
 @theme inline {
-  --font-roboto: var(--font-roboto);
-  --font-sans: "Roboto", "Geist", "Geist Fallback";
+  --font-sans: "Inter", "Geist", "Geist Fallback";
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);

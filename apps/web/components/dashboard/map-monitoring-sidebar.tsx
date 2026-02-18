@@ -60,11 +60,11 @@ export function MapMonitoringSidebar({
             <div className="absolute top-4 left-4 z-[400] pointer-events-auto">
                 <button
                     onClick={() => setIsCollapsed(false)}
-                    className="h-10 w-10 bg-card/95 backdrop-blur-md border border-border/40 rounded-xl shadow-2xl flex items-center justify-center hover:bg-primary/10 transition-all group relative ring-1 ring-black/5"
+                    className="h-9 w-9 bg-card border border-border rounded-md shadow-sm flex items-center justify-center hover:bg-secondary transition-all group relative"
                 >
-                    <Menu className="h-5 w-5 text-primary" />
+                    <Menu className="h-4 w-4 text-foreground" />
                     {vehicles.length > 0 && (
-                        <div className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-primary text-[7px] font-black text-white rounded-full flex items-center justify-center border border-background">
+                        <div className="absolute -top-1 -right-1 h-4 w-4 bg-foreground text-[8px] font-medium text-card rounded-full flex items-center justify-center">
                             {vehicles.length}
                         </div>
                     )}
@@ -74,35 +74,35 @@ export function MapMonitoringSidebar({
     }
 
     return (
-        <div className="absolute top-2 left-2 z-[400] w-64 bg-card/98 backdrop-blur-xl border border-border/50 shadow-2xl flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-xl pointer-events-auto overflow-hidden animate-slide-in-left">
+        <div className="absolute top-2 left-2 z-[400] w-64 bg-card border border-border shadow-md flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-lg pointer-events-auto overflow-hidden animate-slide-in-left">
             {/* Header */}
-            <div className="p-4 border-b border-border/10 flex flex-col gap-3">
+            <div className="p-4 border-b border-border flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-xs font-black uppercase tracking-tight text-foreground/80">Monitorización</h2>
-                        <Badge variant="outline" className="text-[10px] font-bold bg-primary/5 border-primary/20 text-primary h-5 px-1.5">
+                        <h2 className="text-xs font-semibold text-foreground">Monitorización</h2>
+                        <Badge variant="secondary" className="text-[10px] font-medium h-5 px-1.5">
                             {vehicles.length}
                         </Badge>
                     </div>
                     <button
                         onClick={() => setIsCollapsed(true)}
-                        className="h-7 w-7 rounded-lg hover:bg-muted/50 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-all"
+                        className="h-7 w-7 rounded-md hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
                     >
                         <X className="h-3.5 w-3.5" />
                     </button>
                 </div>
 
                 {/* Filters */}
-                <div className="flex gap-1 bg-muted/40 p-1 rounded-xl border border-border/5 ring-1 ring-black/5">
+                <div className="flex gap-0.5 bg-secondary p-0.5 rounded-md">
                     {(["all", "driving", "parked"] as const).map((status) => (
                         <button
                             key={status}
                             onClick={() => setStatusFilter(status)}
                             className={cn(
-                                "flex-1 py-1.5 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all",
+                                "flex-1 py-1.5 text-[10px] font-medium rounded-md transition-all",
                                 statusFilter === status
-                                    ? "bg-background text-primary shadow-sm border border-border/20"
-                                    : "text-muted-foreground/60 hover:text-foreground"
+                                    ? "bg-card text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
                             )}
                         >
                             {status === "all" ? "Todos" : status === "driving" ? "En Ruta" : "Parados"}
@@ -112,12 +112,12 @@ export function MapMonitoringSidebar({
 
                 {/* Search */}
                 <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-foreground transition-colors" />
                     <Input
-                        placeholder="Buscar vehículo por ID o Placa..."
+                        placeholder="Buscar vehículo..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-9 bg-muted/20 border-border/30 rounded-xl text-xs font-medium placeholder:text-muted-foreground/30 focus-visible:ring-1 focus-visible:ring-primary/20"
+                        className="pl-9 h-8 bg-secondary border-border rounded-md text-xs placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
                     />
                 </div>
             </div>
@@ -135,62 +135,58 @@ export function MapMonitoringSidebar({
                                 key={v.id}
                                 onClick={() => onSelect(v.id)}
                                 className={cn(
-                                    "group relative p-3 rounded-xl border transition-all cursor-pointer overflow-hidden flex items-center gap-3",
+                                    "group relative p-3 rounded-md border transition-all cursor-pointer flex items-center gap-3",
                                     isSelected
-                                        ? "bg-primary/5 border-primary/40 shadow-[0_4px_12px_rgba(var(--primary-rgb),0.1)]"
-                                        : "bg-background/50 border-border/40 hover:bg-muted/30 hover:border-primary/20"
+                                        ? "bg-secondary border-border"
+                                        : "bg-card border-transparent hover:bg-secondary"
                                 )}
                             >
                                 {/* Left Indicator */}
                                 <div className={cn(
-                                    "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border transition-all",
+                                    "h-8 w-8 rounded-md flex items-center justify-center shrink-0 transition-all",
                                     isSelected
-                                        ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
-                                        : "bg-muted/50 border-border/10 text-muted-foreground/40 shadow-inner"
+                                        ? "bg-foreground text-card"
+                                        : "bg-secondary text-muted-foreground"
                                 )}>
-                                    <Truck className="h-5 w-5" />
+                                    <Truck className="h-4 w-4" />
                                 </div>
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
-                                        <h3 className="text-xs font-black truncate uppercase tracking-tight text-foreground/90">
+                                        <h3 className="text-xs font-medium truncate text-foreground">
                                             {v.label}
                                         </h3>
                                         {hasAlerts && (
-                                            <AlertCircle className="h-3 w-3 text-red-500 animate-pulse" />
+                                            <AlertCircle className="h-3 w-3 text-destructive" />
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-[10px] font-mono font-bold text-muted-foreground/40">
+                                        <span className="text-[10px] font-mono text-muted-foreground">
                                             {v.licensePlate || "WO-123456"}
                                         </span>
                                         <span className="h-0.5 w-0.5 rounded-full bg-border" />
                                         <span className={cn(
-                                            "text-[8px] font-black uppercase tracking-wider",
-                                            isDriving ? "text-emerald-500" : "text-orange-500"
+                                            "text-[10px] font-medium",
+                                            isDriving ? "text-emerald-600" : "text-muted-foreground"
                                         )}>
-                                            {isDriving ? "En Ruta" : "Parqueado"}
+                                            {isDriving ? "En Ruta" : "Parado"}
                                         </span>
                                     </div>
                                 </div>
 
                                 <ChevronRight className={cn(
-                                    "h-4 w-4 transition-all",
-                                    isSelected ? "text-primary translate-x-1" : "text-muted-foreground/10"
+                                    "h-3.5 w-3.5 transition-all",
+                                    isSelected ? "text-foreground" : "text-muted-foreground/20"
                                 )} />
-
-                                {isSelected && (
-                                    <div className="absolute top-0 right-0 w-12 h-12 bg-primary/5 rounded-full blur-xl -mr-6 -mt-6" />
-                                )}
                             </div>
                         );
                     })}
 
                     {filteredVehicles.length === 0 && (
-                        <div className="py-12 flex flex-col items-center justify-center opacity-30 text-center gap-2 p-6">
-                            <Filter className="h-10 w-10 stroke-[1.5px]" />
-                            <p className="text-[10px] font-black uppercase tracking-widest leading-normal">
-                                No se encontraron vehículos <br /> con estos filtros
+                        <div className="py-10 flex flex-col items-center justify-center text-center gap-2 p-6">
+                            <Filter className="h-8 w-8 text-muted-foreground/30 stroke-[1.5px]" />
+                            <p className="text-[11px] text-muted-foreground leading-normal">
+                                No se encontraron vehículos con estos filtros
                             </p>
                         </div>
                     )}
@@ -198,8 +194,8 @@ export function MapMonitoringSidebar({
             </ScrollArea>
 
             {/* Footer Summary */}
-            <div className="p-4 bg-muted/10 border-t border-border/5 text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] flex items-center justify-between">
-                <span>Última actualización: Justo ahora</span>
+            <div className="px-4 py-3 bg-secondary/50 border-t border-border text-[10px] text-muted-foreground flex items-center justify-between">
+                <span>Actualizado ahora</span>
                 <Clock className="h-3 w-3" />
             </div>
         </div>

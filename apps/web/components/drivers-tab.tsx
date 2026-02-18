@@ -136,74 +136,72 @@ export function DriversTab({
     <div
       key={driver.id}
       onClick={() => onDriverSelect?.(driver)}
-      className="group relative bg-white border-b border-slate-100 p-5 transition-all hover:bg-slate-50 cursor-pointer overflow-hidden border-r last:border-r-0"
+      className="group relative bg-card border-b border-border p-4 transition-all hover:bg-secondary cursor-pointer overflow-hidden border-r last:border-r-0"
     >
-      <div className="flex gap-4 items-center relative z-10">
+      <div className="flex gap-3 items-center relative z-10">
         <div className="relative">
-          <div className="h-10 w-10 bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 rounded-xl">
+          <div className="h-9 w-9 bg-secondary flex items-center justify-center shrink-0 rounded-md">
             {driver.imageUrl ? (
               <img
                 src={driver.imageUrl}
                 alt={driver.name}
-                className="h-full w-full object-cover grayscale opacity-90"
+                className="h-full w-full object-cover rounded-md"
               />
             ) : (
-              <span className="text-[10px] font-black text-slate-400 uppercase italic">
-                {driver.id.substring(0, 2)}
+              <span className="text-[10px] font-medium text-muted-foreground">
+                {driver.id.substring(0, 2).toUpperCase()}
               </span>
             )}
           </div>
           <div
             className={cn(
-              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white",
-              driver.isAvailable ? "bg-emerald-500" : "bg-slate-900",
+              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
+              driver.isAvailable ? "bg-emerald-500" : "bg-foreground",
             )}
           />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-col">
-            <h3 className="text-[12px] font-black italic tracking-tighter text-slate-900 truncate uppercase group-hover:text-blue-600 transition-colors leading-tight">
+            <h3 className="text-xs font-medium text-foreground truncate group-hover:text-foreground transition-colors leading-tight">
               {driver.name}
             </h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+              <span className="text-[10px] text-muted-foreground">
                 {driver.licenseType || "Cat. B"}
               </span>
-              <span className="h-0.5 w-0.5 bg-slate-300" />
-              <div className="flex items-center gap-1">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">
-                  {getDriverOnTimeRate(driver)}% Eficacia
-                </span>
-              </div>
+              <span className="h-0.5 w-0.5 bg-border rounded-full" />
+              <span className="text-[10px] text-muted-foreground">
+                {getDriverOnTimeRate(driver)}% Eficacia
+              </span>
             </div>
           </div>
         </div>
-        <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:translate-x-1 group-hover:text-slate-900 transition-all shrink-0" />
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-foreground transition-all shrink-0" />
       </div>
     </div>
   );
 
   return (
-    <div className="flex flex-col grow h-full bg-white overflow-hidden">
-      {/* High-Level Corporate Header */}
-      <div className="shrink-0 bg-white border-b border-slate-100">
-        <div className="px-8 py-10 pb-8 flex items-end justify-between">
-          <div className="flex flex-col gap-1.5">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
-              Auditoría Operativa de Flota
+    <div className="flex flex-col grow h-full bg-card overflow-hidden">
+      {/* Corporate Header */}
+      <div className="shrink-0 bg-card border-b border-border">
+        <div className="px-8 py-8 pb-6 flex items-end justify-between">
+          <div className="flex flex-col gap-1">
+            <p className="text-[11px] text-muted-foreground">
+              Auditoria Operativa de Flota
             </p>
-            <h2 className="text-4xl font-black tracking-tighter text-slate-900 uppercase italic leading-none">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground leading-none">
               Personal
             </h2>
           </div>
 
           {activeTab === "drivers" && (
             <Button
-              className="h-10 px-8 bg-slate-900 text-white hover:bg-black transition-all text-[10px] font-black uppercase italic tracking-widest rounded-xl border border-slate-900"
+              className="h-9 px-5 text-xs font-medium"
               onClick={() => setIsAddOpen(true)}
             >
-              <UserPlus className="h-4 w-4 mr-2.5" />
+              <UserPlus className="h-4 w-4 mr-2" />
               Registrar Operativo
             </Button>
           )}
@@ -216,8 +214,8 @@ export function DriversTab({
         <div className="flex flex-col">
           {activeTab === "overview" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {/* Auditoría de Desempeño */}
-              <div className="px-8 py-8 flex items-center justify-between border-b border-slate-100 bg-slate-50/10">
+              {/* Auditoria de Desempeno */}
+              <div className="px-8 py-6 flex items-center justify-between border-b border-border">
                 <div className="flex items-center gap-4"></div>
                 <PeriodSelector
                   currentPeriod={currentPeriod}
@@ -231,7 +229,7 @@ export function DriversTab({
                 avgScore={analyticsData.avgScore}
               />
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 bg-white">
+              <div className="grid grid-cols-1 xl:grid-cols-2 bg-card">
                 <DriversTrendChart data={analyticsData.trendData} />
                 <DriversFactorsChart data={analyticsData.factorData} />
               </div>
@@ -244,35 +242,35 @@ export function DriversTab({
           )}
 
           {activeTab === "drivers" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 bg-white">
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 bg-card">
               {/* Grupo: Disponibles */}
-              <div className="border-b border-slate-100">
+              <div className="border-b border-border">
                 <button
                   onClick={() => toggleGroup("available")}
-                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-secondary transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-xs font-medium text-foreground">
                       Disponibles
                     </span>
-                    <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
+                    <Badge variant="secondary" className="text-[10px] font-medium">
                       {groups.available.length}
-                    </span>
+                    </Badge>
                   </div>
                   {expandedGroups?.available ? (
-                    <ChevronDown className="h-3 w-3 text-slate-400" />
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-3 w-3 text-slate-400" />
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                 </button>
                 {expandedGroups?.available && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-card">
                     {groups.available.length > 0 ? (
                       groups.available.map(renderDriverCard)
                     ) : (
-                      <div className="col-span-full py-12 text-center border-t border-slate-50">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">
+                      <div className="col-span-full py-10 text-center border-t border-border">
+                        <p className="text-xs text-muted-foreground">
                           No se detecta personal disponible
                         </p>
                       </div>
@@ -282,33 +280,33 @@ export function DriversTab({
               </div>
 
               {/* Grupo: En Servicio */}
-              <div className="border-b border-slate-100">
+              <div className="border-b border-border">
                 <button
                   onClick={() => toggleGroup("assigned")}
-                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center justify-between px-8 py-4 group hover:bg-secondary transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="h-1.5 w-1.5 rounded-full bg-slate-900" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-foreground" />
+                    <span className="text-xs font-medium text-foreground">
                       En Servicio
                     </span>
-                    <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">
+                    <Badge variant="secondary" className="text-[10px] font-medium">
                       {groups.assigned.length}
-                    </span>
+                    </Badge>
                   </div>
                   {expandedGroups?.assigned ? (
-                    <ChevronDown className="h-3 w-3 text-slate-400" />
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-3 w-3 text-slate-400" />
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                 </button>
                 {expandedGroups?.assigned && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 bg-card">
                     {groups.assigned.length > 0 ? (
                       groups.assigned.map(renderDriverCard)
                     ) : (
-                      <div className="col-span-full py-12 text-center border-t border-slate-50">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">
+                      <div className="col-span-full py-10 text-center border-t border-border">
+                        <p className="text-xs text-muted-foreground">
                           Sin actividad operativa registrada
                         </p>
                       </div>
@@ -320,7 +318,7 @@ export function DriversTab({
           )}
 
           {activeTab === "fuel" && (
-            <div className="bg-white">
+            <div className="bg-card">
               <FuelManagementView
                 onDriverClick={(driverId) => {
                   onFuelDetailSelect?.(driverId);

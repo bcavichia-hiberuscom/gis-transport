@@ -25,15 +25,18 @@ export const SidebarLogo = memo(
     return (
       <button
         onClick={onClick}
-        className="h-10 w-10 bg-white rounded-full flex items-center justify-center mb-2 overflow-hidden border border-border/20 shadow-md hover:scale-110 active:scale-95 transition-all group relative shrink-0"
+        className="h-9 w-9 bg-primary rounded-lg flex items-center justify-center mb-2 overflow-hidden border border-primary shadow-sm hover:opacity-90 active:scale-95 transition-all group relative shrink-0"
         title="Reset Vista"
       >
         <img
           src="/brand-logo.png"
           alt="Logo"
           className="h-full w-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
         />
-        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <span className="absolute inset-0 flex items-center justify-center text-primary-foreground text-xs font-semibold">GIS</span>
       </button>
     );
   },
@@ -68,16 +71,16 @@ export const NavigationButton = memo(
       <button
         onClick={() => onClick(tabId)}
         className={cn(
-          "h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 relative group",
+          "h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-150 relative group",
           activeTab === tabId && isExpanded
-            ? "bg-primary text-white shadow-md shadow-primary/25"
-            : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+            ? "bg-secondary text-foreground"
+            : "text-muted-foreground hover:bg-secondary hover:text-foreground",
         )}
       >
         {IconEl}
 
         {alertCount > 0 && tabId === "dashboard" && (
-          <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center h-5 w-5 bg-red-600 rounded-full text-white text-[9px] font-bold shadow ring-2 ring-background">
+          <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 w-4 bg-destructive rounded-full text-destructive-foreground text-[8px] font-medium ring-2 ring-card">
             {alertCount > 9 ? "9+" : alertCount}
           </span>
         )}
@@ -135,7 +138,7 @@ export const ExpandButton = memo(
     return (
       <button
         onClick={onToggle}
-        className="h-8 w-8 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+        className="h-7 w-7 rounded-md bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
       >
         {ChevronEl}
       </button>

@@ -149,7 +149,7 @@ const NavigationRail = memo(
     onReset,
     totalAlerts,
   }: NavigationRailProps) => (
-    <div className="w-14 h-full bg-background/95 backdrop-blur-md border border-border/30 rounded-2xl flex flex-col items-center py-4 gap-3 shadow-lg pointer-events-auto z-[1002] transition-all duration-200">
+    <div className="w-14 h-full bg-card border-r border-border flex flex-col items-center py-4 gap-3 shadow-sm pointer-events-auto z-[1002] transition-all duration-200 rounded-lg">
       <SidebarLogo onClick={onReset} />
 
       <NavigationButton
@@ -276,14 +276,14 @@ export const FleetTab = memo(
     );
 
     return (
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
-        <div className="p-4 pb-3 flex flex-col gap-3 border-b border-border/10 bg-gradient-to-b from-primary/3 to-transparent shrink-0">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-card">
+        <div className="p-4 pb-3 flex flex-col gap-3 border-b border-border shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-foreground leading-none">
+              <h2 className="text-sm font-semibold tracking-tight text-foreground leading-none">
                 Fleet
               </h2>
-              <p className="text-[9px] uppercase font-semibold text-muted-foreground/50 tracking-wider mt-0.5">
+              <p className="text-[10px] text-muted-foreground mt-0.5">
                 Gestión de Operaciones
               </p>
             </div>
@@ -302,7 +302,7 @@ export const FleetTab = memo(
               placeholder="Buscar vehículo o pedido..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 bg-muted/20 border-border/30 hover:border-primary/15 focus:bg-background transition-all rounded-lg text-xs"
+              className="pl-8 h-8 bg-secondary border-border hover:border-foreground/20 focus:bg-card transition-all rounded-md text-xs"
             />
           </div>
         </div>
@@ -477,12 +477,12 @@ export const LayersTab = memo(
     );
 
     return (
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-background">
-        <div className="p-4 pb-3 flex flex-col gap-1.5 border-b border-border/10 bg-gradient-to-b from-primary/3 to-transparent shrink-0">
-          <h2 className="text-lg font-bold tracking-tight text-foreground leading-none">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-card">
+        <div className="p-4 pb-3 flex flex-col gap-1 border-b border-border shrink-0">
+          <h2 className="text-sm font-semibold tracking-tight text-foreground leading-none">
             Layers
           </h2>
-          <p className="text-[9px] uppercase font-semibold text-muted-foreground/50 tracking-wider">
+          <p className="text-[10px] text-muted-foreground">
             Zonas de Gestión y Geovallas
           </p>
         </div>
@@ -814,7 +814,7 @@ export const Sidebar = memo(
 
         <div
           className={cn(
-            "ml-2.5 rounded-2xl border border-border/30 bg-background/95 backdrop-blur-lg shadow-lg transition-all duration-300 ease-out overflow-hidden flex flex-col pointer-events-auto",
+            "ml-2 rounded-lg border border-border bg-card shadow-sm transition-all duration-300 ease-out overflow-hidden flex flex-col pointer-events-auto",
             finalIsExpanded
               ? cn(
                 "opacity-100 translate-x-0",
