@@ -14,7 +14,12 @@ import {
 import { THEME } from "@/lib/theme";
 import { ORS_URL, ORS_PUBLIC_URL, ORS_API_KEY, VROOM_URL, SNAP_URL, ROUTING_CONFIG } from "@/lib/config";
 import { WeatherService } from "./weather-service";
-import { getForbiddenZones, getZoneForbiddenReason } from "@/lib/helpers/zone-access-helper";
+import {
+  isPointInZone,
+  isZoneForbiddenForVehicle,
+  getForbiddenZones,
+  getZoneForbiddenReason,
+} from "@/lib/helpers/zone-access-helper";
 
 const VROOM_PUBLIC = "https://solver.vroom-project.org";
 
@@ -317,8 +322,8 @@ export class RoutingService {
       const originalJob = jobs[jobIdx];
       return {
         id: originalJob?.id.toString() || u.id.toString(),
-        description: originalJob?.label || `Job ${jobIdx + 1}`,
-        reason: "No suitable vehicle available or unreachable location",
+        description: originalJob?.label || `Pedido ${jobIdx + 1}`,
+        reason: "RESTRICCIÓN: Vehículo no compatible o ubicación fuera de alcance",
       };
     });
   }
@@ -416,13 +421,14 @@ export class RoutingService {
 
     for (const route of vroomResult.routes) {
       const vIdx = route.vehicle;
+      const isInvalidAssignment = invalidVehicleIndices.has(vIdx);
 
-      // Saltar rutas inválidas (violaciones legales) - no pintar polygons
-      if (invalidVehicleIndices.has(vIdx)) {
-        console.log(
-          `[CalculateRoutes] ⚠️ Saltando ruta para vehículo ${vIdx} (violación legal - no se pinta polygon)`,
+      // Si es una asignación inválida (violación legal), imprimimos warning pero CONTINUAMOS
+      // para que el usuario pueda ver la ruta, aunque sea ilegal.
+      if (isInvalidAssignment) {
+        console.warn(
+          `[CalculateRoutes] ⚠️ Ruta para vehículo ${vIdx} (${originalVehicles[vIdx].label}) tiene violaciones legales, pero se calculará geometry.`,
         );
-        continue;
       }
 
       const profile = vehicleToProfile[vIdx];
@@ -435,15 +441,31 @@ export class RoutingService {
       const vehicle = originalVehicles[vIdx];
       const color = ROUTE_COLORS[vIdx % ROUTE_COLORS.length];
 
+      // Filtrar polígonos que contienen alguno de nuestros waypoints
+      // para permitir que ORS calcule la ruta entrando a la zona si es necesario
+      const filteredAvoidPolygons = profile.avoidPolygons.filter(poly => {
+        const anyWaypointInside = waypoints.some(wp => this.isPointInZone(wp, poly));
+        if (anyWaypointInside) {
+          console.log(`[CalculateRoutes] Omitiendo zona evitable para ORS en vehículo ${vIdx} porque contiene un waypoint.`);
+        }
+        return !anyWaypointInside;
+      });
+
       const vehicleRoute = await this.fetchOrsRoute(
         vehicle.id,
         waypoints,
-        profile.avoidPolygons,
+        filteredAvoidPolygons,
         color,
         route.steps,
         originalJobs,
         originalVehicles.length,
       );
+
+      // Si era inválida, marcamos la ruta con el error
+      if (isInvalidAssignment && !vehicleRoute.error) {
+        const inv = invalidAssignments.find(i => i.vehicleIdx === vIdx);
+        vehicleRoute.error = `Violación LEZ: No autorizado para acceder a: ${inv?.jobLabels.join(", ")}`;
+      }
 
       results.push(vehicleRoute);
     }
@@ -587,7 +609,8 @@ export class RoutingService {
       Array.from({ length: locations.length }, (_, j) => {
         if (i === j) return 0;
 
-        // Si cualquiera de los dos puntos está en zona prohibida, costo infinito
+        // Si cualquiera de los dos puntos está en zona prohibida, penalización absoluta
+        // Esto previene que el optimizador automático asigne el job
         if (isLocForbidden[i] || isLocForbidden[j]) {
           return ROUTING_CONFIG.UNREACHABLE_COST;
         }
@@ -600,7 +623,7 @@ export class RoutingService {
 
         return Math.round(
           d * ROUTING_CONFIG.COST_PER_METER +
-            t * ROUTING_CONFIG.COST_PER_SECOND,
+          t * ROUTING_CONFIG.COST_PER_SECOND,
         );
       }),
     );
@@ -621,34 +644,45 @@ export class RoutingService {
       })),
     );
 
-    // Generate all possible vehicle skills (all indices + 1)
-    const allSkills = vehicles.map((_, idx) => idx + 1);
+    // Generate group skills mapping (starting from vehicles.length + 1 to avoid collision)
+    const groupSkillsMap = new Map<string | number, number>();
+    const uniqueGroupIds = Array.from(new Set(
+      vehicles.flatMap(v => v.groupIds || [])
+        .concat(jobs.map(j => j.assignedGroupId).filter((id): id is string | number => id !== undefined))
+    ));
+
+    uniqueGroupIds.forEach((id, idx) => {
+      groupSkillsMap.set(id, vehicles.length + 1 + idx);
+    });
 
     const payload = {
-      vehicles: vehicles.map((v, idx) => ({
-        id: idx,
-        start_index: idx,
-        profile: vehicleToProfile[idx].name,
-        capacity: [ROUTING_CONFIG.MAX_CAPACITY],
-        // Each vehicle has its UNIQUE skill only
-        // This ensures pinned jobs can ONLY go to their assigned vehicle
-        skills: [idx + 1],
-      })),
+      vehicles: vehicles.map((v, idx) => {
+        const vehicleSkills = [idx + 1];
+        // Add skills for all groups this vehicle belongs to
+        if (v.groupIds) {
+          v.groupIds.forEach(gid => {
+            const skill = groupSkillsMap.get(gid);
+            if (skill) vehicleSkills.push(skill);
+          });
+        }
+
+        return {
+          id: idx,
+          start_index: idx,
+          profile: vehicleToProfile[idx].name,
+          capacity: [ROUTING_CONFIG.MAX_CAPACITY],
+          skills: vehicleSkills,
+        };
+      }),
       jobs: jobs.map((job, jidx) => {
         const vehicleIdx = job.assignedVehicleId
           ? vehicles.findIndex(
-              (v) => String(v.id) === String(job.assignedVehicleId),
-            )
+            (v) => String(v.id) === String(job.assignedVehicleId),
+          )
           : -1;
 
-        const isPinned = vehicleIdx !== -1;
-
-        console.log(`[Vroom] Job "${job.label}":`, {
-          assignedVehicleId: job.assignedVehicleId,
-          vehicleIdx,
-          isPinned,
-          willUseSkills: isPinned,
-        });
+        const isPinnedToVehicle = vehicleIdx !== -1;
+        const groupSkill = job.assignedGroupId ? groupSkillsMap.get(job.assignedGroupId) : null;
 
         const jobPayload: any = {
           id: vehicles.length + jidx,
@@ -658,10 +692,10 @@ export class RoutingService {
           description: job.label,
         };
 
-        // ONLY pinned jobs (stops/paradas) get skills
-        // Regular jobs remain free for optimization
-        if (isPinned) {
+        if (isPinnedToVehicle) {
           jobPayload.skills = [vehicleIdx + 1];
+        } else if (groupSkill) {
+          jobPayload.skills = [groupSkill];
         }
 
         return jobPayload;
@@ -824,88 +858,11 @@ export class RoutingService {
       : null;
   }
 
-  private static isPointInPolygon(point: LatLon, polygon: LatLon[]): boolean {
-    const [px, py] = point;
-    let inside = false;
-
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const [ix, iy] = polygon[i];
-      const [jx, jy] = polygon[j];
-
-      const intersects =
-        iy > py !== jy > py && px < ((jx - ix) * (py - iy)) / (jy - iy) + ix;
-
-      if (intersects) inside = !inside;
-    }
-
-    return inside;
-  }
-
   /**
-   * Aplana coordenadas de MultiPolygon que pueden tener profundidad 4D
-   * [[[[[lat, lon]]]]] -> [[lat, lon], [lat, lon], ...]
-   */
-  private static flattenPolygonCoordinates(coords: any): LatLon[] {
-    // Si ya es un array de tuplas [lat, lon], devolverlo
-    if (
-      Array.isArray(coords) &&
-      coords.length > 0 &&
-      Array.isArray(coords[0]) &&
-      coords[0].length === 2 &&
-      typeof coords[0][0] === "number" &&
-      typeof coords[0][1] === "number"
-    ) {
-      return coords as LatLon[];
-    }
-
-    // Si tiene profundidad extra, aplanar recursivamente
-    if (
-      Array.isArray(coords) &&
-      coords.length > 0 &&
-      Array.isArray(coords[0])
-    ) {
-      // Tomar el primer polígono si es MultiPolygon
-      return this.flattenPolygonCoordinates(coords[0]);
-    }
-
-    return coords as LatLon[];
-  }
-
-  /**
-   * Verifica si un punto está dentro de una zona (maneja MultiPolygon)
+   * Verifica si un punto está dentro de una zona (delegado a helper)
    */
   private static isPointInZone(point: LatLon, zoneCoords: any): boolean {
-    try {
-      // Si es un array de polígonos (MultiPolygon), verificar cada uno
-      if (Array.isArray(zoneCoords) && zoneCoords.length > 0) {
-        // Caso 1: Array de arrays de arrays (MultiPolygon con profundidad 4D)
-        if (Array.isArray(zoneCoords[0]) && Array.isArray(zoneCoords[0][0])) {
-          // Iterar sobre cada polígono
-          for (const polyGroup of zoneCoords) {
-            if (Array.isArray(polyGroup)) {
-              for (const poly of polyGroup) {
-                const flatPoly = this.flattenPolygonCoordinates(poly);
-                if (
-                  flatPoly.length >= 3 &&
-                  this.isPointInPolygon(point, flatPoly)
-                ) {
-                  return true;
-                }
-              }
-            }
-          }
-        } else {
-          // Caso 2: Array simple de coordenadas
-          const flatPoly = this.flattenPolygonCoordinates(zoneCoords);
-          if (flatPoly.length >= 3) {
-            return this.isPointInPolygon(point, flatPoly);
-          }
-        }
-      }
-    } catch (e) {
-      console.error("[isPointInZone] Error checking point:", e);
-    }
-    return false;
+    return isPointInZone(point, zoneCoords);
   }
 
   private static getForbiddenZonesForVehicle(

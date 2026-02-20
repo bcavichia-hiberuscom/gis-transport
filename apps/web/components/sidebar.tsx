@@ -96,8 +96,7 @@ interface SidebarProps {
   isAddCustomPOIOpen?: boolean;
   setIsAddCustomPOIOpen?: (value: boolean) => void;
   isLoadingLayers?: boolean;
-  isTracking?: boolean;
-  toggleTracking?: () => void;
+  isLoadingLayers?: boolean;
   hasRoute?: boolean;
   isAddStopOpen?: boolean;
   setIsAddStopOpen?: (value: boolean) => void;
@@ -213,8 +212,6 @@ interface FleetTabProps {
   removeJob: (id: string | number) => void;
   startRouting: () => void;
   isCalculatingRoute: boolean;
-  isTracking: boolean;
-  toggleTracking: () => void;
   hasRoute: boolean;
   isAddStopOpen?: boolean;
   setIsAddStopOpen?: (open: boolean) => void;
@@ -244,8 +241,6 @@ export const FleetTab = memo(
     removeJob,
     startRouting,
     isCalculatingRoute,
-    isTracking,
-    toggleTracking,
     hasRoute,
     isAddStopOpen,
     setIsAddStopOpen,
@@ -414,9 +409,7 @@ export const FleetTab = memo(
           isRouting={isCalculatingRoute}
           hasData={fleetVehicles.length > 0 && fleetJobs.length > 0}
           hasRoute={hasRoute}
-          isTracking={isTracking}
           onStartRouting={startRouting}
-          onToggleTracking={toggleTracking}
         />
       </div>
     );
@@ -429,7 +422,6 @@ export const FleetTab = memo(
       prev.addMode === next.addMode &&
       prev.selectedVehicleId === next.selectedVehicleId &&
       prev.isCalculatingRoute === next.isCalculatingRoute &&
-      prev.isTracking === next.isTracking &&
       prev.hasRoute === next.hasRoute &&
       prev.drivers === next.drivers &&
       prev.onAssignDriver === next.onAssignDriver
@@ -669,8 +661,7 @@ export const Sidebar = memo(
     isLoadingVehicles = false,
     fetchVehicles,
     setIsAddJobOpen,
-    isTracking = false,
-    toggleTracking,
+    setIsAddJobOpen,
     hasRoute = false,
     isAddStopOpen,
     setIsAddStopOpen,

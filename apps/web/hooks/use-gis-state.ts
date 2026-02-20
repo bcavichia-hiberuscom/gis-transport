@@ -34,6 +34,8 @@ interface GISState {
   zonePoints: [number, number][]; // For custom zone creation
   driversExpandedGroups: Record<string, boolean>;
   hiddenZones: string[]; // IDs of zones that are hidden
+  isAssignDriverOpen: boolean;
+  assigningVehicleId: string | number | null;
 }
 
 type GISAction =
@@ -60,7 +62,9 @@ type GISAction =
   | { type: "ADD_ZONE_POINT"; payload: [number, number] }
   | { type: "CLEAR_ZONE_POINTS" }
   | { type: "TOGGLE_ZONE_VISIBILITY"; payload: string }
-  | { type: "SET_DRIVERS_EXPANDED_GROUPS"; payload: Record<string, boolean> };
+  | { type: "SET_DRIVERS_EXPANDED_GROUPS"; payload: Record<string, boolean> }
+  | { type: "SET_IS_ASSIGN_DRIVER_OPEN"; payload: boolean }
+  | { type: "SET_ASSIGNING_VEHICLE_ID"; payload: string | number | null };
 
 const initialState: GISState = {
   layers: {
@@ -92,6 +96,8 @@ const initialState: GISState = {
   zonePoints: [],
   driversExpandedGroups: { available: false, assigned: false },
   hiddenZones: [],
+  isAssignDriverOpen: false,
+  assigningVehicleId: null,
 };
 
 // Maximum accumulated stations per type to prevent unbounded growth
@@ -167,6 +173,10 @@ function gisReducer(state: GISState, action: GISAction): GISState {
       return { ...state, zonePoints: [] };
     case "SET_DRIVERS_EXPANDED_GROUPS":
       return { ...state, driversExpandedGroups: action.payload };
+    case "SET_IS_ASSIGN_DRIVER_OPEN":
+      return { ...state, isAssignDriverOpen: action.payload };
+    case "SET_ASSIGNING_VEHICLE_ID":
+      return { ...state, assigningVehicleId: action.payload };
     case "TOGGLE_ZONE_VISIBILITY": {
       const isHidden = state.hiddenZones.includes(action.payload);
       return {

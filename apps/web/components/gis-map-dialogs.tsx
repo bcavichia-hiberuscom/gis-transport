@@ -6,7 +6,8 @@ import {
   RouteErrorAlert,
   type RouteError,
 } from "@/components/route-error-alert";
-import type { RouteNotice } from "@gis/shared";
+import type { RouteNotice, Driver } from "@gis/shared";
+import { AssignDriverDialog } from "@/components/assign-driver-dialog";
 
 interface EditingZoneData {
   id: string;
@@ -49,6 +50,13 @@ interface GISMapDialogsProps {
   routeNotices: RouteNotice[];
   onClearRouteErrors: () => void;
   customEntityMode?: "point" | "zone";
+
+  // Assign Driver Dialog
+  isAssignDriverOpen: boolean;
+  onOpenAssignDriverChange: (open: boolean) => void;
+  drivers: Driver[];
+  onAssignDriver: (driver: Driver) => void;
+  assigningVehicleLabel?: string;
 }
 
 export function GISMapDialogs({
@@ -72,6 +80,11 @@ export function GISMapDialogs({
   routeErrors,
   routeNotices,
   onClearRouteErrors,
+  isAssignDriverOpen,
+  onOpenAssignDriverChange,
+  drivers,
+  onAssignDriver,
+  assigningVehicleLabel,
 }: GISMapDialogsProps) {
   return (
     <>
@@ -98,6 +111,14 @@ export function GISMapDialogs({
         errors={routeErrors}
         notices={routeNotices}
         onClear={onClearRouteErrors}
+      />
+
+      <AssignDriverDialog
+        open={isAssignDriverOpen}
+        onOpenChange={onOpenAssignDriverChange}
+        drivers={drivers}
+        onAssign={onAssignDriver}
+        vehicleLabel={assigningVehicleLabel}
       />
     </>
   );

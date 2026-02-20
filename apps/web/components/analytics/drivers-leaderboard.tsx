@@ -23,30 +23,22 @@ export function DriversLeaderboard({ drivers, onDriverSelect }: LeaderboardProps
 
     return (
         <div className="bg-white p-10 flex flex-col gap-12 border-t border-slate-100">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-8">
-                <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Comparative Analytics</p>
-                    <h3 className="text-xl font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
-                        Audit Report
-                    </h3>
-                </div>
-            </div>
 
             {!hasDrivers ? (
-                <div className="py-24 text-center bg-slate-50/30 border border-slate-100">
-                    <div className="h-12 w-12 border border-slate-200 flex items-center justify-center mx-auto mb-4 bg-white">
+                <div className="py-24 text-center bg-slate-50/10 border border-dashed border-slate-100 rounded-xl">
+                    <div className="h-12 w-12 border border-slate-200 flex items-center justify-center mx-auto mb-4 bg-white rounded-lg">
                         <Users className="h-5 w-5 text-slate-300" />
                     </div>
-                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Fleet Synchronization</h4>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300 mt-1">Pending operational data injection</p>
+                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Sincronización de Flota</h4>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300 mt-1 italic">Esperando inyección de datos operacionales</p>
                 </div>
             ) : (
                 // If there are no low performers, only show the Top Performance section full-width
                 lowPerformers.length === 0 ? (
                     <div className="space-y-10">
-                        <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-                            <Medal className="h-4 w-4 text-slate-400" />
-                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Service Excellence</span>
+                        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                            <Medal className="h-4 w-4 text-emerald-500" />
+                            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Excelencia en Servicio</span>
                         </div>
 
                         <div className="space-y-1 divide-y divide-slate-50">
@@ -71,7 +63,7 @@ export function DriversLeaderboard({ drivers, onDriverSelect }: LeaderboardProps
                                             <div className="text-xl font-black italic text-emerald-600 tracking-tighter leading-none">
                                                 {d.onTimeDeliveryRate?.toFixed(0)}%
                                             </div>
-                                            <div className="text-[8px] font-bold text-slate-400 uppercase mt-1">Efficiency</div>
+                                            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Eficiencia</div>
                                         </div>
                                         <ChevronRight className="h-3 w-3 text-slate-300 group-hover:translate-x-0.5 group-hover:text-slate-900 transition-all" />
                                     </div>
@@ -87,10 +79,10 @@ export function DriversLeaderboard({ drivers, onDriverSelect }: LeaderboardProps
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
                         {/* RISK AUDIT */}
                         <div className="space-y-10">
-                            <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                            <div className="flex items-center justify-between border-b border-slate-900 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <AlertCircle className="h-4 w-4 text-slate-900" />
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">Personnel Audit (Risk)</span>
+                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+                                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Auditoría de Riesgo</span>
                                 </div>
                             </div>
 
@@ -111,8 +103,8 @@ export function DriversLeaderboard({ drivers, onDriverSelect }: LeaderboardProps
                                                 </h4>
                                                 <div className="flex items-center gap-2 mt-2">
                                                     <TrendingUp className="h-3 w-3 text-rose-500 rotate-180" />
-                                                    <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tighter">
-                                                        {(d.speedingEvents?.length || 0)} Telemetry Incidents Detected
+                                                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest italic">
+                                                        {(d.speedingEvents?.length || 0)} Incidencias Detectadas
                                                     </span>
                                                 </div>
                                             </div>
@@ -122,16 +114,16 @@ export function DriversLeaderboard({ drivers, onDriverSelect }: LeaderboardProps
                                                 <div className="text-xl font-black italic text-slate-900 tracking-tighter leading-none">
                                                     {d.onTimeDeliveryRate?.toFixed(0)}%
                                                 </div>
-                                                <div className="text-[8px] font-bold text-slate-400 uppercase mt-1">Efficiency</div>
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Eficiencia</div>
                                             </div>
                                             <ChevronRight className="h-3 w-3 text-slate-300 group-hover:translate-x-0.5 group-hover:text-slate-900 transition-all" />
                                         </div>
                                     </div>
                                 )) : (
-                                    <div className="p-12 border border-emerald-100 bg-emerald-50/10 text-center">
+                                    <div className="p-12 border border-emerald-100 bg-emerald-50/10 text-center rounded-xl border-dashed">
                                         <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-4 opacity-40" />
-                                        <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Full Compliance Confirmed</h4>
-                                        <p className="text-[9px] font-bold text-emerald-600/50 uppercase mt-1">Operational parameters within nominal range</p>
+                                        <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-[0.2em]">Conformidad Total</h4>
+                                        <p className="text-[9px] font-bold text-emerald-600/50 uppercase mt-1 italic">Parámetros operativos dentro del rango nominal</p>
                                     </div>
                                 )}
                             </div>
@@ -139,9 +131,9 @@ export function DriversLeaderboard({ drivers, onDriverSelect }: LeaderboardProps
 
                         {/* TOP PERFORMANCE */}
                         <div className="space-y-10">
-                            <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-                                <Medal className="h-4 w-4 text-slate-400" />
-                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Service Excellence</span>
+                            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                                <Medal className="h-4 w-4 text-emerald-500" />
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Excelencia en Servicio</span>
                             </div>
 
                             <div className="space-y-1 divide-y divide-slate-50">
@@ -166,7 +158,7 @@ export function DriversLeaderboard({ drivers, onDriverSelect }: LeaderboardProps
                                                 <div className="text-xl font-black italic text-emerald-600 tracking-tighter leading-none">
                                                     {d.onTimeDeliveryRate?.toFixed(0)}%
                                                 </div>
-                                                <div className="text-[8px] font-bold text-slate-400 uppercase mt-1">Efficiency</div>
+                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Eficiencia</div>
                                             </div>
                                             <ChevronRight className="h-3 w-3 text-slate-300 group-hover:translate-x-0.5 group-hover:text-slate-900 transition-all" />
                                         </div>

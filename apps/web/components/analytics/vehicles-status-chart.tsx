@@ -25,7 +25,7 @@ export function VehiclesStatusChart({ data = defaultData }: VehiclesStatusChartP
   }, [data]);
 
   return (
-    <div className="h-64 w-full border-b border-slate-100 bg-white rounded-none p-6">
+    <div className="h-64 w-full border-b border-slate-100 bg-gradient-to-b from-white via-primary/3 to-white rounded-none p-6">
       <div className="flex flex-col gap-2 mb-4">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Estado de Flota</h3>
         <p className="text-[10px] text-slate-500">Distribución de vehículos por estado</p>

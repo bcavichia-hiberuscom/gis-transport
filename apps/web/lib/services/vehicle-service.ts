@@ -9,7 +9,7 @@ import { FleetVehicle } from "@gis/shared";
 const MOCK_VEHICLES: FleetVehicle[] = [
   {
     id: "vh-001",
-    type: { id: "zero", label: "Zero Emission Vehicle", tags: ["0", "eco"], vroomType: "car" as const },
+    type: { id: "zero", label: "Zero Emission Vehicle", tags: ["0", "eco", "zero"], vroomType: "car" as const },
     label: "Van-001",
     position: [40.4168, -3.7038],
     licensePlate: "MAD-1001",

@@ -105,4 +105,12 @@ export class DriverService {
         await Promise.all(updates);
         return repository.getDrivers();
     }
+
+    /**
+     * innovative: Finds the driver currently assigned to a specific vehicle.
+     */
+    static async getDriverByVehicleId(vehicleId: string | number) {
+        const drivers = await repository.getDrivers();
+        return drivers.find(d => String(d.currentVehicleId) === String(vehicleId));
+    }
 }

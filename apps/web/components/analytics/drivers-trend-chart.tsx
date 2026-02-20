@@ -14,14 +14,14 @@ export function DriversTrendChart({ data }: DriversTrendChartProps) {
     return (
         <div className="p-10 border-r border-slate-100 bg-gradient-to-b from-white via-primary/3 to-white group rounded-lg">
             <div className="flex items-start justify-between mb-10">
-                <div className="flex flex-col gap-1.5">
-                    <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
+                <div className="flex flex-col gap-1">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none">
+                        KPI de Calidad de Servicio
+                    </p>
+                    <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2 mt-1">
                         <Activity className="h-4 w-4 text-sky-500" />
                         Histórico de Rendimiento
                     </h3>
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                        Evolución de la Puntualidad Media por Periodo
-                    </p>
                 </div>
 
             </div>

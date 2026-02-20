@@ -21,7 +21,7 @@ export function OrdersStatusChart({ data }: OrdersStatusChartProps) {
   const COLORS = ["#10b981", "#f59e0b", "#3b82f6"];
 
   return (
-    <div className="p-10 bg-white group">
+    <div className="p-10 bg-gradient-to-b from-white via-primary/3 to-white group">
       <div className="flex items-start justify-between mb-10">
         <div className="flex flex-col gap-1.5">
           <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">

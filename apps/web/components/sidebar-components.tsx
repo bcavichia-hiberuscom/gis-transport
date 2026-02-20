@@ -285,16 +285,6 @@ export const FleetFooterButtons = memo(
             <>{RouteEl} Optimizar Rutas</>
           )}
         </Button>
-        {hasRoute && (
-          <Button
-            variant={isTracking ? "destructive" : "secondary"}
-            className="w-full h-8 rounded-lg text-xs font-semibold transition-all"
-            onClick={onToggleTracking}
-          >
-            {NavigationEl}
-            {isTracking ? "Detener" : "Live Tracking"}
-          </Button>
-        )}
       </div>
     );
   },

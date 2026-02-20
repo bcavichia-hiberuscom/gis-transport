@@ -149,3 +149,82 @@ export function getZoneForbiddenReason(
 
   return "";
 }
+
+/**
+ * Checks if a point [lat, lon] is inside a polygon [[lat, lon], ...]
+ */
+export function isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+  const [px, py] = point;
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [ix, iy] = polygon[i];
+    const [jx, jy] = polygon[j];
+
+    const intersects =
+      iy > py !== jy > py && px < ((jx - ix) * (py - iy)) / (jy - iy) + ix;
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+/**
+ * Flattens MultiPolygon coordinates which can have variable depth
+ */
+export function flattenPolygonCoordinates(coords: any): [number, number][] {
+  if (
+    Array.isArray(coords) &&
+    coords.length > 0 &&
+    Array.isArray(coords[0]) &&
+    coords[0].length === 2 &&
+    typeof coords[0][0] === "number" &&
+    typeof coords[0][1] === "number"
+  ) {
+    return coords as [number, number][];
+  }
+
+  if (
+    Array.isArray(coords) &&
+    coords.length > 0 &&
+    Array.isArray(coords[0])
+  ) {
+    return flattenPolygonCoordinates(coords[0]);
+  }
+
+  return coords as [number, number][];
+}
+
+/**
+ * Checks if a point is inside a zone (handles MultiPolygon)
+ */
+export function isPointInZone(point: [number, number], zoneCoords: any): boolean {
+  try {
+    if (Array.isArray(zoneCoords) && zoneCoords.length > 0) {
+      if (Array.isArray(zoneCoords[0]) && Array.isArray(zoneCoords[0][0])) {
+        for (const polyGroup of zoneCoords) {
+          if (Array.isArray(polyGroup)) {
+            for (const poly of polyGroup) {
+              const flatPoly = flattenPolygonCoordinates(poly);
+              if (
+                flatPoly.length >= 3 &&
+                isPointInPolygon(point, flatPoly)
+              ) {
+                return true;
+              }
+            }
+          }
+        }
+      } else {
+        const flatPoly = flattenPolygonCoordinates(zoneCoords);
+        if (flatPoly.length >= 3) {
+          return isPointInPolygon(point, flatPoly);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[isPointInZone] Error checking point:", e);
+  }
+  return false;
+}

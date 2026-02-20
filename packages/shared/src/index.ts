@@ -186,12 +186,20 @@ export const FleetVehicleSchema = z.object({
 });
 export type FleetVehicle = z.infer<typeof FleetVehicleSchema>;
 
+export const VehicleGroupSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  vehicleIds: z.array(z.union([z.string(), z.number()])),
+});
+export type VehicleGroup = z.infer<typeof VehicleGroupSchema>;
+
 export const FleetJobSchema = z.object({
   id: z.union([z.string(), z.number()]),
   label: z.string(),
   position: LatLonSchema,
   requirements: z.array(z.string()).optional(),
   assignedVehicleId: z.union([z.string(), z.number()]).optional(),
+  assignedGroupId: z.union([z.string(), z.number()]).optional(),
   sequence: z.number().optional(),
   status: z
     .enum(["pending", "in_progress", "completed", "failed"])
@@ -199,6 +207,7 @@ export const FleetJobSchema = z.object({
   estimatedArrival: z.string().optional(),
   eta: z.string().optional(), // ISO 8601 timestamp string
   completedAt: z.number().optional(),
+  distance: z.number().optional(),
   type: z.enum(["standard", "custom"]).default("standard"),
 });
 export type FleetJob = z.infer<typeof FleetJobSchema>;

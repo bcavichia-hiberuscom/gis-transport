@@ -2,6 +2,7 @@ export interface TelemetryData {
     fuel?: number;
     battery?: number;
     distance: number;
+    speed: number;
     isElectric: boolean;
 }
 
@@ -16,6 +17,7 @@ export interface SimulationState {
     completedJobs: Set<string>;
     positions: Record<string, VehiclePosition>;
     telemetry: Record<string, TelemetryData>;
+    recentEvents: Record<string, any[]>;
     isRunning: boolean;
     intervalId?: NodeJS.Timeout;
 }
@@ -32,6 +34,7 @@ if (!global.gpsSimulation) {
         completedJobs: new Set(),
         positions: {},
         telemetry: {},
+        recentEvents: {},
         isRunning: false,
     };
 }
@@ -60,6 +63,10 @@ export class VehicleTrackingService {
         return this.getState().completedJobs;
     }
 
+    static getRecentEvents() {
+        return this.getState().recentEvents;
+    }
+
     static isRunning() {
         return this.getState().isRunning;
     }
@@ -72,6 +79,7 @@ export class VehicleTrackingService {
         state.routes = routes;
         state.jobs = jobs;
         state.completedJobs = new Set();
+        state.recentEvents = {};
         state.isRunning = true;
 
         // Initialize positions and telemetry
@@ -96,6 +104,7 @@ export class VehicleTrackingService {
                 fuel: isElectric ? undefined : 80 + Math.random() * 20,
                 battery: isElectric ? 80 + Math.random() * 20 : undefined,
                 distance: 10000 + Math.floor(Math.random() * 50000),
+                speed: 0,
                 isElectric,
             };
         });
@@ -158,6 +167,7 @@ export class VehicleTrackingService {
                     fuel: isElectric ? undefined : 80 + Math.random() * 20,
                     battery: isElectric ? 80 + Math.random() * 20 : undefined,
                     distance: 10000 + Math.floor(Math.random() * 50000),
+                    speed: 0,
                     isElectric,
                 };
             }
@@ -169,7 +179,7 @@ export class VehicleTrackingService {
     /**
      * Internal tick function to update positions.
      */
-    private static tick() {
+    private static async tick() {
         const state = this.getState();
         if (!state.isRunning) return;
 
@@ -192,6 +202,10 @@ export class VehicleTrackingService {
                     coords: route[nextIndex],
                     routeIndex: nextIndex,
                 };
+
+                // Update Speed (deterministic simulation)
+                const speed = isMoving ? Math.round(75 + Math.random() * 15) : 0; // 75-90 km/h when moving
+                tel.speed = speed;
 
                 // Job validation logic...
                 const activeJobs = state.jobs || [];
@@ -219,9 +233,51 @@ export class VehicleTrackingService {
                     } else if (tel.fuel) {
                         tel.fuel = Math.max(5, tel.fuel - distKm * 0.1);
                     }
+                    // SIMULATE SPEEDING (innovation: real-time risk simulation)
+                    const limit = 60;
+                    if (speed > limit) {
+                        // 30% chance per tick to log if speeding
+                        if (Math.random() < 0.3) {
+                            this.handleSpeeding(vehicleId, speed, limit, route[nextIndex]);
+                        }
+                    }
                 }
             }
         });
+    }
+
+    private static async handleSpeeding(vehicleId: string, speed: number, limit: number, position: [number, number]) {
+        try {
+            const state = this.getState();
+            const { DriverService } = await import("./driver-service");
+            const driver = await DriverService.getDriverByVehicleId(vehicleId);
+            if (driver) {
+                const event = {
+                    id: `sim-${Date.now()}-${Math.random()}`,
+                    timestamp: Date.now(),
+                    speed,
+                    limit,
+                    latitude: position[0],
+                    longitude: position[1],
+                    driverId: driver.id
+                };
+
+                // Add to in-memory state for real-time polling
+                if (!state.recentEvents[vehicleId]) {
+                    state.recentEvents[vehicleId] = [];
+                }
+                state.recentEvents[vehicleId].unshift(event);
+                if (state.recentEvents[vehicleId].length > 10) {
+                    state.recentEvents[vehicleId].pop();
+                }
+
+                // Log to database for persistence
+                await DriverService.logSpeeding(driver.id, event);
+                console.log(`[Simulation] Speeding logged for driver ${driver.name} (Vehicle ${vehicleId}): ${Math.round(speed)} km/h`);
+            }
+        } catch (err) {
+            console.error("[Simulation] Failed to handle speeding:", err);
+        }
     }
 
     private static getDistance(p1: [number, number], p2: [number, number]) {

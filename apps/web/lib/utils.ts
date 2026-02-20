@@ -235,3 +235,22 @@ export function getDriverCurrentVehicle(
     registration: String(driver.currentVehicleId),
   };
 }
+
+/**
+ * Haversine distance calculator between two points
+ * @returns distance in meters
+ */
+export function calculateDistance(pos1: [number, number], pos2: [number, number]): number {
+  const R = 6371e3; // metres
+  const φ1 = (pos1[0] * Math.PI) / 180;
+  const φ2 = (pos2[0] * Math.PI) / 180;
+  const Δφ = ((pos2[0] - pos1[0]) * Math.PI) / 180;
+  const Δλ = ((pos2[1] - pos1[1]) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // in metres
+}

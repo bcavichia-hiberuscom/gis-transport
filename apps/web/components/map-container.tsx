@@ -44,6 +44,7 @@ import { MapEventHandler } from "./map/MapEventHandler";
 import { RouteLayer } from "./map/RouteLayer";
 import { VehiclesLayer } from "./map/VehiclesLayer";
 import { ZoneDrawingPreview } from "./map/ZoneDrawingPreview";
+import { MapStyleSelector, MAP_STYLES, type MapStyle } from "./map/MapStyleSelector";
 
 interface MapContainerProps {
   layers: LayerVisibility;
@@ -134,6 +135,7 @@ export default function MapContainer({
   const [mounted, setMounted] = useState(false);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [activeStyle, setActiveStyle] = useState<MapStyle>(MAP_STYLES[0]);
   // viewportBounds is only written, never read — use a ref to avoid re-renders
   const viewportBoundsRef = useRef<L.LatLngBounds | null>(null);
   const setViewportBounds = useCallback((bounds: L.LatLngBounds) => {
@@ -237,10 +239,14 @@ export default function MapContainer({
         className="w-full h-full z-0 outline-none"
         zoomControl={false}
         minZoom={5}
-        maxZoom={16}
+        maxZoom={activeStyle.maxZoom ?? 19}
         preferCanvas={true}
       >
-        <TileLayer attribution={MAP_ATTRIBUTION} url={MAP_TILE_URL} />
+        <TileLayer
+          attribution={activeStyle.attribution}
+          url={activeStyle.url}
+          key={activeStyle.id}
+        />
 
         <MapCenterHandler center={mapCenter} />
         <MapEventHandler
@@ -358,6 +364,12 @@ export default function MapContainer({
           <Marker position={pickedJobCoords} icon={picking} />
         )}
       </LeafletMap>
+
+      {/* Map style selector — rendered outside LeafletMap to stay above tile layer */}
+      <MapStyleSelector
+        currentStyleId={activeStyle.id}
+        onStyleChange={setActiveStyle}
+      />
     </div>
   );
 }

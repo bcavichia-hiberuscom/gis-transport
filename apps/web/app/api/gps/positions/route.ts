@@ -28,6 +28,7 @@ export async function GET(request: Request) {
   const allPositions = VehicleTrackingService.getAllPositions();
   const allTelemetry = VehicleTrackingService.getAllTelemetry();
   const completedJobs = VehicleTrackingService.getCompletedJobs();
+  const recentEvents = VehicleTrackingService.getRecentEvents();
 
   // Process read-only snapshot
   const updates = Object.entries(allPositions).map(
@@ -37,9 +38,8 @@ export async function GET(request: Request) {
       if (tel) {
         positions[vehicleId] = data.coords;
 
-        // Calculate speed first
-        const isMoving = VehicleTrackingService.isRunning();
-        const speed = isMoving ? Math.round(40 + Math.random() * 40) : 0;
+        // Use deterministic speed from telemetry
+        const speed = tel.speed || 0;
 
         // Fetch road info ONLY for the selected vehicle AND if it's moving
         let roadInfo: any = {};
@@ -80,6 +80,7 @@ export async function GET(request: Request) {
     positions,
     metrics,
     completedJobs: Array.from(completedJobs),
+    recentEvents,
     timestamp: Date.now(),
   });
 }

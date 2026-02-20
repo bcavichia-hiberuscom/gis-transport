@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { NavPanel } from "./nav-panel";
 
-export type DashboardModule = "map" | "drivers" | "vehicles" | "orders";
+export type DashboardModule = "map" | "drivers" | "vehicles" | "fuel" | "orders";
 
 interface DashboardProps {
     activeModule: DashboardModule;

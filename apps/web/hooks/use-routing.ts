@@ -19,6 +19,7 @@ interface UseRoutingProps {
   removeJob: (id: string | number) => void;
   setJobAssignments: (assignments: { jobId: string | number; vehicleId: string | number }[]) => void;
   setLayers: React.Dispatch<React.SetStateAction<LayerVisibility>>;
+  vehicleGroups: VehicleGroup[];
 }
 
 export function useRouting({
@@ -29,6 +30,7 @@ export function useRouting({
   removeJob,
   setJobAssignments,
   setLayers,
+  vehicleGroups,
 }: UseRoutingProps) {
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [routeErrors, setRouteErrors] = useState<RouteError[]>([]);
@@ -49,6 +51,7 @@ export function useRouting({
   const removeJobRef = useRef(removeJob);
   const setJobAssignmentsRef = useRef(setJobAssignments);
   const setLayersRef = useRef(setLayers);
+  const vehicleGroupsRef = useRef(vehicleGroups);
 
   // Keep refs in sync with props
   useEffect(() => {
@@ -72,6 +75,9 @@ export function useRouting({
   useEffect(() => {
     setLayersRef.current = setLayers;
   }, [setLayers]);
+  useEffect(() => {
+    vehicleGroupsRef.current = vehicleGroups;
+  }, [vehicleGroups]);
 
   // Cleanup route data when vehicles/jobs are removed
   useEffect(() => {
@@ -103,28 +109,49 @@ export function useRouting({
   }, []);
 
   // STABLE callback - uses refs to access current values
-  const startRouting = useCallback(async () => {
-    const vehicles = fleetVehiclesRef.current;
-    const jobs = fleetJobsRef.current;
+  const startRouting = useCallback(async (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[] }) => {
+    const vehicles = overrides?.vehicles || fleetVehiclesRef.current;
+    const jobs = overrides?.jobs || fleetJobsRef.current;
     const pois = customPOIsRef.current;
     const zones = activeZonesRef.current;
     const doRemoveJob = removeJobRef.current;
     const doSetJobAssignments = setJobAssignmentsRef.current;
     const doSetLayers = setLayersRef.current;
+    const groups = vehicleGroupsRef.current;
+
+    console.log("[useRouting] startRouting called", { hasOverrides: !!overrides, overrideJobs: overrides?.jobs?.length });
 
     const key = JSON.stringify({
       vehicles: vehicles.map((v) => ({
         id: v.id,
         position: v.position,
-        type: v.type,
+        typeLabel: v.type.label,
+        tags: v.type.tags,
+        driverId: v.driver?.id // Include driver in key to force re-routing on assignment
       })),
-      jobs: jobs.map((j) => ({ id: j.id, position: j.position })),
+      jobs: jobs.map((j) => ({
+        id: j.id,
+        position: j.position,
+        assignedVehicleId: j.assignedVehicleId
+      })),
       selectedPOIs: pois
         .filter((poi) => poi.selectedForFleet)
         .map((p) => ({ id: p.id, position: p.position })),
+      vehicleGroups: groups.map(g => ({ id: g.id, vehicleIds: g.vehicleIds })),
     });
 
-    if (key === lastRoutingKeyRef.current) return;
+    console.log("[useRouting] Manual Trigger Check", {
+      keyMatches: key === lastRoutingKeyRef.current,
+      hasOverrides: !!overrides,
+      vehicleCount: vehicles.length,
+      jobCount: jobs.length
+    });
+
+    if (key === lastRoutingKeyRef.current && !overrides) {
+      console.log("[useRouting] Skipping: Key is identical to last request and no overrides provided");
+      return routeData; // Return existing data if unchanged
+    }
+
     lastRoutingKeyRef.current = key;
 
     const selectedPOIsAsJobs = pois
@@ -136,8 +163,12 @@ export function useRouting({
       }));
 
     const allFleetJobs = [...jobs, ...selectedPOIsAsJobs];
+    console.log("[useRouting] Validation:", { vehicleCount: vehicles.length, jobCount: allFleetJobs.length });
+
     if (vehicles.length === 0 || allFleetJobs.length === 0) {
-      alert("You need at least 1 vehicle and 1 job or selected POI");
+      console.warn("[useRouting] Validation failed: Empty vehicles or jobs");
+      // Only alert if this was a manual trigger (has overrides or direct call)
+      if (overrides) alert("You need at least 1 vehicle and 1 job or selected POI");
       return;
     }
 
@@ -169,6 +200,7 @@ export function useRouting({
           jobs: allFleetJobs,
           startTime: new Date().toISOString(),
           zones: zones,
+          vehicleGroups: groups,
         }),
       });
 
@@ -260,16 +292,12 @@ export function useRouting({
       setRouteErrors([...unassignedErrors, ...routeErrorsArr]);
       setRouteNotices(data.notices || []);
 
-      // If there are unassigned jobs, remove them from the fleet as requested
-      if (data.unassignedJobs && data.unassignedJobs.length > 0) {
-        data.unassignedJobs.forEach((uj) => {
-          doRemoveJob(uj.id);
-        });
-      }
+      return data; // Return successfully optimized data
     } catch (err) {
       console.error("Routing error:", err);
       lastRoutingKeyRef.current = ""; // Allow retry on error
       alert(`Error: ${(err as Error).message}`);
+      return { success: false, error: (err as Error).message };
     } finally {
       setIsCalculatingRoute(false);
     }

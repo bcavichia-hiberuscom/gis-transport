@@ -34,7 +34,7 @@ export function FuelDiscrepancyChart({
     const isHighDiscrepancy = finalTeorico > after;
 
     return (
-        <div className={cn("bg-white border border-slate-100 rounded-lg p-6", className)}>
+        <div className={cn("bg-gradient-to-b from-white via-primary/3 to-white border border-slate-100 rounded-lg p-6", className)}>
             <div className="space-y-8">
                 {/* Cabecera Sober */}
                 <div>

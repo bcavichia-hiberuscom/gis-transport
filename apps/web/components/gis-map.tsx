@@ -46,6 +46,7 @@ import { VehiclesTab } from "./vehicles-tab";
 import { OrdersTab } from "./orders-tab";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 import { FuelDetailsSheet } from "./fuel-details-sheet";
+import { FuelManagementView } from "./analytics/fuel-management-view";
 
 // Types
 import type {
@@ -56,6 +57,8 @@ import type {
   Zone,
   Driver,
   VehicleMetrics,
+  FleetVehicle,
+  FleetJob,
 } from "@gis/shared";
 import { InteractionMode as LocalInteractionMode } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
@@ -111,8 +114,15 @@ export function GISMap() {
     updateVehicleLabel,
     updateVehicleLicensePlate,
     assignDriverToVehicle,
+    updateDriverSpeedingEvents,
     setJobAssignments,
     updateJobStatus,
+    setFleetVehicles,
+    vehicleGroups,
+    addVehicleGroup,
+    removeVehicleGroup,
+    toggleVehicleInGroup,
+    updateVehicleGroupName,
   } = useFleet();
 
   const {
@@ -231,6 +241,14 @@ export function GISMap() {
     return [...state.activeZones, ...customZones];
   }, [state.activeZones, customPOIs]);
 
+  // Seed fleet state from API data on first load
+  useEffect(() => {
+    if (dataVehicles?.length > 0 && fleetVehicles.length === 0) {
+      console.log("[FleetSync] Seeding operational fleet from API data...");
+      setFleetVehicles(dataVehicles);
+    }
+  }, [dataVehicles, fleetVehicles.length, setFleetVehicles]);
+
   const {
     routeData,
     setRouteData,
@@ -251,7 +269,53 @@ export function GISMap() {
     removeJob,
     setJobAssignments,
     setLayers,
+    vehicleGroups,
   });
+
+  // Stores the routing overrides that were interrupted by the driver-assignment guard.
+  // After the driver is assigned, we replay the routing with these overrides.
+  const pendingRoutingOverridesRef = useRef<{ vehicles?: FleetVehicle[]; jobs?: FleetJob[] } | null>(null);
+
+  const handleStartRouting = useCallback(
+    async (overrides?: { vehicles?: FleetVehicle[]; jobs?: FleetJob[] }) => {
+      const vehiclesToCheck = overrides?.vehicles || fleetVehicles;
+      const jobsToCheck = overrides?.jobs || fleetJobs;
+
+      // Check all vehicles that have a job assigned — no vehicle may route without a driver,
+      // whether the routing was triggered automatically or via manual assignment.
+      const assignedVehicleIds = new Set(
+        jobsToCheck
+          .filter(j => j.assignedVehicleId)
+          .map(j => String(j.assignedVehicleId))
+      );
+
+      const vehiclesWithNoDriver = vehiclesToCheck.filter((v) =>
+        assignedVehicleIds.has(String(v.id)) && !v.driver
+      );
+
+      console.log("[GISMap] Driver Pre-check:", {
+        hasOverrides: !!overrides,
+        assignedVehicleIds: Array.from(assignedVehicleIds),
+        missingDrivers: vehiclesWithNoDriver.map(v => v.label)
+      });
+
+      if (vehiclesWithNoDriver.length > 0) {
+        const firstVehicle = vehiclesWithNoDriver[0];
+        console.warn("[GISMap] Routing blocked — driver missing for:", firstVehicle.label);
+
+        // Store the current overrides so we can resume routing after driver is assigned
+        pendingRoutingOverridesRef.current = overrides ?? null;
+
+        dispatch({ type: "SET_ASSIGNING_VEHICLE_ID", payload: firstVehicle.id });
+        dispatch({ type: "SET_IS_ASSIGN_DRIVER_OPEN", payload: true });
+        return { success: false, aborted: true, unassignedJobs: [] };
+      }
+
+      console.log("[GISMap] Driver check passed — starting route calculation...");
+      return startRouting(overrides);
+    },
+    [fleetVehicles, fleetJobs, startRouting, dispatch],
+  );
 
   const handleUpdateVehiclePosition = useCallback(
     (vehicleId: string | number, newCoords: [number, number]) =>
@@ -271,6 +335,9 @@ export function GISMap() {
     updateVehiclePosition: handleUpdateVehiclePosition,
     updateVehicleMetrics: handleUpdateVehicleMetrics,
     fleetVehicles,
+    fleetJobs,
+    updateJobStatus,
+    updateDriverSpeedingEvents,
   });
 
   // Alert monitoring (includes speeding persistence)
@@ -432,7 +499,7 @@ export function GISMap() {
       dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: false });
       dispatch({ type: "SET_PICKED_STOP_COORDS", payload: null });
     },
-    [addStopToVehicle, selectedVehicleId, startRouting, dispatch],
+    [addStopToVehicle, selectedVehicleId, handleStartRouting, dispatch],
   );
 
   // Memoize computed addMode to prevent object recreation
@@ -543,7 +610,7 @@ export function GISMap() {
           setMapCenter={handleSetMapCenter}
           selectedVehicle={state.selectedVehicle}
           customPOIs={displayedCustomPOIs}
-          fleetVehicles={dataVehicles && dataVehicles.length > 0 ? dataVehicles : fleetVehicles}
+          fleetVehicles={fleetVehicles}
           fleetJobs={fleetJobs}
           selectedVehicleId={selectedVehicleId}
           vehicleAlerts={vehicleAlerts}
@@ -580,6 +647,8 @@ export function GISMap() {
         <MapTrackingStatusBar
           vehicle={selectedVehicleObject}
           isTracking={isTracking}
+          fleetJobs={fleetJobs}
+          onClose={() => setSelectedVehicleId(null)}
         />
 
         <MapLayersOverlay
@@ -614,13 +683,6 @@ export function GISMap() {
                 dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: true });
               }
             }}
-            onFuelDetailSelect={(driverId) => {
-              const fullDriver = drivers.find(drv => drv.id === driverId);
-              if (fullDriver) {
-                dispatch({ type: "SET_SELECTED_DRIVER", payload: fullDriver });
-                dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: true });
-              }
-            }}
             onVehicleSelect={handleVehicleSelectFromDriversWithDispatch}
             expandedGroups={state.driversExpandedGroups}
             onToggleGroup={(group, isExpanded) =>
@@ -645,12 +707,30 @@ export function GISMap() {
         </div>
       )}
 
+      {/* 5.1 Fuel Module */}
+      {activeModule === "fuel" && (
+        <div className="h-full flex flex-col bg-background overflow-hidden relative">
+          <FuelManagementView
+            onDriverClick={(driverId) => {
+              const fullDriver = drivers.find(drv => drv.id === driverId);
+              if (fullDriver) {
+                dispatch({ type: "SET_SELECTED_DRIVER", payload: fullDriver });
+                dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: true });
+              }
+            }}
+          />
+        </div>
+      )}
+
       {/* 6. Orders Module */}
       {activeModule === "orders" && (
         <div className="h-full flex flex-col bg-background overflow-hidden relative">
           <OrdersTab
             fleetJobs={fleetJobs || []}
+            fleetVehicles={fleetVehicles}
+            activeZones={combinedActiveZones}
             isLoading={isLoadingVehicles || false}
+            isCalculatingRoute={isCalculatingRoute}
             addJob={() => {
               dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: true });
             }}
@@ -658,6 +738,14 @@ export function GISMap() {
               await fetchVehicles();
             }}
             removeJob={removeJob || (async () => { })}
+            setJobAssignments={setJobAssignments}
+            startRouting={handleStartRouting}
+            routeData={routeData}
+            vehicleGroups={vehicleGroups}
+            addVehicleGroup={addVehicleGroup}
+            removeVehicleGroup={removeVehicleGroup}
+            toggleVehicleInGroup={toggleVehicleInGroup}
+            updateVehicleGroupName={updateVehicleGroupName}
             onJobSelect={(job) => {
               // Placeholder for future job selection functionality
             }}
@@ -687,6 +775,40 @@ export function GISMap() {
         routeErrors={routeErrors}
         routeNotices={routeNotices}
         onClearRouteErrors={handleClearRouteErrors}
+        isAssignDriverOpen={state.isAssignDriverOpen}
+        onOpenAssignDriverChange={(open) => {
+          dispatch({ type: "SET_IS_ASSIGN_DRIVER_OPEN", payload: open });
+          if (!open) {
+            // User closed dialog with X without picking a driver — discard pending routing
+            pendingRoutingOverridesRef.current = null;
+            dispatch({ type: "SET_ASSIGNING_VEHICLE_ID", payload: null });
+          }
+        }}
+        drivers={drivers}
+        onAssignDriver={(driver) => {
+          if (state.assigningVehicleId) {
+            handleAssignDriver(state.assigningVehicleId, driver);
+            dispatch({ type: "SET_IS_ASSIGN_DRIVER_OPEN", payload: false });
+            dispatch({ type: "SET_ASSIGNING_VEHICLE_ID", payload: null });
+
+            // Resume the routing that was blocked by the driver guard.
+            // We use a short delay so React can flush the driver assignment
+            // (assignDriverToVehicle) into fleetVehicles before the next check.
+            const pendingOverrides = pendingRoutingOverridesRef.current;
+            pendingRoutingOverridesRef.current = null;
+            setTimeout(() => {
+              console.log("[GISMap] Resuming routing after driver assignment", { pendingOverrides });
+              startRouting(pendingOverrides ?? undefined);
+            }, 150);
+          }
+        }}
+        assigningVehicleLabel={
+          state.assigningVehicleId
+            ? fleetVehicles.find(
+              (v) => String(v.id) === String(state.assigningVehicleId),
+            )?.label
+            : undefined
+        }
       />
 
       <GISMapPanels
@@ -711,7 +833,7 @@ export function GISMap() {
         onCloseVehicleDetails={handleCloseVehicleDetails}
         fleetJobs={fleetJobs}
         addStopToVehicle={addStopToVehicle}
-        startRouting={startRouting}
+        startRouting={handleStartRouting}
         isAddStopOpen={state.isAddStopOpen}
         setIsAddStopOpen={handleOpenAddStopChange}
         onStartPickingStop={handleStartPickingStop}

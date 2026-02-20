@@ -24,7 +24,7 @@ export function VehiclesFleetHealthChart({ data = defaultData }: VehiclesFleetHe
   }, [data]);
 
   return (
-    <div className="border-l border-b border-slate-100 p-6 bg-white">
+    <div className="border-l border-b border-slate-100 p-6 bg-gradient-to-b from-white via-primary/3 to-white">
       <div className="flex flex-col gap-2 mb-6">
         <h3 className="text-sm font-black uppercase tracking-tight text-slate-900">
           Salud de Flota
