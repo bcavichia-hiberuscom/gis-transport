@@ -11,6 +11,11 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
+export const metadata = {
+  title: "VektorX",
+  description: "Advanced Fleet & Logistics Engine",
+};
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,

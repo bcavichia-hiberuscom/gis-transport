@@ -30,15 +30,14 @@ const navItems = [
 
 export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {
     return (
-        <aside className="w-[240px] bg-white border-r border-[#EAEAEA] flex flex-col z-20 shrink-0">
+        <aside className="w-[340px] bg-white border-r border-[#EAEAEA] flex flex-col z-20 shrink-0">
             {/* Logo Section */}
-            <div className="p-8 pb-10">
-                <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded bg-[#1C1C1C] flex items-center justify-center text-[#D4F04A] font-medium text-sm">
-                        G
-                    </div>
-                    <span className="text-sm font-medium tracking-tight text-[#1C1C1C]">GIS Transport</span>
-                </div>
+            <div className="p-8 pb-6 flex justify-center">
+                <img 
+                    src="/VektorX.png" 
+                    alt="VektorX" 
+                    className="h-22 w-auto object-contain transition-all hover:scale-105"
+                />
             </div>
 
             {/* Navigation Links */}
