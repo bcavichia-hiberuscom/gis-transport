@@ -30,7 +30,7 @@ export function useMapLayers() {
     },
     [state.layers, dispatch],
   );
-
+  
   return {
     layers: state.layers,
     setLayers,

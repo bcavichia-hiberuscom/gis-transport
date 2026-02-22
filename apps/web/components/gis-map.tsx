@@ -3,15 +3,8 @@
 import dynamic from "next/dynamic";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 
-// Third-party components
-import { Truck } from "lucide-react";
-
-// UI Components
-import { Sidebar } from "@/components/sidebar";
-
 import { GISMapDialogs } from "@/components/gis-map-dialogs";
 import { GISMapPanels } from "@/components/gis-map-panels";
-import { GISMapPopup } from "@/components/gis-map-popup";
 
 // Dashboard Monitoring Components
 import { MapMonitoringSidebar } from "@/components/dashboard/map-monitoring-sidebar";
@@ -28,7 +21,6 @@ import { useCustomPOI } from "@/hooks/use-custom-poi";
 import { useRouting } from "@/hooks/use-routing";
 import { useLiveTracking } from "@/hooks/use-live-tracking";
 import { useAlertLogs } from "@/hooks/use-alert-logs";
-import { useVehiclePopup } from "@/hooks/use-vehicle-popup";
 import { useMapLayers } from "@/hooks/use-map-layers";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 import { useVehicleSelection } from "@/hooks/use-vehicle-selection";
@@ -46,7 +38,8 @@ import { VehiclesTab } from "./vehicles-tab";
 import { OrdersTab } from "./orders-tab";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 import { FuelDetailsSheet } from "./fuel-details-sheet";
-import { FuelManagementView } from "./analytics/fuel-management-view";
+import { FuelManagementTab } from "./fuel-management-tab";
+import { WeatherTab } from "./weather-tab";
 
 // Types
 import type {
@@ -155,24 +148,12 @@ export function GISMap() {
   // Map layers management
   const { layers, setLayers, toggleLayer } = useMapLayers();
 
-
-  // Vehicle popup management
-  const {
-    vehiclePopupData,
-    hoverTimeoutRef,
-    handleVehicleHover,
-    handleVehicleHoverOut,
-    clearPopup,
-    clearHoverTimeout,
-  } = useVehiclePopup(fleetVehicles, state.isVehicleDetailsOpen);
-
   // Vehicle selection management
   const {
     handleVehicleClick,
     handleSelectVehicleIdOnly,
     handleHighlightVehicleOnly,
-    handleOpenVehiclePanel: handleOpenVehiclePanelFromSelection,
-  } = useVehicleSelection(selectedVehicleId, setSelectedVehicleId, clearPopup);
+  } = useVehicleSelection(selectedVehicleId, setSelectedVehicleId);
 
   // Sidebar navigation state
   const {
@@ -274,10 +255,10 @@ export function GISMap() {
 
   // Stores the routing overrides that were interrupted by the driver-assignment guard.
   // After the driver is assigned, we replay the routing with these overrides.
-  const pendingRoutingOverridesRef = useRef<{ vehicles?: FleetVehicle[]; jobs?: FleetJob[] } | null>(null);
+  const pendingRoutingOverridesRef = useRef<{ vehicles?: FleetVehicle[]; jobs?: FleetJob[]; preference?: "fastest" | "shortest" | "recommended"; traffic?: boolean } | null>(null);
 
   const handleStartRouting = useCallback(
-    async (overrides?: { vehicles?: FleetVehicle[]; jobs?: FleetJob[] }) => {
+    async (overrides?: { vehicles?: FleetVehicle[]; jobs?: FleetJob[]; preference?: "fastest" | "shortest" | "recommended"; traffic?: boolean }) => {
       const vehiclesToCheck = overrides?.vehicles || fleetVehicles;
       const jobsToCheck = overrides?.jobs || fleetJobs;
 
@@ -430,6 +411,30 @@ export function GISMap() {
     }
   }, [sidebarNavigateTab]);
 
+  // Return to module logic
+  const [returnToModule, setReturnToModule] = useState<DashboardModule | null>(null);
+
+  const handleStartPickingWithModuleSwitch = useCallback((pickingHandler: () => void) => {
+    if (activeModule !== "map") {
+      setReturnToModule(activeModule);
+      setActiveModule("map");
+    }
+    pickingHandler();
+  }, [activeModule]);
+
+
+  // Effect to return to previous module after picking
+  useEffect(() => {
+    if (returnToModule && state.interactionMode === null && (state.pickedJobCoords || state.pickedStopCoords || state.zonePoints.length > 0)) {
+      // Small timeout to ensure state is processed
+      const timeout = setTimeout(() => {
+        setActiveModule(returnToModule);
+        setReturnToModule(null);
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [state.interactionMode, state.pickedJobCoords, state.pickedStopCoords, state.zonePoints.length, returnToModule]);
+
   // Get selected vehicle object
   const selectedVehicleObject = useMemo(() => {
     if (!selectedVehicleId || !fleetVehicles) return null;
@@ -449,23 +454,25 @@ export function GISMap() {
     dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: false });
   }, []);
 
-  // Wrapper for vehicle panel opening from popup - opens VehicleDetailsPanel (properties)
-  const handleOpenVehiclePanel = useCallback(() => {
-    if (vehiclePopupData) {
-      setSelectedVehicleId(vehiclePopupData.vehicleId);
-      dispatch({ type: "SET_SHOW_VEHICLE_PROPERTIES_PANEL", payload: true });
-      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: false });
-      clearPopup();
-    }
-  }, [vehiclePopupData, setSelectedVehicleId, dispatch, clearPopup]);
+  // Wrapped handlers
+  const handleStartPickingJobWrapped = useCallback(() => {
+    handleStartPickingWithModuleSwitch(handleStartPickingJob);
+  }, [handleStartPickingWithModuleSwitch, handleStartPickingJob]);
+
+  const handleStartPickingWrapped = useCallback(() => {
+    handleStartPickingWithModuleSwitch(handleStartPicking);
+  }, [handleStartPickingWithModuleSwitch, handleStartPicking]);
+
+  const handleStartPickingStopWrapped = useCallback(() => {
+    handleStartPickingWithModuleSwitch(handleStartPickingStop);
+  }, [handleStartPickingWithModuleSwitch, handleStartPickingStop]);
 
   // Wrapper for vehicle select from drivers (needs dispatch)
   const handleVehicleSelectFromDriversWithDispatch = useCallback(
     (vehicleId: string) => {
       handleVehicleSelectFromDrivers(vehicleId);
-      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: false });
     },
-    [handleVehicleSelectFromDrivers, dispatch],
+    [handleVehicleSelectFromDrivers],
   );
 
   const handleZonesUpdate = useCallback(
@@ -493,8 +500,7 @@ export function GISMap() {
         addStopToVehicle(selectedVehicleId, coords, label, eta);
         // Recalculate route after adding stop
         // If tracking is active, the useEffect in use-live-tracking will auto-update with new routes
-        // The setTimeout allows state updates to complete before routing
-        setTimeout(() => startRouting(), 500);
+        setTimeout(() => handleStartRouting(), 500);
       }
       dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: false });
       dispatch({ type: "SET_PICKED_STOP_COORDS", payload: null });
@@ -529,34 +535,6 @@ export function GISMap() {
     setRouteErrors([]);
     setRouteNotices([]);
   }, []);
-
-  const handleDriverDetailsOpenChange = useCallback(
-    (open: boolean) => {
-      dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: open });
-    },
-    [dispatch],
-  );
-
-  const handleDriverDetailsClose = useCallback(() => {
-    dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false });
-    dispatch({ type: "SET_SELECTED_DRIVER", payload: null });
-  }, [dispatch]);
-
-  const handleCloseVehiclePropertiesPanel = useCallback(() => {
-    dispatch({
-      type: "SET_SHOW_VEHICLE_PROPERTIES_PANEL",
-      payload: false,
-    });
-    setSelectedVehicleId(null);
-  }, [dispatch, setSelectedVehicleId]);
-
-  const handleCloseVehicleDetails = useCallback(() => {
-    dispatch({
-      type: "SET_IS_VEHICLE_DETAILS_OPEN",
-      payload: false,
-    });
-    setSelectedVehicleId(null);
-  }, [dispatch, setSelectedVehicleId]);
 
   // Keyboard shortcuts for zone drawing
   useEffect(() => {
@@ -626,11 +604,8 @@ export function GISMap() {
           onEditZone={handleEditZone}
           isInteracting={!!state.interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
-          onVehicleLabelUpdate={updateVehicleLabel}
           onVehicleSelect={handleVehicleClick}
-          onVehicleHover={handleVehicleHover}
-          onVehicleHoverOut={handleVehicleHoverOut}
-          hiddenZones={state.hiddenZones}
+          hiddenZones={[...state.hiddenZones, ...(editingZoneData?.id ? [editingZoneData.id] : [])]}
           onToggleZoneVisibility={(id) => dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })}
           onDeleteZone={removeCustomPOI}
         />
@@ -710,7 +685,7 @@ export function GISMap() {
       {/* 5.1 Fuel Module */}
       {activeModule === "fuel" && (
         <div className="h-full flex flex-col bg-background overflow-hidden relative">
-          <FuelManagementView
+          <FuelManagementTab
             onDriverClick={(driverId) => {
               const fullDriver = drivers.find(drv => drv.id === driverId);
               if (fullDriver) {
@@ -718,6 +693,16 @@ export function GISMap() {
                 dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: true });
               }
             }}
+          />
+        </div>
+      )}
+
+      {/* 5.2 Weather Module */}
+      {activeModule === "weather" && (
+        <div className="h-full flex flex-col bg-background overflow-hidden relative">
+          <WeatherTab
+            fleetVehicles={fleetVehicles || []}
+            fleetJobs={fleetJobs || []}
           />
         </div>
       )}
@@ -757,9 +742,12 @@ export function GISMap() {
       <GISMapDialogs
         isAddJobOpen={state.isAddJobOpen}
         onOpenAddJobChange={handleOpenAddJobChange}
-        onAddJobSubmit={handleAddJobSubmit}
+        onAddJobSubmit={(...args) => {
+          handleAddJobSubmit(...args);
+          handleModuleChange("orders");
+        }}
         mapCenter={state.mapCenter}
-        onStartPickingJob={handleStartPickingJob}
+        onStartPickingJob={handleStartPickingJobWrapped}
         pickedJobCoords={state.pickedJobCoords}
         isAddCustomPOIOpen={state.isAddCustomPOIOpen}
         onOpenAddCustomPOIChange={handleOpenAddCustomPOIChange}
@@ -812,41 +800,38 @@ export function GISMap() {
       />
 
       <GISMapPanels
-        selectedDriver={state.selectedDriver}
-        isDriverDetailsOpen={state.isDriverDetailsOpen}
-        onDriverDetailsOpenChange={(open) => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: open })}
-        onDriverDetailsClose={() => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false })}
-        isFuelDetailsOpen={state.isFuelDetailsOpen}
-        onFuelDetailsOpenChange={(open) => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: open })}
-        onFuelDetailsClose={() => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: false })}
-        showVehiclePropertiesPanel={state.showVehiclePropertiesPanel}
         selectedVehicleId={selectedVehicleId}
-        isVehicleDetailsOpen={state.isVehicleDetailsOpen}
         selectedVehicleObject={selectedVehicleObject}
-        onCloseVehiclePropertiesPanel={handleCloseVehiclePropertiesPanel}
         drivers={drivers}
         onAssignDriver={handleAssignDriver}
         onChangeEnvironmentalTag={handleChangeEnvironmentalTag}
         onUpdateLabel={updateVehicleLabel}
         onUpdateLicensePlate={updateVehicleLicensePlate}
         onViewDriverProfile={handleViewDriverProfile}
-        onCloseVehicleDetails={handleCloseVehicleDetails}
         fleetJobs={fleetJobs}
         addStopToVehicle={addStopToVehicle}
         startRouting={handleStartRouting}
         isAddStopOpen={state.isAddStopOpen}
         setIsAddStopOpen={handleOpenAddStopChange}
-        onStartPickingStop={handleStartPickingStop}
+        onStartPickingStop={handleStartPickingStopWrapped}
         pickedStopCoords={state.pickedStopCoords}
         onAddStopSubmit={handleAddStopSubmit}
       />
-
-      <GISMapPopup
-        vehiclePopupData={vehiclePopupData}
-        onMouseEnter={clearHoverTimeout}
-        onMouseLeave={clearPopup}
-        onOpenVehiclePanel={handleOpenVehiclePanel}
+      <FuelDetailsSheet
+        isOpen={state.isFuelDetailsOpen}
+        onOpenChange={(open) => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: open })}
+        onClose={() => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: false })}
+        driverId={state.selectedDriver?.id || null}
       />
+      
+      {state.selectedDriver && (
+        <DriverDetailsSheet
+          driver={state.selectedDriver}
+          isOpen={state.isDriverDetailsOpen}
+          onOpenChange={(open) => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: open })}
+          onClose={() => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false })}
+        />
+      )}
     </Dashboard>
   );
 }

@@ -11,7 +11,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Loader2, UserPlus, ShieldPlus } from "lucide-react";
 
@@ -35,18 +34,6 @@ export function AddDriverDialog({
   const [, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
@@ -69,120 +56,94 @@ export function AddDriverDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border border-slate-200 shadow-2xl bg-white">
+      <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden">
         <div className="p-8">
-          <DialogHeader className="mb-8">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 shrink-0">
-                <UserPlus className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <DialogTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-900 leading-none mb-1">
-                  Registro de Personal
-                </DialogTitle>
-                <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
-                  Integración de Nuevo Operativo en Flota
-                </DialogDescription>
-              </div>
+          <div className="flex items-center gap-4 mb-8">
+            <div className="h-10 w-10 bg-[#F7F8FA] border border-[#EAEAEA] rounded-md flex items-center justify-center">
+              <UserPlus strokeWidth={1.5} className="h-5 w-5 text-[#1C1C1C]" />
             </div>
-          </DialogHeader>
+            <div>
+              <DialogTitle className="text-[14px] font-medium uppercase tracking-tight text-[#1C1C1C]">Alta de Personal</DialogTitle>
+              <DialogDescription className="text-[10px] uppercase tracking-widest text-[#6B7280]/60 mt-0.5">Integración en Pool Operativo</DialogDescription>
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="driver-name" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Nombre y Apellidos
-              </Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="driver-name" className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]">Nombre Completo</Label>
               <Input
                 id="driver-name"
-                placeholder="Introducir nombre completo..."
+                placeholder="Ej. Juan Pérez..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
+                className="h-10 text-[12px] font-medium border-[#EAEAEA] focus-visible:border-[#1C1C1C] rounded transition-all"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="license-type" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Tipo Permiso
-                </Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="license-type" className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]">Tipo Licencia</Label>
                 <Input
                   id="license-type"
-                  placeholder="B, C1, etc..."
+                  placeholder="Cat. B, C..."
                   value={licenseType}
                   onChange={(e) => setLicenseType(e.target.value)}
-                  className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
+                  className="h-10 text-[12px] font-medium border-[#EAEAEA] focus-visible:border-[#1C1C1C] rounded transition-all"
                 />
               </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="license-number"
-                  className="text-[10px] font-black text-slate-400 uppercase tracking-widest"
-                >
-                  Identificación
-                </Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="license-number" className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]">DNI / ID</Label>
                 <Input
                   id="license-number"
-                  placeholder="DNI / NIE / ID..."
+                  placeholder="00000000-X"
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
-                  className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
+                  className="h-10 text-[12px] font-medium border-[#EAEAEA] focus-visible:border-[#1C1C1C] rounded transition-all"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone-number" className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Contacto Directo
-              </Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="phone-number" className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]">Teléfono de Contacto</Label>
               <Input
                 id="phone-number"
                 placeholder="+34"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg text-sm font-medium"
+                className="h-10 text-[12px] font-medium border-[#EAEAEA] focus-visible:border-[#1C1C1C] rounded transition-all"
               />
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-4">
-              <div className="h-10 w-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                <ShieldPlus className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none">
-                  Estado de Auditoría
-                </p>
-                <p className="text-[11px] font-bold text-slate-900 uppercase italic">
-                  Alta Disponible para Operaciones
-                </p>
+            <div className="p-4 rounded bg-[#F7F8FA] border border-[#EAEAEA] flex items-center gap-4">
+              <ShieldPlus strokeWidth={1.5} className="h-5 w-5 text-emerald-600" />
+              <div>
+                <p className="text-[9px] font-medium uppercase tracking-wider text-[#6B7280]/60">Validación de Perfil</p>
+                <p className="text-[10px] font-medium text-[#1C1C1C] uppercase mt-0.5">Pendiente de Aprobación SLA</p>
               </div>
             </div>
 
-            <DialogFooter className="pt-4 flex items-center gap-3">
+            <div className="flex gap-4 pt-4">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900"
+                className="flex-1 h-10 text-[11px] font-medium uppercase tracking-wider border-[#EAEAEA]"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={isLoading || !name.trim()}
-                className="flex-1 bg-slate-950 text-white font-black uppercase italic tracking-widest text-[10px] h-11 border border-slate-800 shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="flex-1 h-10 bg-[#D4F04A] text-[#1C1C1C] hover:bg-[#D4F04A]/90 text-[11px] font-medium uppercase tracking-wider transition-all"
               >
                 {isLoading ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />{" "}
-                    Procesando...
-                  </>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   "Finalizar Alta"
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </div>
       </DialogContent>

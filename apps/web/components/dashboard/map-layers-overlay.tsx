@@ -15,7 +15,10 @@ import {
     Package,
     Trash2,
     X,
-    Menu
+    Menu,
+    CloudDrizzle,
+    Thermometer,
+    Wind
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -46,92 +49,113 @@ export function MapLayersOverlay({
 
     if (isCollapsed) {
         return (
-            <div className="absolute top-4 right-4 z-[400] pointer-events-auto">
+            <div className="absolute top-6 right-6 z-[400] pointer-events-auto group">
                 <button
                     onClick={() => setIsCollapsed(false)}
-                    className="h-10 w-10 bg-card/95 backdrop-blur-md border border-border/40 rounded-xl shadow-2xl flex items-center justify-center hover:bg-primary/10 transition-all group relative ring-1 ring-black/5"
+                    className="h-12 w-12 bg-white border border-[#EAEAEA] rounded-lg shadow-xl flex items-center justify-center hover:bg-[#1C1C1C] hover:text-[#D4F04A] hover:border-[#1C1C1C] transition-all duration-300"
+                    title="Capas y Configuración"
                 >
-                    <Layers className="h-5 w-5 text-primary" />
+                    <Layers strokeWidth={1.5} className="h-5 w-5" />
                 </button>
             </div>
         );
     }
 
     return (
-        <div className="absolute top-2 right-2 z-[400] w-64 bg-card/98 backdrop-blur-xl border border-border/50 shadow-2xl flex flex-col h-auto max-h-[calc(100vh-3rem)] rounded-xl pointer-events-auto overflow-hidden animate-slide-in-right">
+        <div className="absolute top-4 right-4 z-[400] w-72 bg-white border border-[#EAEAEA] shadow-2xl flex flex-col h-auto max-h-[calc(100vh-4rem)] rounded-lg pointer-events-auto overflow-hidden animate-in slide-in-from-right-2 fade-in duration-300">
             {/* Header */}
-            <div className="p-4 border-b border-border/10 flex flex-col gap-3">
+            <div className="p-6 border-b border-[#EAEAEA] flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-xs font-black uppercase tracking-tight text-foreground/80">Configuración</h2>
-                        <Badge variant="outline" className="text-[10px] font-bold bg-primary/5 border-primary/20 text-primary h-5 px-1.5">
-                            CAPAS
+                    <div className="flex items-center gap-3">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#1C1C1C]" />
+                        <h2 className="text-[11px] font-medium uppercase tracking-wider text-[#1C1C1C]">Capas</h2>
+                        <Badge className="text-[10px] font-medium bg-[#1C1C1C] text-[#D4F04A] h-5 px-2 rounded-full tabular-nums border-none shadow-none uppercase tracking-wider">
+                            Map
                         </Badge>
                     </div>
                     <button
                         onClick={() => setIsCollapsed(true)}
-                        className="h-7 w-7 rounded-lg hover:bg-muted/50 flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-all"
+                        className="h-7 w-7 rounded-md hover:bg-[#F7F8FA] flex items-center justify-center text-[#6B7280] hover:text-[#1C1C1C] transition-all"
                     >
-                        <X className="h-3.5 w-3.5" />
+                        <X strokeWidth={1.5} className="h-4 w-4" />
                     </button>
                 </div>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 bg-white">
                 <div className="flex flex-col">
-                    <div className="p-2 space-y-1">
+                    <div className="p-4 space-y-1.5">
                         <LayerToggleItem
-                            icon={<Fuel className="h-3.5 w-3.5" />}
+                            icon={<Fuel strokeWidth={1.5} className="h-4 w-4" />}
                             label="Gasolineras"
                             checked={layers.gasStations}
                             onToggle={() => toggleLayer("gasStations")}
                         />
                         <LayerToggleItem
-                            icon={<Zap className="h-3.5 w-3.5" />}
-                            label="Estaciones EV"
+                            icon={<Zap strokeWidth={1.5} className="h-4 w-4" />}
+                            label="Carga Eléctrica"
                             checked={layers.evStations}
                             onToggle={() => toggleLayer("evStations")}
+                        />
+                        <div className="h-[1px] bg-[#EAEAEA] my-2" />
+                        <span className="text-[10px] font-medium text-[#6B7280]/60 uppercase tracking-widest pl-1 mb-1 block">Meteorología</span>
+                        <LayerToggleItem
+                            icon={<CloudDrizzle strokeWidth={1.5} className="h-4 w-4" />}
+                            label="Precipitaciones"
+                            checked={!!layers.weatherRain}
+                            onToggle={() => toggleLayer("weatherRain")}
+                        />
+                        <LayerToggleItem
+                            icon={<Wind strokeWidth={1.5} className="h-4 w-4" />}
+                            label="Viento"
+                            checked={!!layers.weatherWind}
+                            onToggle={() => toggleLayer("weatherWind")}
+                        />
+                        <LayerToggleItem
+                            icon={<Thermometer strokeWidth={1.5} className="h-4 w-4" />}
+                            label="Temperatura"
+                            checked={!!layers.weatherTemp}
+                            onToggle={() => toggleLayer("weatherTemp")}
                         />
                     </div>
 
                     {customZones && customZones.length > 0 && (
                         <>
-                            <div className="h-px bg-border/5 my-2" />
-                            <div className="px-4 py-2 text-[10px] font-black uppercase text-muted-foreground/40 tracking-tight">
-                                Zonas de Gestión
+                            <div className="h-[1px] bg-[#EAEAEA] mx-6 my-2" />
+                            <div className="px-6 py-2 text-[10px] font-medium uppercase text-[#6B7280]/60 tracking-wider">
+                                Zonas de Control
                             </div>
-                            <div className="px-2 space-y-0.5">
+                            <div className="px-4 space-y-0.5 pb-4">
                                 {customZones.map((zone) => {
                                     const isHidden = hiddenZones?.includes(zone.id);
                                     return (
                                         <div
                                             key={zone.id}
-                                            className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-muted/30 transition-all group"
+                                            className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-[#F7F8FA] transition-all group"
                                         >
-                                            <div className="flex items-center gap-2 overflow-hidden">
+                                            <div className="flex items-center gap-2.5 overflow-hidden">
                                                 <div className={cn(
-                                                    "h-1.5 w-1.5 rounded-full shrink-0",
-                                                    isHidden ? "bg-muted-foreground/30" : "bg-primary"
+                                                    "h-1.5 w-1.5 rounded-full shrink-0 transition-all",
+                                                    isHidden ? "bg-[#EAEAEA]" : "bg-[#D4F04A] shadow-[0_0_8px_rgba(212,240,74,0.5)]"
                                                 )} />
                                                 <span className={cn(
-                                                    "text-xs font-semibold truncate tracking-tight",
-                                                    isHidden && "text-muted-foreground"
+                                                    "text-[11px] font-medium truncate uppercase tracking-tight",
+                                                    isHidden ? "text-[#6B7280]/40" : "text-[#1C1C1C]"
                                                 )}>
                                                     {zone.name}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => onToggleZoneVisibility?.(zone.id)}
                                                     className={cn(
-                                                        "h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity",
-                                                        isHidden ? "text-muted-foreground" : "text-primary hover:bg-primary/10"
+                                                        "h-7 w-7 rounded transition-all",
+                                                        isHidden ? "text-[#6B7280]/40" : "text-[#1C1C1C] hover:bg-white"
                                                     )}
-                                                    title={isHidden ? "Mostrar zona" : "Ocultar zona"}
                                                 >
-                                                    {isHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                                    {isHidden ? <EyeOff strokeWidth={1.5} className="h-3.5 w-3.5" /> : <Eye strokeWidth={1.5} className="h-3.5 w-3.5" />}
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
@@ -142,10 +166,9 @@ export function MapLayersOverlay({
                                                             onDeleteZone?.(zone.id);
                                                         }
                                                     }}
-                                                    className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
-                                                    title="Eliminar zona"
+                                                    className="h-7 w-7 rounded text-red-600 hover:bg-red-50 transition-all"
                                                 >
-                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    <Trash2 strokeWidth={1.5} className="h-3.5 w-3.5" />
                                                 </Button>
                                             </div>
                                         </div>
@@ -155,19 +178,16 @@ export function MapLayersOverlay({
                         </>
                     )}
 
-                    <div className="h-px bg-border/5 my-2" />
+                    <div className="h-[1px] bg-[#EAEAEA] mx-6 my-2" />
 
-                    <div className="p-3">
+                    <div className="p-6">
                         <Button
-                            variant="outline"
-                            size="sm"
                             onClick={() => {
                                 onAddZone();
-                                // Maybe keep open? User usually wants to see the map while adding
                             }}
-                            className="w-full h-9 text-[10px] font-black uppercase tracking-tight gap-1.5 border-dashed border-border/40 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all shadow-sm rounded-xl"
+                            className="w-full h-10 bg-[#1C1C1C] hover:bg-[#D4F04A] hover:text-[#1C1C1C] text-white text-[11px] font-medium uppercase tracking-wider gap-2 rounded transition-all shadow-none border-none"
                         >
-                            <Plus className="h-3.5 w-3.5" />
+                            <Plus strokeWidth={1.5} className="h-4 w-4" />
                             Nueva Zona
                         </Button>
                     </div>
@@ -175,9 +195,9 @@ export function MapLayersOverlay({
             </ScrollArea>
 
             {/* Footer Summary */}
-            <div className="p-4 bg-muted/10 border-t border-border/5 text-[9px] font-black italic text-muted-foreground/30 uppercase tracking-[0.2em] flex items-center justify-between">
-                <span>Configuración de Mapa</span>
-                <ChevronRight className="h-3 w-3" />
+            <div className="p-4 bg-[#F7F8FA] border-t border-[#EAEAEA] text-[9px] font-medium text-[#6B7280]/40 uppercase tracking-widest flex items-center justify-between">
+                <span>GIS ENGINE ACTIVE</span>
+                <ChevronRight strokeWidth={1.5} className="h-3.5 w-3.5" />
             </div>
         </div>
     );
@@ -201,23 +221,28 @@ function LayerToggleItem({
                 onToggle();
             }}
             className={cn(
-                "flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer group",
-                checked ? "bg-primary/5 text-primary" : "text-muted-foreground/70 hover:bg-muted/30 hover:text-foreground"
+                "flex items-center justify-between px-4 py-3 rounded-md transition-all duration-300 cursor-pointer group border",
+                checked ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]" : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
             )}
         >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
                 <div className={cn(
-                    "opacity-50 transition-transform group-hover:scale-110",
-                    checked && "text-primary opacity-100"
+                    "transition-all",
+                    checked ? "text-[#D4F04A]" : "text-[#6B7280]/40"
                 )}>
                     {icon}
                 </div>
-                <span className="text-xs font-black uppercase tracking-tight">{label}</span>
+                <span className={cn(
+                    "text-[11px] font-medium uppercase tracking-wider transition-colors",
+                    checked ? "text-white" : "text-[#1C1C1C]"
+                )}>
+                    {label}
+                </span>
             </div>
             <Switch
                 checked={checked}
                 onCheckedChange={onToggle}
-                className="scale-75 data-[state=checked]:bg-primary"
+                className="data-[state=checked]:bg-[#D4F04A]"
             />
         </div>
     );

@@ -11,7 +11,20 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
-import { Zap, CheckCircle2 } from "lucide-react";
+
+const CHART_TOOLTIP_STYLE = {
+    backgroundColor: "#fff",
+    border: "1px solid #EAEAEA",
+    borderRadius: "2px",
+    fontSize: "10px",
+    fontWeight: "500",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+    textTransform: "uppercase" as const,
+    padding: "8px 12px",
+};
+
+// Strict adherence to global palette
+const BAR_FILLS = ["#1C1C1C", "#D4F04A", "#6B7280", "#EF4444", "#EAEAEA"];
 
 interface VehiclesFactorsChartProps {
   data: any[];
@@ -21,42 +34,28 @@ export function VehiclesFactorsChart({ data }: VehiclesFactorsChartProps) {
   const hasData = data && data.length > 0;
 
   return (
-    <div className="p-10 bg-gradient-to-b from-white via-primary/3 to-white group">
-      <div className="flex items-start justify-between mb-10">
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
-            <Zap className="h-4 w-4 text-slate-400" />
-            Análisis de Consumo
-          </h3>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-            Distribución de combustible por factor en el periodo
-          </p>
+    <div className="chart-container">
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <p className="chart-title">Análisis de Consumo</p>
+          <p className="chart-subtitle">Distribución de combustible por factor en el periodo</p>
         </div>
       </div>
 
-      <div className="h-[280px] w-full relative">
+      <div className="h-[260px] w-full relative">
         {!hasData ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-emerald-50/10 border border-dashed border-emerald-100 rounded-xl">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-3 opacity-30" />
-            <h4 className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">
-              Sin datos
-            </h4>
-            <p className="text-[9px] font-bold text-emerald-600/50 uppercase mt-1">
-              No hay vehículos registrados
-            </p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F7F8FA] border border-dashed border-[#EAEAEA]">
+            <p className="text-[10px] font-medium text-[#6B7280]/40 uppercase tracking-widest">Sin datos de consumo</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-            >
-              <CartesianGrid
-                strokeDasharray="4 4"
-                horizontal={false}
-                stroke="rgba(0,0,0,0.04)"
-              />
+            <BarChart data={data} layout="vertical" margin={{ top: 5, right: 40, left: 40, bottom: 5 }}>
+              <defs>
+                <filter id="shadowBar2" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="2" dy="4" stdDeviation="4" floodColor="#000" floodOpacity="0.1" />
+                </filter>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
               <XAxis type="number" hide />
               <YAxis
                 dataKey="name"
@@ -64,45 +63,26 @@ export function VehiclesFactorsChart({ data }: VehiclesFactorsChartProps) {
                 axisLine={false}
                 tickLine={false}
                 width={120}
-                tick={{
-                  fontSize: 8,
-                  fontWeight: 900,
-                  fill: "#64748b",
-                  width: 100,
-                }}
+                tick={{ fontSize: 9, fontWeight: 500, fill: "#6B7280" }}
               />
-              <Tooltip
-                cursor={{ fill: "rgba(0,0,0,0.02)" }}
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  fontSize: "10px",
-                  fontWeight: "900",
-                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                  textTransform: "uppercase",
-                }}
-              />
+              <Tooltip cursor={{ fill: "rgba(0,0,0,0.02)" }} contentStyle={CHART_TOOLTIP_STYLE} />
               <Bar
                 dataKey="impact"
                 name="L/100km"
                 radius={[0, 4, 4, 0]}
                 barSize={24}
-                animationDuration={1000}
+                animationDuration={800}
+                style={{ filter: "url(#shadowBar2)" }}
                 label={{
                   position: "right",
-                  fill: "#0f172a",
-                  fontSize: 10,
-                  fontWeight: 900,
-                  formatter: (val: number) => `${val} L`,
+                  fill: "#6B7280",
+                  fontSize: 9,
+                  fontWeight: 500,
+                  formatter: (val: number) => `${val}L`,
                 }}
               >
                 {data.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={"#fbbf24"}
-                    fillOpacity={1 - index * 0.15}
-                  />
+                  <Cell key={`cell-${index}`} fill={BAR_FILLS[index % BAR_FILLS.length]} />
                 ))}
               </Bar>
             </BarChart>

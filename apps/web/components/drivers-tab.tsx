@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn, getDriverIsAvailable } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { Driver, FleetVehicle } from "@gis/shared";
 
 // Analytical & Corporate Components
@@ -106,12 +107,12 @@ export function DriversTab({
           {
             name: "Excesos de Velocidad",
             impact: totalSpeeding,
-            color: "#0f172a",
+            color: "#1C1C1C",
           },
           {
             name: "Demoras en Entrega",
             impact: Math.round(100 - avgScore),
-            color: "#334155",
+            color: "#6B7280",
           },
         ]
         : [];
@@ -123,9 +124,9 @@ export function DriversTab({
       trendData: drivers.length > 0 ? trendData : [],
       factorData,
       trends: {
-        active: { value: "3", positive: true }, // Mock based on recent logins
-        score: { value: "0.8%", positive: true }, // Mock
-        alerts: { value: "1", positive: false }, // Mock
+        active: { value: "3", positive: true },
+        score: { value: "0.8%", positive: true },
+        alerts: { value: "1", positive: false },
       }
     };
   }, [drivers, currentPeriod]);
@@ -150,87 +151,87 @@ export function DriversTab({
     };
   }, [drivers, availSearch, availMinScore, assignSearch, assignMinScore]);
 
-  // Two-column layout doesn't need local collapse state
-
   const renderDriverCard = (driver: Driver) => (
     <div
       key={driver.id}
       onClick={() => onDriverSelect?.(driver)}
-      className="group bg-white border border-slate-100 rounded-2xl p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-slate-200 transition-all cursor-pointer"
+      className="premium-card p-5 cursor-pointer group border-[#EAEAEA] hover:border-[#D4F04A]/40 transition-all bg-white"
     >
       <div className="flex items-start gap-4">
         <div className="relative shrink-0">
-          <div className="h-12 w-12 bg-slate-50/50 flex items-center justify-center rounded-2xl overflow-hidden border border-slate-100/50 group-hover:bg-slate-50 transition-colors">
+          <div className="h-12 w-12 bg-[#F7F8FA] flex items-center justify-center rounded-lg overflow-hidden border border-[#EAEAEA] transition-all group-hover:border-[#1C1C1C] group-hover:bg-[#1C1C1C] group-hover:text-[#D4F04A]">
             {driver.imageUrl ? (
-              <img src={driver.imageUrl} alt={driver.name} className="h-full w-full object-cover" />
+              <img src={driver.imageUrl} alt={driver.name} className="h-full w-full object-cover transition-opacity duration-500 group-hover:opacity-20" />
             ) : (
-              <span className="text-xs font-bold text-slate-400">{driver.name.substring(0, 2).toUpperCase()}</span>
+              <span className="text-xs font-medium">{driver.name.substring(0, 2).toUpperCase()}</span>
             )}
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+               <Activity strokeWidth={1.5} className="h-5 w-5" />
+            </div>
           </div>
           <span className={cn(
-            "absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white shadow-sm",
-            driver.isAvailable ? "bg-emerald-500" : "bg-blue-500"
+            "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white",
+            driver.isAvailable ? "bg-[#D4F04A]" : "bg-blue-600"
           )} />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-semibold text-slate-900 truncate tracking-tight group-hover:text-blue-600 transition-colors">{driver.name}</h4>
-              <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                {driver.licenseType || 'Class B'} • ID: {driver.id.substring(0, 8)}
+              <h4 className="text-[13px] font-medium tracking-tight text-[#1C1C1C] truncate">{driver.name}</h4>
+              <p className="text-[10px] font-medium text-[#6B7280] mt-0.5 uppercase tracking-wider">
+                {driver.licenseType || 'CLASS B'} • OP-{driver.id.substring(0, 6)}
               </p>
             </div>
-            <div className="p-2 bg-slate-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
-              <ChevronRight className="h-4 w-4 text-slate-400" />
+            <div className="h-7 w-7 rounded-md bg-[#F7F8FA] flex items-center justify-center text-[#6B7280] group-hover:bg-[#1C1C1C] group-hover:text-[#D4F04A] transition-all">
+              <ChevronRight strokeWidth={1.5} className="h-4 w-4" />
             </div>
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-y-4 gap-x-6">
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estado</span>
+              <span className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wider">Estado</span>
               <span className={cn(
-                "w-fit px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                driver.isAvailable ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
+                "w-fit px-2 py-0.5 rounded text-[9px] font-medium uppercase tracking-wider border",
+                driver.isAvailable 
+                  ? "bg-[#D4F04A]/10 text-[#5D6B1A] border-[#D4F04A]/20" 
+                  : "bg-blue-50 text-blue-700 border-blue-100"
               )}>
-                {driver.isAvailable ? 'Disponible' : 'En Servicio'}
+                {driver.isAvailable ? 'Disponible' : 'En Misión'}
               </span>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Seguridad</span>
+              <span className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wider">Safety Score</span>
               <div className="flex items-center gap-2">
-                <span className={cn(
-                  "text-[11px] font-bold tabular-nums",
-                  ((driver as any).safetyScore || 95) < 85 ? "text-rose-600" : "text-slate-900"
-                )}>
-                  {(driver as any).safetyScore || 95}/100
+                <span className="text-[11px] font-medium tabular-nums text-[#1C1C1C]">
+                  {(driver as any).safetyScore || 95}%
                 </span>
-                <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 rounded-full" style={{ width: `${(driver as any).safetyScore || 95}%` }} />
+                <div className="flex-1 h-1 bg-[#F7F8FA] rounded-full overflow-hidden border border-[#EAEAEA]">
+                  <div className="h-full bg-[#1C1C1C] rounded-full" style={{ width: `${(driver as any).safetyScore || 95}%` }} />
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 bg-slate-50 flex items-center justify-center rounded-lg border border-slate-100">
-                <Truck className="h-4 w-4 text-slate-400" />
+              <div className="h-8 w-8 bg-[#F7F8FA] flex items-center justify-center rounded-md border border-[#EAEAEA]">
+                <Truck strokeWidth={1.5} className="h-4 w-4 text-[#6B7280]" />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Unidad</span>
-                <span className="text-[11px] font-medium text-slate-600 truncate">
-                  {fleetVehicles.find((v) => v.id === (driver as any).vehicleId)?.type?.label ?? 'Sin Vincular'}
+                <span className="text-[8px] font-medium text-[#6B7280] uppercase tracking-wider">Activo</span>
+                <span className="text-[10px] font-medium text-[#1C1C1C] truncate uppercase tabular-nums">
+                  {fleetVehicles.find((v) => v.id === (driver as any).vehicleId)?.type?.label ?? 'STANDBY'}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 bg-slate-50 flex items-center justify-center rounded-lg border border-slate-100">
-                <Clock className="h-4 w-4 text-slate-400" />
+              <div className="h-8 w-8 bg-[#F7F8FA] flex items-center justify-center rounded-md border border-[#EAEAEA]">
+                <Clock strokeWidth={1.5} className="h-4 w-4 text-[#6B7280]" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Turno</span>
-                <span className="text-[11px] font-medium text-slate-600">{(driver as any).activeHoursToday ?? '0.0'}h / 8h</span>
+                <span className="text-[8px] font-medium text-[#6B7280] uppercase tracking-wider">Jornada</span>
+                <span className="text-[10px] font-medium text-[#1C1C1C] tabular-nums">{(driver as any).activeHoursToday ?? '0.0'}h / 8.0h</span>
               </div>
             </div>
           </div>
@@ -242,27 +243,26 @@ export function DriversTab({
   return (
     <div className="flex flex-col grow h-full bg-white overflow-hidden">
       {/* Streamlined Operational Header */}
-      <div className="shrink-0 bg-white border-b border-slate-100">
-        <div className="px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col">
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 leading-tight">
-                Gestión Operativa
-              </h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Drivers & Fleet Audit
-              </p>
-            </div>
+      <div className="shrink-0 bg-white border-b border-[#EAEAEA]">
+        <div className="px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-8">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold tracking-tight text-[#1C1C1C] flex items-center gap-3">
+              <Users2 strokeWidth={1.5} className="h-5 w-5" />
+               Recursos Humanos
+            </h2>
+            <p className="text-[13px] text-[#6B7280] font-normal mt-1">
+              Gestión estratégica de operadores y métricas de rendimiento operacional.
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {activeTab === "drivers" && (
               <Button
-                className="h-9 px-5 bg-slate-900 text-white hover:bg-black transition-all text-[9px] font-black uppercase italic tracking-widest rounded-xl border border-slate-900"
+                className="h-10 px-6 bg-[#1C1C1C] hover:bg-[#D4F04A] hover:text-[#1C1C1C] text-white text-[12px] font-medium uppercase tracking-wider rounded-md transition-all shadow-none border-none"
                 onClick={() => setIsAddOpen(true)}
               >
-                <UserPlus className="h-3.5 w-3.5 mr-2" />
-                Registrar
+                <UserPlus strokeWidth={1.5} className="h-4 w-4 mr-2" />
+                Registrar Operador
               </Button>
             )}
           </div>
@@ -271,164 +271,130 @@ export function DriversTab({
         <DriversSubNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          actions={activeTab === "overview" ? (
-            <PeriodSelector
-              currentPeriod={currentPeriod}
-              onPeriodChange={setCurrentPeriod}
-            />
-          ) : null}
         />
       </div>
 
-      <div className="flex-1 min-h-0">
-        <div className="flex flex-col h-full">
+      <div className="flex-1 min-h-0 bg-white">
+        <ScrollArea className="h-full">
           {activeTab === "overview" && (
-            <ScrollArea className="h-full">
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex flex-col h-full animate-in fade-in duration-500">
+              <div className="px-10 pt-10 pb-6 flex justify-end">
+                <PeriodSelector
+                  currentPeriod={currentPeriod}
+                  onPeriodChange={setCurrentPeriod}
+                />
+              </div>
+              <div className="px-10 pb-10">
                 <DriversKPIStrip
                   activeDriversCount={analyticsData.activeDriversCount}
                   avgScore={analyticsData.avgScore}
                   totalSpeedingEvents={analyticsData.totalSpeeding}
                   trends={analyticsData.trends}
                 />
+              </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 bg-white">
+              <div className="grid grid-cols-1 xl:grid-cols-2 bg-white border-y border-[#EAEAEA]">
+                <div className="p-4">
                   <DriversTrendChart data={analyticsData.trendData} />
+                </div>
+                <div className="p-4 border-l border-[#EAEAEA]">
                   <DriversFactorsChart data={analyticsData.factorData} />
                 </div>
-
-                <DriversLeaderboard
-                  drivers={drivers}
-                  onDriverSelect={onDriverSelect}
-                />
               </div>
-            </ScrollArea>
+
+              <div className="p-10">
+                 <div className="premium-card rounded-lg overflow-hidden">
+                    <DriversLeaderboard
+                      drivers={drivers}
+                      onDriverSelect={onDriverSelect}
+                    />
+                 </div>
+              </div>
+            </div>
           )}
 
           {activeTab === "drivers" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 bg-white flex flex-col h-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-              {/* Two-column split: Disponibles | En Servicio */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 flex-1 min-h-0">
+            <div className="animate-in fade-in duration-500 flex flex-col h-full px-10 py-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 {/* Column: Disponibles */}
-                <div className="border border-slate-100 rounded-2xl overflow-hidden flex flex-col bg-slate-50/5 hover:border-slate-200 transition-all shadow-sm h-full">
-                  <div className="shrink-0 flex items-center justify-between px-6 py-6 bg-white border-b border-slate-100/60 relative overflow-hidden group/header">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-0 group-hover/header:opacity-100 transition-opacity" />
-                    <div className="flex flex-col gap-0.5 relative z-10">
+                <div className="flex flex-col h-full">
+                  <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-[#F7F8FA] border border-[#EAEAEA] rounded-t-lg border-b-none">
+                    <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">Disponibles</h3>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#D4F04A]" />
+                        <h3 className="text-[11px] font-medium uppercase tracking-wider text-[#1C1C1C]">Operadores Disponibles</h3>
                       </div>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter pl-3.5">Listos para Operar</p>
                     </div>
-                    <div className="flex items-center gap-2 relative z-10">
+                    <div className="flex items-center gap-4">
                       <div className="relative group/search">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 group-focus-within/search:text-blue-500 transition-colors" />
+                        <Search strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6B7280]/40 group-focus-within/search:text-[#1C1C1C]" />
                         <input
                           type="text"
-                          placeholder="Buscar..."
+                          placeholder="BUSCAR..."
                           value={availSearch}
                           onChange={(e) => setAvailSearch(e.target.value)}
-                          className="h-8 w-32 bg-slate-50 border border-slate-100 rounded-lg pl-8 pr-2 text-[10px] font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-200 transition-all"
+                          className="h-8 w-40 bg-white border border-[#EAEAEA] rounded-md pl-9 pr-3 text-[10px] font-medium uppercase tracking-wider focus:border-[#1C1C1C] transition-all outline-none shadow-none"
                         />
                       </div>
-
-                      <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
-                        <Activity className="h-3 w-3 text-slate-400" />
-                        <select
-                          className="bg-transparent border-none p-0 text-[10px] font-bold text-slate-600 focus:ring-0 cursor-pointer uppercase tracking-tighter"
-                          value={availMinScore}
-                          onChange={(e) => setAvailMinScore(Number(e.target.value))}
-                        >
-                          <option value="0">Score</option>
-                          <option value="90">&gt; 90</option>
-                          <option value="80">&gt; 80</option>
-                          <option value="70">&gt; 70</option>
-                        </select>
-                      </div>
-
-                      <div className="ml-2 flex flex-col items-end border-l border-slate-100 pl-4">
-                        <span className="text-xl font-black italic tracking-tighter text-slate-900 leading-none">
-                          {String(groups.available.length).padStart(2, '0')}
-                        </span>
-                      </div>
+                      <Badge className="bg-[#1C1C1C] text-[#D4F04A] font-medium h-6 px-3 border-none tabular-nums text-[10px] rounded-full">
+                        {groups.available.length}
+                      </Badge>
                     </div>
                   </div>
 
-                  <div className="flex-1 min-h-0 overflow-y-auto bg-white">
-                    <div className="p-3 sm:p-4 grid grid-cols-1 gap-3 pb-10">
-                      {groups.available.length > 0 ? (
-                        groups.available.map(renderDriverCard)
-                      ) : (
-                        <div className="py-8 sm:py-12 text-center">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">No se detecta personal disponible</p>
-                        </div>
-                      )}
-                    </div>
+                  <div className="bg-white border-x border-[#EAEAEA] border-b rounded-b-lg p-6 grid grid-cols-1 gap-4">
+                    {groups.available.length > 0 ? (
+                      groups.available.map(renderDriverCard)
+                    ) : (
+                      <div className="py-20 text-center bg-[#F7F8FA] rounded-md border border-dashed border-[#EAEAEA]">
+                         <Users2 strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mx-auto mb-3" />
+                         <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/50">Sin personal en standby</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Column: En Servicio */}
-                <div className="border border-slate-100 rounded-2xl overflow-hidden flex flex-col bg-slate-50/5 hover:border-slate-200 transition-all shadow-sm h-full">
-                  <div className="shrink-0 flex items-center justify-between px-6 py-6 bg-white border-b border-slate-100/60 relative overflow-hidden group/header">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover/header:opacity-100 transition-opacity" />
-                    <div className="flex flex-col gap-0.5 relative z-10">
+                <div className="flex flex-col h-full">
+                  <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-[#F7F8FA] border border-[#EAEAEA] rounded-t-lg border-b-none">
+                    <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-1.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">En Servicio</h3>
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                        <h3 className="text-[11px] font-medium uppercase tracking-wider text-[#1C1C1C]">Operadores en Servicio</h3>
                       </div>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter pl-3.5">En Operación</p>
                     </div>
-                    <div className="flex items-center gap-2 relative z-10">
+                    <div className="flex items-center gap-4">
                       <div className="relative group/search">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 group-focus-within/search:text-blue-500 transition-colors" />
+                        <Search strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6B7280]/40 group-focus-within/search:text-[#1C1C1C]" />
                         <input
                           type="text"
-                          placeholder="Buscar..."
+                          placeholder="BUSCAR..."
                           value={assignSearch}
                           onChange={(e) => setAssignSearch(e.target.value)}
-                          className="h-8 w-32 bg-slate-50 border border-slate-100 rounded-lg pl-8 pr-2 text-[10px] font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-200 transition-all"
+                          className="h-8 w-40 bg-white border border-[#EAEAEA] rounded-md pl-9 pr-3 text-[10px] font-medium uppercase tracking-wider focus:border-[#1C1C1C] transition-all outline-none shadow-none"
                         />
                       </div>
-
-                      <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
-                        <Activity className="h-3 w-3 text-slate-400" />
-                        <select
-                          className="bg-transparent border-none p-0 text-[10px] font-bold text-slate-600 focus:ring-0 cursor-pointer uppercase tracking-tighter"
-                          value={assignMinScore}
-                          onChange={(e) => setAssignMinScore(Number(e.target.value))}
-                        >
-                          <option value="0">Score</option>
-                          <option value="90">&gt; 90</option>
-                          <option value="80">&gt; 80</option>
-                          <option value="70">&gt; 70</option>
-                        </select>
-                      </div>
-
-                      <div className="ml-2 flex flex-col items-end border-l border-slate-100 pl-4">
-                        <span className="text-xl font-black italic tracking-tighter text-slate-900 leading-none">
-                          {String(groups.assigned.length).padStart(2, '0')}
-                        </span>
-                      </div>
+                      <Badge className="bg-blue-600 text-white font-medium h-6 px-3 border-none tabular-nums text-[10px] rounded-full">
+                        {groups.assigned.length}
+                      </Badge>
                     </div>
                   </div>
 
-                  <div className="flex-1 min-h-0 overflow-y-auto bg-white">
-                    <div className="p-3 sm:p-4 grid grid-cols-1 gap-3 pb-10">
-                      {groups.assigned.length > 0 ? (
-                        groups.assigned.map(renderDriverCard)
-                      ) : (
-                        <div className="py-8 sm:py-12 text-center">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">Sin actividad operativa registrada</p>
-                        </div>
-                      )}
-                    </div>
+                  <div className="bg-white border-x border-[#EAEAEA] border-b rounded-b-lg p-6 grid grid-cols-1 gap-4">
+                    {groups.assigned.length > 0 ? (
+                      groups.assigned.map(renderDriverCard)
+                    ) : (
+                      <div className="py-20 text-center bg-[#F7F8FA] rounded-md border border-dashed border-[#EAEAEA]">
+                         <Activity strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mx-auto mb-3" />
+                         <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/50">Sin actividad operativa</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           )}
-
-        </div>
+        </ScrollArea>
       </div>
 
       <AddDriverDialog

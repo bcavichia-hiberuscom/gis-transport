@@ -29,8 +29,6 @@ interface GISState {
   selectedDriver: Driver | null;
   isDriverDetailsOpen: boolean;
   isFuelDetailsOpen: boolean;
-  isVehicleDetailsOpen: boolean;
-  showVehiclePropertiesPanel: boolean;
   zonePoints: [number, number][]; // For custom zone creation
   driversExpandedGroups: Record<string, boolean>;
   hiddenZones: string[]; // IDs of zones that are hidden
@@ -57,8 +55,6 @@ type GISAction =
   | { type: "SET_SELECTED_DRIVER"; payload: Driver | null }
   | { type: "SET_IS_DRIVER_DETAILS_OPEN"; payload: boolean }
   | { type: "SET_IS_FUEL_DETAILS_OPEN"; payload: boolean }
-  | { type: "SET_IS_VEHICLE_DETAILS_OPEN"; payload: boolean }
-  | { type: "SET_SHOW_VEHICLE_PROPERTIES_PANEL"; payload: boolean }
   | { type: "ADD_ZONE_POINT"; payload: [number, number] }
   | { type: "CLEAR_ZONE_POINTS" }
   | { type: "TOGGLE_ZONE_VISIBILITY"; payload: string }
@@ -73,6 +69,9 @@ const initialState: GISState = {
     cityZones: true,
     route: true,
     customZones: false,
+    weatherRain: false,
+    weatherWind: false,
+    weatherTemp: false,
   },
   weather: null,
   dynamicEVStations: [],
@@ -91,8 +90,6 @@ const initialState: GISState = {
   selectedDriver: null,
   isDriverDetailsOpen: false,
   isFuelDetailsOpen: false,
-  isVehicleDetailsOpen: false,
-  showVehiclePropertiesPanel: false,
   zonePoints: [],
   driversExpandedGroups: { available: false, assigned: false },
   hiddenZones: [],
@@ -163,10 +160,6 @@ function gisReducer(state: GISState, action: GISAction): GISState {
       return { ...state, isDriverDetailsOpen: action.payload };
     case "SET_IS_FUEL_DETAILS_OPEN":
       return { ...state, isFuelDetailsOpen: action.payload };
-    case "SET_IS_VEHICLE_DETAILS_OPEN":
-      return { ...state, isVehicleDetailsOpen: action.payload };
-    case "SET_SHOW_VEHICLE_PROPERTIES_PANEL":
-      return { ...state, showVehiclePropertiesPanel: action.payload };
     case "ADD_ZONE_POINT":
       return { ...state, zonePoints: [...state.zonePoints, action.payload] };
     case "CLEAR_ZONE_POINTS":

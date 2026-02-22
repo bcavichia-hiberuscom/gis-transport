@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Fuel, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Fuel } from "lucide-react";
 
 interface FuelDiscrepancyChartProps {
     tankCapacity: number;
@@ -28,101 +28,84 @@ export function FuelDiscrepancyChart({
 }: FuelDiscrepancyChartProps) {
     const displayUnit = unit === "GAL" ? "L" : unit;
     const finalTeorico = before + declared;
-    const scaleMax = Math.max(tankCapacity * 1.15, finalTeorico, after);
+    const scaleMax = Math.max(tankCapacity * 1.1, finalTeorico, after);
     const getPercent = (val: number) => (val / scaleMax) * 100;
-
     const isHighDiscrepancy = finalTeorico > after;
 
+    const discrepancyLiters = Math.abs(finalTeorico - after);
+
     return (
-        <div className={cn("bg-gradient-to-b from-white via-primary/3 to-white border border-slate-100 rounded-lg p-6", className)}>
-            <div className="space-y-8">
-                {/* Cabecera Sober */}
-                <div>
-                    <h4 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
-                        <Fuel className="h-4 w-4 text-[#0047AB]" />
-                        Diagnóstico de Carga Individual
-                    </h4>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                        Análisis puntual de entrada vs capacidad
-                    </p>
+        <div className={cn("space-y-6", className)}>
+            {/* Contextual Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100/50">
+                <div className="flex items-center gap-2">
+                    <Fuel className="h-3 w-3 text-slate-400" />
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Análisis del Depósito</span>
+                </div>
+                {isHighDiscrepancy && (
+                    <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                        -{discrepancyLiters.toFixed(1)} {displayUnit}
+                    </span>
+                )}
+            </div>
+
+            {/* Visual Bars */}
+            <div className="space-y-4">
+                {/* Expected State */}
+                <div className="space-y-2">
+                    <div className="flex justify-between items-end">
+                        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Proyección Auditoría</span>
+                        <span className="text-[11px] font-semibold text-slate-900 tabular-nums">{finalTeorico.toFixed(0)} {displayUnit}</span>
+                    </div>
+                    <div className="h-3 w-full bg-[#f4f4f5] rounded-full overflow-hidden relative shadow-inner">
+                        {/* Base level */}
+                        <div 
+                            className="absolute left-0 top-0 h-full bg-[#A1A1AA]" 
+                            style={{ width: `${getPercent(before)}%` }} 
+                        />
+                        {/* Expected boost */}
+                        <div 
+                            className="absolute top-0 h-full bg-[#1C1C1C]" 
+                            style={{ left: `${getPercent(before)}%`, width: `${getPercent(declared)}%` }} 
+                        />
+                    </div>
                 </div>
 
-                {/* Barras de Nivel */}
-                <div className="space-y-6">
-                    {/* NIVEL PREVIO */}
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-tight">
-                            <span className="text-slate-400">Nivel Previo al Repostaje</span>
-                            <span className="text-slate-900">{before.toFixed(0)} {displayUnit}</span>
-                        </div>
-                        <div className="h-2.5 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
-                            <div
-                                className="h-full bg-slate-400 transition-all duration-1000"
-                                style={{ width: `${getPercent(before)}%` }}
+                {/* Real State (Sensor) */}
+                <div className="space-y-2">
+                    <div className="flex justify-between items-end">
+                        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Lectura Telemetría</span>
+                        <span className="text-[11px] font-semibold text-slate-900 tabular-nums">{after.toFixed(0)} {displayUnit}</span>
+                    </div>
+                    <div className="h-4 w-full bg-[#f4f4f5] rounded-sm overflow-hidden relative border border-[#EAEAEA] shadow-inner">
+                        {/* Real fill */}
+                        <div 
+                            className={cn(
+                                "absolute left-0 top-0 h-full transition-all duration-1000 shadow-[0_0_10px_rgba(0,0,0,0.1)]",
+                                isHighDiscrepancy ? "bg-[#EF4444]" : "bg-[#1C1C1C]"
+                            )} 
+                            style={{ width: `${getPercent(after)}%` }} 
+                        />
+                        {/* Ghost Discrepancy */}
+                        {isHighDiscrepancy && (
+                            <div 
+                                className="absolute top-0 h-full bg-red-500/20 animate-pulse border-l-2 border-red-500" 
+                                style={{ left: `${getPercent(after)}%`, width: `${getPercent(discrepancyLiters)}%` }} 
                             />
-                        </div>
-                    </div>
-
-                    {/* LECTURA SENSOR */}
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-tight">
-                            <span className="text-slate-400">Lectura de Sensor (Real)</span>
-                            <div className="flex items-center gap-3">
-                                {isHighDiscrepancy && (
-                                    <span className="text-rose-600">
-                                        -{(finalTeorico - after).toFixed(0)} {displayUnit} DISCREPANCIA
-                                    </span>
-                                )}
-                                <span className="text-slate-900 font-black">{after.toFixed(0)} {displayUnit}</span>
-                            </div>
-                        </div>
-                        <div className="relative h-7 flex items-stretch">
-                            <div
-                                className="h-full bg-[#0047AB] rounded-l-md transition-all duration-1000"
-                                style={{ width: `${getPercent(after)}%` }}
-                            />
-                            {isHighDiscrepancy && (
-                                <div
-                                    className="h-full bg-rose-50 border-y border-r border-rose-500 border-dashed rounded-r-md flex items-center justify-center min-w-[4px]"
-                                    style={{ width: `${getPercent(finalTeorico - after)}%` }}
-                                >
-                                    <AlertTriangle className="h-3 w-3 text-rose-500 opacity-30" />
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </div>
                 </div>
+            </div>
 
-                {/* Escala de Referencia (Fix Overlaps) */}
-                <div className="relative h-16 border-t border-slate-100 pt-4">
-                    {/* Marca de CAPACIDAD */}
-                    <div className="absolute top-0 flex flex-col items-center"
-                        style={{ left: `${getPercent(tankCapacity)}%`, transform: 'translateX(-50%)' }}>
-                        <div className="h-2.5 w-px bg-slate-300" />
-                        <span className="text-[8px] font-bold text-slate-400 uppercase mt-1">Capacidad Máx.</span>
-                        <span className="text-[9px] font-black text-slate-900">{tankCapacity}L</span>
-                    </div>
-
-                    {/* Marca de DECLARADO */}
-                    <div className="absolute top-0 flex flex-col items-center"
-                        style={{ left: `${getPercent(finalTeorico)}%`, transform: 'translateX(-50%)' }}>
-                        <div className="h-4 w-0.5 bg-rose-500" />
-                        <span className="text-[8px] font-bold text-rose-500 uppercase mt-1">Total Declarado</span>
-                        <span className="text-[9px] font-black text-rose-600 italic">{finalTeorico}L</span>
-                    </div>
-
+            {/* Operational Meta */}
+            <div className="flex items-center gap-6 pt-2">
+                <div className="flex items-center gap-2">
+                    <div className={cn("h-1.5 w-1.5 rounded-full", isHighDiscrepancy ? "bg-[#EF4444]" : "bg-[#D4F04A]")} />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Estado: {status.toUpperCase()}</span>
                 </div>
-
-                {/* Leyenda Simple */}
-                <div className="flex items-center gap-5 pt-2 border-t border-slate-50 mt-4">
-                    <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-2 bg-[#0047AB] rounded-full" />
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Datos Sensor OK</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-2 bg-rose-50 border border-rose-500 border-dashed rounded-sm" />
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Inconsistencia</span>
-                    </div>
+                <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-px bg-slate-200" />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Capacidad: {tankCapacity}L</span>
                 </div>
             </div>
         </div>

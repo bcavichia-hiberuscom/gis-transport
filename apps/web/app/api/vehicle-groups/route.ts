@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
-import { repository } from "@/lib/db";
 import { IGisResponse } from "@gis/shared";
 
+// ─── MOCK MODE ─ Remove when DB is available ───────────────────────────────
+const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
+// ───────────────────────────────────────────────────────────────────────────
+
 export async function GET() {
+    if (USE_MOCKS) {
+        return NextResponse.json({ success: true, data: [] } as IGisResponse);
+    }
     try {
+        const { repository } = await import("@/lib/db");
         const groups = await repository.getVehicleGroups();
-        return NextResponse.json({
-            success: true,
-            data: groups,
-        } as IGisResponse);
+        return NextResponse.json({ success: true, data: groups } as IGisResponse);
     } catch (error) {
         console.error("[VehicleGroups GET] Error:", error);
         return NextResponse.json(
@@ -22,6 +26,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    if (USE_MOCKS) {
+        const { name, vehicleIds } = await req.json();
+        return NextResponse.json({ success: true, data: { id: `grp-mock-${Date.now()}`, name, vehicleIds: vehicleIds || [] } } as IGisResponse);
+    }
     try {
         const { name, vehicleIds } = await req.json();
         if (!name) {
@@ -33,12 +41,9 @@ export async function POST(req: Request) {
                 { status: 400 }
             );
         }
-
+        const { repository } = await import("@/lib/db");
         const group = await repository.createVehicleGroup(name, vehicleIds || []);
-        return NextResponse.json({
-            success: true,
-            data: group,
-        } as IGisResponse);
+        return NextResponse.json({ success: true, data: group } as IGisResponse);
     } catch (error) {
         console.error("[VehicleGroups POST] Error:", error);
         return NextResponse.json(

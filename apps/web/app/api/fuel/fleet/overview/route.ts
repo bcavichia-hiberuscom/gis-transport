@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-    FleetFuelOverview,
     FleetFuelOverviewSchema,
 } from "@gis/shared";
+import { getMockFleetFuelOverview } from "@/lib/mock/mock-data";
 import { DriverService } from "@/lib/services/driver-service";
+
+const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
 
 /**
  * GET /api/fuel/fleet/overview
@@ -28,6 +30,13 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        // ─── MOCK MODE ────────────────────────────────────────────────────────
+        if (USE_MOCKS) {
+            const overview = getMockFleetFuelOverview(startDate, endDate);
+            return NextResponse.json({ success: true, timestamp: new Date().toISOString(), data: overview });
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         // Fetch real drivers to make IDs match and clicks work
         const realDrivers = await DriverService.getAllDrivers();
         const getDriverId = (index: number, fallback: string) => {
@@ -38,7 +47,7 @@ export async function GET(request: NextRequest) {
         };
 
         // For now, return mock data structure with realistic scenarios
-        const overview: FleetFuelOverview = {
+        const overview = {
             period: {
                 start: startDate,
                 end: endDate,

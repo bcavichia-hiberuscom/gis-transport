@@ -73,12 +73,13 @@ export const RouteLayer = memo(function RouteLayer({
               )}
               pathOptions={{
                 color: r.color,
-                weight: getDynamicWeight(map.getZoom()),
+                weight: Math.max(1, getDynamicWeight(map.getZoom()) - 3),
                 opacity: isDimmed
                   ? THEME.map.hierarchy.dimmedRouteOpacity
                   : THEME.map.hierarchy.activeOpacity,
                 lineCap: "round",
                 lineJoin: "round",
+                dashArray: "10, 15",
               }}
             />
           </Fragment>

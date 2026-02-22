@@ -9,9 +9,11 @@ import {
   CloudFog,
   Circle,
   Droplets,
-  Truck,
+  Navigation,
   Fuel,
   Zap,
+  Sun,
+  Thermometer,
 } from "lucide-react";
 import { THEME } from "./theme";
 
@@ -34,6 +36,7 @@ const createMapIcon = (
     rotate?: number;
     extraHtml?: string;
     opacity?: number;
+    iconColor?: string;
   } = {},
 ) => {
   // Generate a unique cache key
@@ -96,8 +99,8 @@ const createMapIcon = (
         >
           <IconComponent
             size={iconSize}
-            color="white"
-            fill={options.isEnd ? "white" : "none"}
+            color={options.iconColor || "white"}
+            fill={options.isEnd ? (options.iconColor || "white") : "none"}
             strokeWidth={2.5}
           />
         </div>
@@ -171,8 +174,13 @@ function createMapIcons() {
     }),
 
     // Vehicles
-    vehicle: (color: string) =>
-      createMapIcon(Truck, color, 30, 20, { opacity: 1 }),
+    vehicle: (color: string) => {
+      const isSelected = color === THEME.colors.vehicleSelected;
+      return createMapIcon(Navigation, color, 31, 16, { 
+        opacity: 1, 
+        iconColor: isSelected ? "#D4F04A" : "white",
+      });
+    },
 
     // Jobs / POIs
     job: createMapIcon(Package, THEME.colors.accent, 26, 15, {
@@ -194,6 +202,8 @@ function createMapIcons() {
       ice: createMapIcon(Droplets, "#0f172a", 20, 12),
       wind: createMapIcon(Wind, "#facc15", 20, 12),
       fog: createMapIcon(CloudFog, "#64748b", 20, 12),
+      heat: createMapIcon(Sun, "#ef4444", 20, 12),
+      cold: createMapIcon(Thermometer, "#3b82f6", 20, 12),
     },
 
     // Picking / pulse

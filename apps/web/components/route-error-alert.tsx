@@ -33,7 +33,7 @@ export function RouteErrorAlert({ errors = [], notices = [], onClear }: RouteErr
 
     return (
         <Dialog open={hasData} onOpenChange={(open) => !open && onClear()}>
-            <DialogContent className="max-w-sm p-0 overflow-hidden border-border/30 shadow-lg bg-background">
+            <DialogContent className="max-w-sm p-0 overflow-hidden">
                 <div className="bg-gradient-to-br from-muted/30 via-background to-background p-5">
                     <DialogHeader className="mb-4">
                         <div className="flex items-center gap-2.5 mb-0.5">

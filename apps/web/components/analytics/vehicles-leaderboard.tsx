@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Gauge, Zap, AlertTriangle, Activity, Fuel, TrendingUp, Medal, Filter } from "lucide-react";
+import { Gauge, Zap, AlertTriangle, Activity, Fuel, TrendingUp, Medal, Filter, Trophy, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -33,7 +34,7 @@ interface VehiclesLeaderboardProps {
 const defaultVehicles: VehicleLeaderboardItem[] = [
   { id: "vh-001", label: "MAD-1001", value: 7.2, mileage: 12500, metric: "consumption", status: "good" },
   { id: "vh-002", label: "MAD-1002", value: 8.5, mileage: 8400, metric: "consumption", status: "warning" },
-  { id: "vh-003", label: "MAD-1003", value: 22.5, mileage: 15600, metric: "consumption", status: "critical" },
+  { id: "vh-003", label: "MAD-1003", value: 12.5, mileage: 15600, metric: "consumption", status: "warning" },
   { id: "vh-004", label: "MAD-1004", value: 6.8, mileage: 2100, metric: "consumption", status: "good" },
   { id: "vh-005", label: "MAD-1005", value: 10.2, mileage: 500, metric: "consumption", status: "warning" },
 ];
@@ -51,8 +52,8 @@ const defaultTrendData = [
 export function VehiclesLeaderboard({
   vehicles = defaultVehicles,
   trendData = defaultTrendData,
-  title = "Rendimiento de Vehículos",
-  subtitle = "Top consumo de combustible",
+  title = "Rendimiento de Flota",
+  subtitle = "Métricas avanzadas de eficiencia",
 }: VehiclesLeaderboardProps) {
   const [riskThreshold, setRiskThreshold] = useState(15);
   const [excellenceMinKm, setExcellenceMinKm] = useState(5000);
@@ -74,115 +75,82 @@ export function VehiclesLeaderboard({
 
   const hasTrendData = trendData && trendData.length > 0;
 
-  const getMetricIcon = (metric: string) => {
-    switch (metric) {
-      case "consumption":
-        return <Zap className="h-3 w-3" />;
-      case "health":
-        return <Gauge className="h-3 w-3" />;
-      case "maintenance":
-        return <AlertTriangle className="h-3 w-3" />;
-      default:
-        return <Gauge className="h-3 w-3" />;
-    }
-  };
-
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case "good":
-        return "bg-emerald-50 border-emerald-100";
-      case "warning":
-        return "bg-amber-50 border-amber-100";
-      case "critical":
-        return "bg-rose-50 border-rose-100";
-      default:
-        return "bg-slate-50 border-slate-100";
-    }
-  };
-
-  const getStatusTextColor = (status?: string) => {
-    switch (status) {
-      case "good":
-        return "text-emerald-700";
-      case "warning":
-        return "text-amber-700";
-      case "critical":
-        return "text-rose-700";
-      default:
-        return "text-slate-700";
-    }
-  };
-
   return (
-    <div className="bg-white border-t border-slate-100">
-      <div className="grid grid-cols-1 lg:grid-cols-2 divide-x divide-slate-100">
-        {/* Lado Izquierdo: Gráfico de Tendencia */}
-        <div className="p-8 sm:p-10 bg-gradient-to-b from-white via-primary/3 to-white group">
-          <div className="flex flex-col gap-1.5 mb-10">
-            <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
-              <Activity className="h-4 w-4 text-sky-500" />
-              Tendencia de Consumo
+    <div className="bg-white border-t border-[#EAEAEA] overflow-hidden animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 lg:grid-cols-2 divide-x divide-[#EAEAEA]">
+        {/* Left Side: Trend Chart */}
+        <div className="p-10 bg-white">
+          <div className="flex flex-col gap-1 mb-10">
+            <h3 className="text-[12px] font-medium uppercase tracking-wider text-[#1C1C1C] flex items-center gap-3">
+              <Activity strokeWidth={1.5} className="h-5 w-5 text-[#1C1C1C]" />
+              Consumo Medio Estándar
             </h3>
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-              Evolución del Consumo Medio L/100KM
+            <p className="text-[10px] font-normal text-[#6B7280] uppercase tracking-wider">
+              Evolución L/100 acumulada.
             </p>
           </div>
 
-          <div className="h-[280px] w-full relative">
+          <div className="h-[320px] w-full relative">
             {!hasTrendData ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-slate-100 rounded-xl">
-                <p className="text-[10px] font-bold text-slate-300 uppercase italic">Sin datos históricos suficientes</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F7F8FA] border border-dashed border-[#EAEAEA] rounded-md">
+                <p className="text-[10px] font-medium text-[#6B7280]/40 uppercase tracking-widest">Sin datos disponibles</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={trendData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorConsumo" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#075985" stopOpacity={0.12} />
-                      <stop offset="95%" stopColor="#075985" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#D4F04A" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#D4F04A" stopOpacity={0} />
                     </linearGradient>
+                    <filter id="shadowConsumo" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1C1C1C" floodOpacity="0.08" />
+                    </filter>
                   </defs>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(7,41,68,0.04)" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
                   <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 9, fontWeight: 900, fill: "#94a3b8" }}
-                    dy={12}
+                    tick={{ fontSize: 9, fontWeight: 500, fill: "#806b6bff" }}
+                    dy={16}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 9, fontWeight: 900, fill: "#94a3b8" }}
+                    tick={{ fontSize: 9, fontWeight: 500, fill: "#6B7280" }}
                     domain={['auto', 'auto']}
                   />
                   <Tooltip
-                    cursor={{ stroke: '#0f172a', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    cursor={{ stroke: '#1C1C1C', strokeWidth: 1 }}
                     contentStyle={{
                       backgroundColor: "#fff",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
+                      border: "1px solid #EAEAEA",
+                      borderRadius: "4px",
                       fontSize: "10px",
-                      fontWeight: "900",
-                      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                      fontWeight: "500",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                       textTransform: 'uppercase'
                     }}
                   />
                   <ReferenceLine
                     y={7.5}
-                    stroke="#10b981"
-                    strokeDasharray="3 3"
-                    label={{ position: 'right', value: 'OPTIMAL', fill: '#10b981', fontSize: 8, fontWeight: 900 }}
+                    stroke="#D4F04A"
+                    strokeDasharray="6 6"
+                    strokeWidth={1.5}
+                    label={{ position: 'right', value: 'TARGET', fill: '#5D6B1A', fontSize: 8, fontWeight: 500 }}
                   />
                   <Area
                     type="monotone"
                     dataKey="consumption"
-                    name="Consumo"
-                    stroke="#075985"
+                    name="L/100"
+                    stroke="#1C1C1C"
                     strokeWidth={3}
+                    strokeDasharray="6 6"
                     fillOpacity={1}
                     fill="url(#colorConsumo)"
                     animationDuration={1500}
+                    style={{ filter: "url(#shadowConsumo)" }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -190,101 +158,101 @@ export function VehiclesLeaderboard({
           </div>
         </div>
 
-        {/* Lado Derecho: Auditoría Dual con Filtros Locales */}
-        <div className="p-8 sm:p-10 flex flex-col gap-12 bg-white">
-          {/* SECCIÓN RIESGO */}
+        {/* Right Side: Dual Audit with Local Filters */}
+        <div className="p-10 flex flex-col gap-12 bg-white">
+          {/* RISK SECTION */}
           <div className="space-y-6">
-            <div className="flex flex-col gap-4 border-b border-slate-900 pb-4">
+            <div className="flex flex-col gap-4 border-b border-[#EAEAEA] pb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-4 w-4 text-rose-500" />
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Activos en Riesgo</span>
+                  <div className="h-1.5 w-1.5 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.4)]" />
+                  <span className="text-[12px] font-medium uppercase tracking-wider text-[#1C1C1C]">Activos Críticos</span>
                 </div>
-                <span className="text-[9px] font-black text-rose-500 uppercase italic tracking-tighter">Anomalía Crítica</span>
+                <div className="px-2 py-0.5 bg-red-50 border border-red-100 rounded">
+                  <span className="text-[9px] font-medium text-red-700 uppercase tracking-wider">AUDIT</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Umbral Auditoría:</span>
-                <div className="flex items-center gap-1 bg-slate-50/50 p-1 rounded-lg border border-slate-100">
+              <div className="flex items-center gap-4">
+                <span className="text-[9px] font-medium text-[#6B7280]/60 uppercase tracking-wider">Umbral:</span>
+                <div className="flex items-center gap-1.5 bg-[#F7F8FA] p-1 rounded-md border border-[#EAEAEA]">
                   {[10, 15, 20].map((val) => (
                     <button
                       key={val}
                       onClick={() => setRiskThreshold(val)}
                       className={cn(
-                        "px-3 py-1 text-[9px] font-black uppercase rounded-md transition-all italic tracking-tighter",
+                        "px-3 py-1 text-[9px] font-medium uppercase rounded transition-all",
                         riskThreshold === val
-                          ? "bg-slate-900 text-white shadow-md shadow-slate-200"
-                          : "text-slate-400 hover:text-slate-600 hover:bg-white"
+                          ? "bg-[#1C1C1C] text-white shadow-sm"
+                          : "text-[#6B7280] hover:text-[#1C1C1C] hover:bg-white"
                       )}
                     >
-                      {`>${val}L`}
+                      {`>${val} L`}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-1 divide-y divide-slate-50">
-              {riskVehicles.length > 0 ? riskVehicles.map((v) => (
-                <div
-                  key={`risk-${v.id}`}
-                  className="group flex items-center justify-between py-4 hover:bg-slate-50/50 transition-all cursor-pointer px-2 rounded-lg"
-                >
-                  <div className="flex items-center gap-5">
-                    <div className="h-10 w-10 border border-slate-200 bg-white shadow-sm flex items-center justify-center text-[11px] font-black text-slate-900 italic rounded-md">
-                      {v.label.substring(0, 2)}
-                    </div>
-                    <div>
-                      <h4 className="text-[12px] font-black text-slate-900 uppercase italic tracking-tighter leading-none group-hover:text-rose-600 transition-colors">
-                        {v.label}
-                      </h4>
-                      <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3 text-rose-500" />
-                          <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tighter">Ver ficha</span>
+            <div className="space-y-2">
+              {riskVehicles.length > 0 ? riskVehicles.map((v, i) => (
+                  <div
+                    key={`risk-${v.id}`}
+                    className="group flex items-center justify-between p-4 bg-white border border-[#EAEAEA] hover:border-red-600/40 rounded-lg transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="h-9 w-9 bg-[#F7F8FA] border border-[#EAEAEA] flex items-center justify-center text-[10px] font-medium text-[#1C1C1C] rounded">
+                        {v.label.substring(0, 2)}
+                      </div>
+                      <div>
+                        <h4 className="text-[13px] font-medium text-[#1C1C1C] uppercase group-hover:text-red-700 transition-colors">
+                          {v.label}
+                        </h4>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[9px] font-medium text-[#6B7280]/40 uppercase tracking-wider">Km: {(v.mileage || 0).toLocaleString()}</span>
                         </div>
-                        <span className="text-[8px] font-bold text-slate-300 uppercase">{(v.mileage || 0).toLocaleString()} KM</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-black italic text-slate-900 tracking-tighter leading-none">
-                      {v.value.toFixed(1)}
+                    <div className="text-right">
+                      <div className="text-lg font-medium text-red-600 tabular-nums">
+                        {v.value.toFixed(1)}
+                      </div>
+                      <div className="text-[9px] font-medium text-[#6B7280]/40 uppercase tracking-wider">L/100</div>
                     </div>
-                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">L/100KM</div>
                   </div>
-                </div>
               )) : (
-                <div className="py-8 text-center bg-slate-50/30 border border-dashed border-slate-100 rounded-xl">
-                  <p className="text-slate-300 text-[9px] font-bold uppercase italic">Sin anomalías por encima del umbral seleccionado</p>
+                <div className="py-10 text-center bg-[#F7F8FA] border border-dashed border-[#EAEAEA] rounded-md">
+                  <p className="text-[#6B7280]/40 text-[10px] font-medium uppercase tracking-wider">Sin anomalías críticas</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* SECCIÓN EXCELENCIA */}
+          {/* EXCELLENCE SECTION */}
           <div className="space-y-6">
-            <div className="flex flex-col gap-4 border-b border-slate-200 pb-4">
+            <div className="flex flex-col gap-4 border-b border-[#EAEAEA] pb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Medal className="h-4 w-4 text-emerald-500" />
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Excelencia en Eficiencia</span>
+                  <div className="h-1.5 w-1.5 rounded-full bg-[#D4F04A] shadow-[0_0_8px_rgba(212,240,74,0.4)]" />
+                  <span className="text-[12px] font-medium uppercase tracking-wider text-[#1C1C1C]">Eficiencia Operativa</span>
                 </div>
-                <span className="text-[9px] font-black text-emerald-600 uppercase italic tracking-tighter">High Performance</span>
+                <div className="px-2 py-0.5 bg-[#D4F04A]/10 border border-[#D4F04A]/20 rounded">
+                  <span className="text-[9px] font-medium text-[#5D6B1A] uppercase tracking-wider">ELITE</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Referencia Uso:</span>
-                <div className="flex items-center gap-1 bg-slate-50/50 p-1 rounded-lg border border-slate-100">
+              <div className="flex items-center gap-4">
+                <span className="text-[9px] font-medium text-[#6B7280]/60 uppercase tracking-wider">Referencia:</span>
+                <div className="flex items-center gap-1.5 bg-[#F7F8FA] p-1 rounded-md border border-[#EAEAEA]">
                   {[0, 5000, 10000, 50000].map((km) => (
                     <button
                       key={km}
                       onClick={() => setExcellenceMinKm(km)}
                       className={cn(
-                        "px-3 py-1 text-[9px] font-black uppercase rounded-md transition-all italic tracking-tighter",
+                        "px-3 py-1 text-[9px] font-medium uppercase rounded transition-all",
                         excellenceMinKm === km
-                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-100"
-                          : "text-slate-400 hover:text-slate-600 hover:bg-white"
+                          ? "bg-[#1C1C1C] text-white shadow-sm"
+                          : "text-[#6B7280] hover:text-[#1C1C1C] hover:bg-white"
                       )}
                     >
                       {km === 0 ? 'ALL' : `>${(km / 1000).toFixed(0)}K`}
@@ -294,33 +262,33 @@ export function VehiclesLeaderboard({
               </div>
             </div>
 
-            <div className="space-y-1 divide-y divide-slate-50">
-              {excellenceVehicles.length > 0 ? excellenceVehicles.map((v) => (
+            <div className="space-y-2">
+              {excellenceVehicles.length > 0 ? excellenceVehicles.map((v, i) => (
                 <div
                   key={`top-${v.id}`}
-                  className="group flex items-center justify-between py-4 hover:bg-slate-50/50 transition-all cursor-pointer px-2 rounded-lg"
+                  className="group flex items-center justify-between p-4 bg-white border border-[#EAEAEA] hover:border-[#D4F04A]/60 rounded-lg transition-all"
                 >
-                  <div className="flex items-center gap-5">
-                    <div className="h-10 w-10 border border-slate-100 bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 italic rounded-md">
+                  <div className="flex items-center gap-4">
+                    <div className="h-9 w-9 bg-[#F7F8FA] border border-[#EAEAEA] flex items-center justify-center text-[10px] font-medium text-[#1C1C1C] rounded">
                       {v.label.substring(0, 2)}
                     </div>
                     <div>
-                      <h4 className="text-[12px] font-black text-slate-900 uppercase italic tracking-tighter leading-none group-hover:text-emerald-600 transition-colors">
+                      <h4 className="text-[13px] font-medium text-[#1C1C1C] uppercase group-hover:text-[#1C1C1C]">
                         {v.label}
                       </h4>
-                      <span className="text-[8px] font-bold text-slate-300 uppercase mt-1 block">{(v.mileage || 0).toLocaleString()} KM</span>
+                      <span className="text-[9px] font-medium text-[#6B7280]/40 uppercase tracking-wider">{(v.mileage || 0).toLocaleString()} Km totales</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-black italic text-emerald-600 tracking-tighter leading-none">
+                    <div className="text-lg font-medium text-[#1C1C1C] tabular-nums">
                       {v.value.toFixed(1)}
                     </div>
-                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">L/100KM</div>
+                    <div className="text-[9px] font-medium text-[#6B7280]/40 uppercase tracking-wider">L/100</div>
                   </div>
                 </div>
               )) : (
-                <div className="py-8 text-center bg-slate-50/30 border border-dashed border-slate-100 rounded-xl">
-                  <p className="text-slate-300 text-[9px] font-bold uppercase italic">No hay suficientes datos de uso para certificar excelencia</p>
+                <div className="py-10 text-center bg-[#F7F8FA] border border-dashed border-[#EAEAEA] rounded-md">
+                  <p className="text-[#6B7280]/40 text-[10px] font-medium uppercase tracking-wider">Sin datos de excelencia</p>
                 </div>
               )}
             </div>

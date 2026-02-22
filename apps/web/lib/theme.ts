@@ -6,7 +6,7 @@ export const THEME = {
     info: "#3b82f6",
     muted: "#64748b", // Darker Slate for better unselected contrast
     accent: "#8b5cf6", // Purple for jobs
-    vehicleSelected: "#ffa616ff",
+    vehicleSelected: "#1C1C1C",
     customPOI: "#06b6d4",
     secondary: "#6b7280",
     textMuted: "#666",
@@ -77,42 +77,26 @@ export const THEME = {
         dashArray: "4,4",
       },
       customZone: {
-        // Modern gradient-like effect for custom zones
         accessible: {
-          // Modern teal/cyan gradient effect
-          primaryColor: "#06b6d4",
-          secondaryColor: "#0891B2",
-          fillOpacity: 0.15,
-          weight: 2.5,
-          dashArray: undefined,
-          shadowColor: "rgba(6, 182, 212, 0.3)",
-          shadowWeight: 4,
-          hoverOpacity: 0.25,
-          hoverWeight: 3,
+          primaryColor: "#D4F04A", // Lime green accent
+          fillColor: "#1C1C1C", // Opaque glass gray
+          fillOpacity: 0.45,
+          weight: 3.5,
+          dashArray: "8, 6",
         },
         restricted: {
-          // Modern red/orange gradient effect
-          primaryColor: "#ef4444",
-          secondaryColor: "#dc2626",
-          fillOpacity: 0.18,
-          weight: 2.5,
-          dashArray: "6,4",
-          shadowColor: "rgba(239, 68, 68, 0.4)",
-          shadowWeight: 4,
-          hoverOpacity: 0.3,
-          hoverWeight: 3,
+          primaryColor: "#EF4444", // Red
+          fillColor: "#1C1C1C", // Opaque glass gray
+          fillOpacity: 0.45,
+          weight: 3.5,
+          dashArray: "8, 6",
         },
         lez: {
-          // Modern purple/violet for LEZ zones
-          primaryColor: "#a855f7",
-          secondaryColor: "#9333ea",
-          fillOpacity: 0.12,
-          weight: 2.5,
-          dashArray: undefined,
-          shadowColor: "rgba(168, 85, 247, 0.25)",
-          shadowWeight: 3,
-          hoverOpacity: 0.22,
-          hoverWeight: 3,
+          primaryColor: "#0ea5e9", // Tech blue
+          fillColor: "#1C1C1C", // Opaque glass gray
+          fillOpacity: 0.45,
+          weight: 3.5,
+          dashArray: "8, 6",
         },
       },
     },

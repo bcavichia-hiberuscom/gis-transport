@@ -18,32 +18,29 @@ interface OrdersStatusChartProps {
 export function OrdersStatusChart({ data }: OrdersStatusChartProps) {
   const hasData = data && data.length > 0 && data.some((d) => d.value > 0);
 
-  const COLORS = ["#10b981", "#f59e0b", "#3b82f6"];
+  const COLORS = ["#1C1C1C", "#D4F04A", "#6B7280", "#EAEAEA"];
 
   return (
-    <div className="p-10 bg-gradient-to-b from-white via-primary/3 to-white group">
-      <div className="flex items-start justify-between mb-10">
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
-            <Package className="h-4 w-4 text-orange-500" />
-            Estado de Pedidos
+    <div className="p-8 bg-white border border-[#EAEAEA] rounded-lg animate-in fade-in duration-700">
+      <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-[12px] font-medium uppercase tracking-wider text-[#1C1C1C] flex items-center gap-2">
+            <Package strokeWidth={1.5} className="h-4 w-4 text-[#1C1C1C]" />
+            Estado de Operaciones
           </h3>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-            Distribución por Status
+          <p className="text-[10px] font-normal text-[#6B7280]">
+            Distribución de pedidos por status operativo.
           </p>
         </div>
       </div>
 
-      <div className="h-[280px] w-full relative">
+      <div className="h-[260px] w-full relative">
         {!hasData ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-slate-100 rounded-xl">
-            <Package className="h-10 w-10 text-slate-200 mb-3 opacity-30" />
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Sin Pedidos
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F7F8FA] border border-dashed border-[#EAEAEA] rounded-md">
+            <Package strokeWidth={1} className="h-10 w-10 text-[#6B7280]/20 mb-3" />
+            <h4 className="text-[10px] font-medium text-[#6B7280]/40 uppercase tracking-widest">
+              Sin registros
             </h4>
-            <p className="text-[9px] font-bold text-slate-300/50 uppercase mt-1">
-              No hay datos disponibles
-            </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -52,36 +49,49 @@ export function OrdersStatusChart({ data }: OrdersStatusChartProps) {
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
+                innerRadius={65}
                 outerRadius={90}
-                paddingAngle={2}
+                paddingAngle={4}
                 dataKey="value"
                 animationDuration={1000}
+                stroke="none"
+                style={{ filter: "url(#shadowPie)" }}
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={COLORS[index % COLORS.length]} 
+                    stroke="#FFFFFF"
+                    strokeWidth={3}
+                  />
                 ))}
               </Pie>
+              <defs>
+                <filter id="shadowPie" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#000" floodOpacity="0.08" />
+                </filter>
+              </defs>
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
+                  border: "1px solid #EAEAEA",
+                  borderRadius: "4px",
                   fontSize: "10px",
-                  fontWeight: "900",
-                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                  fontWeight: "500",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                   textTransform: "uppercase",
                 }}
                 formatter={(value: number) => `${value} pedidos`}
               />
               <Legend
+                iconType="circle"
                 wrapperStyle={{
-                  fontSize: "10px",
-                  fontWeight: 900,
+                  fontSize: "9px",
+                  fontWeight: 500,
                   textTransform: "uppercase",
+                  paddingTop: "20px"
                 }}
                 verticalAlign="bottom"
-                height={36}
               />
             </PieChart>
           </ResponsiveContainer>

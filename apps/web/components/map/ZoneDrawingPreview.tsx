@@ -17,7 +17,7 @@ const pointIcon = new L.Icon({
     "data:image/svg+xml;base64," +
     btoa(`
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-      <circle cx="8" cy="8" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+      <circle cx="8" cy="8" r="6" fill="#1C1C1C" stroke="#D4F04A" stroke-width="2.5"/>
     </svg>
   `),
   iconSize: [16, 16],
@@ -30,8 +30,8 @@ const editingPointIcon = new L.Icon({
     "data:image/svg+xml;base64," +
     btoa(`
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9" fill="#ef4444" stroke="white" stroke-width="2.5"/>
-      <path d="M 8 12 L 16 12 M 12 8 L 12 16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="9" fill="#1C1C1C" stroke="#EF4444" stroke-width="2.5"/>
+      <path d="M 8 12 L 16 12 M 12 8 L 12 16" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round"/>
     </svg>
   `),
   iconSize: [24, 24],
@@ -97,21 +97,22 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
                         onRemovePoint(index);
                       }
                     },
+                    drag: (event) => handleMarkerDragEnd(index, event),
                     dragend: (event) => handleMarkerDragEnd(index, event),
                   }
                 : {}),
             }}
           >
             {isEditing && (
-              <Popup>
-                <div className="text-xs font-semibold whitespace-nowrap">
-                  <div className="mb-1">Punto {index + 1}</div>
-                  <div className="text-[10px] text-gray-500 mb-2">
-                    Arrastra para mover
+              <Popup className="premium-map-popup">
+                <div className="bg-white text-[#1C1C1C] p-2 text-center min-w-[110px] rounded-md shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-[#EAEAEA] border-l-2 border-l-[#D4F04A] overflow-hidden">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-[#1C1C1C] mb-0.5">Vértice {index + 1}</div>
+                  <div className="text-[8px] text-[#6B7280] uppercase tracking-widest mb-2">
+                    Arrastre manual
                   </div>
                   <button
                     onClick={() => onRemovePoint?.(index)}
-                    className="block w-full px-2 py-1 text-red-600 hover:bg-red-50 rounded text-[11px] font-medium"
+                    className="block w-full px-2 py-1.5 bg-red-50 text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-colors rounded text-[9px] font-bold uppercase tracking-wider"
                   >
                     Eliminar
                   </button>
@@ -126,8 +127,8 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
       {points.length > 1 && (
         <Polyline
           positions={points}
-          color={isEditing ? "#ef4444" : "#3b82f6"}
-          weight={isEditing ? 2.5 : 2}
+          color={isEditing ? "#EF4444" : "#1C1C1C"}
+          weight={isEditing ? 3 : 2.5}
           dashArray="5, 5"
           opacity={isEditing ? 0.8 : 1}
         />
@@ -137,8 +138,8 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
       {isClosed && points.length > 2 && (
         <Polyline
           positions={[points[points.length - 1], points[0]]}
-          color={isEditing ? "#ef4444" : "#3b82f6"}
-          weight={isEditing ? 2.5 : 2}
+          color={isEditing ? "#EF4444" : "#1C1C1C"}
+          weight={isEditing ? 3 : 2.5}
           dashArray="5, 5"
           opacity={isEditing ? 0.8 : 0.5}
         />
@@ -149,10 +150,10 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
         <Polygon
           positions={points}
           pathOptions={{
-            color: isEditing ? "#ef4444" : "#3b82f6",
-            fillColor: isEditing ? "#ef4444" : "#3b82f6",
-            fillOpacity: isEditing ? 0.3 : 0.2,
-            weight: isEditing ? 2.5 : 2,
+            color: isEditing ? "#EF4444" : "#1C1C1C",
+            fillColor: isEditing ? "#EF4444" : "#1C1C1C",
+            fillOpacity: isEditing ? 0.3 : 0.15,
+            weight: isEditing ? 3 : 2.5,
             dashArray: "5, 5",
           }}
         />

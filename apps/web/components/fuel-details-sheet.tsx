@@ -4,16 +4,27 @@ import { useEffect, useState } from "react";
 import { fuelService } from "@/lib/services/fuel-service";
 import type { DriverFuelSummary, FuelTransaction, Driver } from "@gis/shared";
 import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-} from "@/components/ui/sheet";
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Fuel, AlertTriangle, ArrowLeft, Calendar, MapPin, CreditCard, ExternalLink, Info } from "lucide-react";
-import { FuelDiscrepancyChart } from "./analytics/fuel-discrepancy-chart";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
+import { 
+    Fuel, 
+    AlertTriangle, 
+    X, 
+    MapPin, 
+    History,
+    Activity,
+    ChevronRight,
+    TrendingUp,
+    CreditCard
+} from "lucide-react";
 import { FuelTrendChart } from "./analytics/fuel-trend-chart";
 import { cn } from "@/lib/utils";
 import { useDrivers } from "@/hooks/use-drivers";
@@ -60,241 +71,236 @@ export function FuelDetailsSheet({
     if (!driverId) return null;
 
     return (
-        <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent className="p-0 sm:max-w-[550px] border-l-0 shadow-2xl flex flex-col h-full bg-slate-50">
-                <SheetHeader className="sr-only">
-                    <SheetTitle>Detalles de Combustible - {driver?.name || driverId}</SheetTitle>
-                </SheetHeader>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="fixed inset-0 p-0 w-[1200px] max-w-[98vw] h-[850px] max-h-[92vh] m-auto border-none shadow-2xl bg-slate-50 overflow-hidden flex flex-col !translate-x-0 !translate-y-0">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Módulo de Auditoría: {driver?.name || driverId}</DialogTitle>
+                </DialogHeader>
 
-                {/* Header */}
-                <div className="shrink-0 bg-white border-b border-slate-200 px-6 py-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <div>
-                                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-tight">
-                                    Detalles de Combustible
-                                </h2>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-                                    Análisis de Discrepancias
-                                </p>
-                            </div>
-                        </div>
-                        <Badge className="bg-[#0047AB] text-white">Últimos 30 días</Badge>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-black text-xl overflow-hidden border border-slate-200">
+                {/* Top Control Bar */}
+                <div className="shrink-0 bg-white border-b border-slate-100 h-20 px-8 flex items-center justify-between z-10">
+                    <div className="flex items-center gap-5">
+                        <div className="h-11 w-11 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 shadow-sm relative overflow-hidden">
                             {driver?.imageUrl ? (
                                 <img src={driver.imageUrl} alt={driver.name} className="h-full w-full object-cover" />
                             ) : (
-                                driver?.name?.charAt(0) || "D"
+                                <span className="text-slate-400 font-bold text-lg">{driver?.name?.charAt(0)}</span>
                             )}
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-slate-900 leading-tight">
-                                {driver?.name || "Conductor"}
-                            </h3>
-                            <p className="text-xs text-slate-500 font-medium">ID: {driverId}</p>
+                            <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight leading-none mb-1.5 tabular-nums">
+                                {driver?.name || "Driver Reference"}
+                            </h2>
+                            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                                ID: {driverId}
+                            </span>
                         </div>
                     </div>
-                </div>
 
-                <div className="flex-1 overflow-y-auto">
-                    <div className="p-6 space-y-6">
-                        {loading ? (
-                            <div className="py-20 text-center">
-                                <div className="animate-spin h-8 w-8 border-4 border-slate-200 border-t-[#0047AB] rounded-full mx-auto" />
-                                <p className="text-sm text-slate-500 mt-4 font-bold uppercase tracking-widest">
-                                    Analizando transacciones...
-                                </p>
-                            </div>
-                        ) : fuelSummary ? (
-                            <>
-                                {/* Stats Grid */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                            <Fuel className="h-3 w-3 text-[#0047AB]" /> Consumo Total
-                                        </div>
-                                        <div className="text-2xl font-bold text-slate-900">
-                                            {fuelSummary.totals.declaredLiters.toFixed(0)}L
-                                        </div>
-                                        <div className="text-[10px] font-bold text-slate-500 mt-1">
-                                            {fuelSummary.totals.transactionCount} TRANSACCIONES
-                                        </div>
-                                    </div>
-
-                                    <div className={cn(
-                                        "border rounded-xl p-4 shadow-sm",
-                                        fuelSummary.totals.discrepancyPercentage > 5
-                                            ? "bg-rose-50 border-rose-100"
-                                            : "bg-white border-slate-200"
-                                    )}>
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                            <AlertTriangle className={cn("h-3 w-3", fuelSummary.totals.discrepancyPercentage > 5 ? "text-rose-500" : "text-[#0047AB]")} /> Desviación
-                                        </div>
-                                        <div className={cn(
-                                            "text-2xl font-bold",
-                                            fuelSummary.totals.discrepancyPercentage > 5 ? "text-rose-600" : "text-slate-900"
-                                        )}>
-                                            {fuelSummary.totals.discrepancyPercentage.toFixed(1)}%
-                                        </div>
-                                        <div className="text-[10px] font-bold text-slate-500 mt-1 uppercase">
-                                            {fuelSummary.totals.discrepancyLiters.toFixed(1)}L DE EXCESO
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Trend Chart Section */}
-                                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                                    <FuelTrendChart
-                                        data={fuelSummary.trendData || []}
-                                        title={`Tendencia de Consumo: ${driver?.name || 'Conductor'}`}
-                                    />
-                                </div>
-
-                                {/* Transactions Section */}
-                                <div className="space-y-4">
-                                    <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2 mb-2">
-                                        <Calendar className="h-4 w-4 text-[#0047AB]" /> Historial de Transacciones
-                                    </h3>
-
-                                    <div className="space-y-6">
-                                        {fuelSummary?.recentTransactions?.map((txn: FuelTransaction) => {
-                                            const isFlagged = txn.validation.status !== "compliant";
-                                            return (
-                                                <div key={txn.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:border-slate-300 transition-all">
-                                                    {/* Cabecera resumida */}
-                                                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="h-10 w-10 rounded-lg bg-slate-50 flex items-center justify-center text-[#0047AB]">
-                                                                <MapPin className="h-5 w-5" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                                                                    {txn.location.stationName || txn.location.stationBrand || "Estación de Combustible"}
-                                                                </h4>
-                                                                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-                                                                    {new Date(txn.timestamp).toLocaleString("es-ES", {
-                                                                        day: "2-digit",
-                                                                        month: "short",
-                                                                        hour: "2-digit",
-                                                                        minute: "2-digit"
-                                                                    })}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <Badge variant={isFlagged ? "destructive" : "default"} className="text-[10px] font-bold uppercase tracking-tight">
-                                                            {isFlagged ? "Flagged / Alerta" : "Validada"}
-                                                        </Badge>
-                                                    </div>
-
-                                                    <div className="p-5 space-y-6">
-                                                        {/* Alerta de Discrepancia (si aplica) */}
-                                                        {isFlagged && (
-                                                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-5">
-                                                                <div className="flex gap-4">
-                                                                    <div className="shrink-0 h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
-                                                                        <AlertTriangle className="h-5 w-5" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <h5 className="text-sm font-bold text-slate-900">
-                                                                            Inconsistencia de volumen detectada
-                                                                        </h5>
-                                                                        <p className="text-xs text-slate-600 leading-relaxed mt-1">
-                                                                            Se declararon <strong>{txn.declared.liters} L</strong>, pero el sensor solo registró un aumento de <strong>{((txn.calculated.tankLevelAfter ?? 0) - (txn.calculated.tankLevelBefore ?? 0)).toFixed(1)} L</strong>.
-                                                                            {((txn.calculated.tankLevelBefore ?? 0) + txn.declared.liters) > 100 && (
-                                                                                <span className="block mt-1 text-rose-500 font-bold">
-                                                                                    ⚠ El volumen total declarado ({(txn.calculated.tankLevelBefore ?? 0) + txn.declared.liters}L) supera la capacidad del tanque.
-                                                                                </span>
-                                                                            )}
-                                                                        </p>
-                                                                        <div className="flex items-center gap-4 mt-3">
-                                                                            <button className="text-[10px] font-bold text-[#0047AB] uppercase hover:underline flex items-center gap-1">
-                                                                                Historial del vehículo <ExternalLink className="h-3 w-3" />
-                                                                            </button>
-                                                                            <button className="text-[10px] font-bold text-rose-600 uppercase hover:underline">
-                                                                                Bloquear tarjeta
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Gráfico de Análisis */}
-                                                                <FuelDiscrepancyChart
-                                                                    tankCapacity={100}
-                                                                    before={txn.calculated.tankLevelBefore || 0}
-                                                                    declared={txn.declared.liters}
-                                                                    expected={txn.calculated.expectedLiters}
-                                                                    after={txn.calculated.tankLevelAfter || 0}
-                                                                    discrepancy={txn.validation.discrepancyLiters}
-                                                                    status={txn.validation.status}
-                                                                    unit="L"
-                                                                />
-
-                                                                <div className="flex gap-3 pt-2">
-                                                                    <Button size="sm" className="bg-[#0047AB] hover:bg-blue-800 text-white font-bold text-[10px] uppercase h-9 px-6">
-                                                                        Validar Transacción
-                                                                    </Button>
-                                                                    <Button variant="outline" size="sm" className="font-bold text-[10px] uppercase h-9 px-6 text-slate-500">
-                                                                        Descartar Alerta
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Datos de la Operación */}
-                                                        <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                                            <div className="space-y-1">
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Volumen Declarado</span>
-                                                                <span className="text-sm font-bold text-slate-900 italic tracking-tight">{txn.declared.liters} L</span>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Volumen Esperado</span>
-                                                                <span className="text-sm font-bold text-slate-900 italic tracking-tight">{txn.calculated.expectedLiters} L</span>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Coste Total</span>
-                                                                <span className="text-sm font-bold text-[#0047AB] italic tracking-tight">${txn.declared.totalCost.toFixed(2)}</span>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Método de Pago</span>
-                                                                <div className="flex items-center gap-2 text-sm font-bold text-slate-700 italic tracking-tight">
-                                                                    <CreditCard className="h-3 w-3 text-slate-400" />
-                                                                    <span>VISA **** 4412</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Detalle adicional */}
-                                                        <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                                                            <div className="flex items-center gap-2">
-                                                                <Info className="h-3 w-3 text-slate-300" />
-                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Id Vehículo: {txn.vehicleId}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Recibo:</span>
-                                                                <span className="text-[9px] font-bold text-slate-900 uppercase tracking-widest">{txn.declared.receiptNumber || "N/A"}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="py-20 text-center">
-                                <p className="text-sm text-slate-500">No se encontraron datos de combustible.</p>
-                            </div>
-                        )}
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 text-slate-400 hover:text-slate-900 transition-colors">
+                            <X className="h-5 w-5" />
+                        </Button>
                     </div>
                 </div>
-            </SheetContent>
-        </Sheet>
+
+                <div className="flex-1 overflow-hidden">
+                    <Tabs defaultValue="overview" className="h-full flex flex-col">
+                        <div className="shrink-0 bg-white border-b border-slate-100 h-10 px-8 flex items-center">
+                            <TabsList className="bg-transparent h-full p-0 gap-8 rounded-none border-none">
+                                <TabsTrigger value="overview" className="h-full rounded-none border-b-2 border-transparent text-[11px] font-semibold uppercase tracking-wider px-0 data-[state=active]:border-primary data-[state=active]:bg-transparent shadow-none">
+                                    Vista General
+                                </TabsTrigger>
+                                <TabsTrigger value="history" className="h-full rounded-none border-b-2 border-transparent text-[11px] font-semibold uppercase tracking-wider px-0 data-[state=active]:border-primary data-[state=active]:bg-transparent shadow-none">
+                                    Historial Completo
+                                </TabsTrigger>
+                                <TabsTrigger value="analytics" className="h-full rounded-none border-b-2 border-transparent text-[11px] font-semibold uppercase tracking-wider px-0 data-[state=active]:border-primary data-[state=active]:bg-transparent shadow-none">
+                                    Análisis Técnico
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
+
+                        <div className="flex-1 overflow-hidden bg-slate-50">
+                            <TabsContent value="overview" className="h-full m-0">
+                               <ScrollArea className="h-full w-full">
+                                   <div className="p-8 space-y-8">
+                                       
+                                       {/* Key Metrics */}
+                                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                           {[
+                                               { label: "Consumo Total", value: `${fuelSummary?.totals.declaredLiters.toFixed(0)} L`, icon: Fuel },
+                                               { label: "Varianza (%)", value: `${fuelSummary?.totals.discrepancyPercentage.toFixed(1)} %`, icon: AlertTriangle, status: fuelSummary?.totals.discrepancyPercentage! > 5 ? "error" : "success" },
+                                               { label: "Costo Total", value: `$${fuelSummary?.totals.totalCost.toLocaleString()}`, icon: CreditCard },
+                                               { label: "Eventos", value: `${fuelSummary?.totals.transactionCount}`, icon: History }
+                                           ].map((kpi, i) => (
+                                               <div key={i} className="kpi-card rounded-lg bg-white border border-slate-200">
+                                                   <div className="flex items-center justify-between mb-4">
+                                                        <div className={cn(
+                                                            "h-8 w-8 flex items-center justify-center rounded bg-[#F7F8FA] border border-[#EAEAEA] text-[#6B7280]",
+                                                            kpi.status === "error" && "text-red-500 bg-red-50 border-red-100"
+                                                        )}>
+                                                            <kpi.icon className="h-4 w-4" />
+                                                        </div>
+                                                   </div>
+                                                   <div className="flex flex-col gap-0.5">
+                                                       <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{kpi.label}</span>
+                                                       <span className={cn("text-[22px] font-semibold tabular-nums tracking-tight", kpi.status === "error" ? "text-red-600" : "text-slate-900")}>
+                                                           {loading ? "..." : kpi.value}
+                                                       </span>
+                                                   </div>
+                                               </div>
+                                           ))}
+                                       </div>
+
+                                       <div className="grid grid-cols-12 gap-8 items-start">
+                                           <div className="col-span-12 lg:col-span-8 space-y-6">
+                                               <div className="bg-white rounded-2xl ring-1 ring-slate-200/60 shadow-sm overflow-hidden">
+                                                   <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between">
+                                                       <div className="flex items-center gap-2.5">
+                                                           <TrendingUp className="h-4 w-4 text-primary" />
+                                                           <h3 className="text-[12px] font-semibold uppercase tracking-wider text-slate-900">Histórico de Telemetría</h3>
+                                                       </div>
+                                                   </div>
+                                                   <div className="p-6 h-[400px]">
+                                                        <FuelTrendChart 
+                                                            data={fuelSummary?.trendData || []} 
+                                                        />
+                                                   </div>
+                                               </div>
+
+                                               <div className="grid grid-cols-2 gap-6">
+                                                   <div className="bg-white rounded-2xl ring-1 ring-slate-200/60 p-6">
+                                                       <h4 className="text-[10px] font-semibold tracking-widest uppercase text-slate-400 mb-4">Métricas de Rendimiento</h4>
+                                                       <div className="space-y-4">
+                                                           <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                                                               Desvío acumulado dentro del rango operativo establecido por la flota.
+                                                           </p>
+                                                           <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                               <div className="h-full bg-primary w-[92%] transition-all" />
+                                                           </div>
+                                                       </div>
+                                                   </div>
+                                            
+                                               </div>
+                                           </div>
+
+                                           <div className="col-span-12 lg:col-span-4 space-y-6">
+                                               <div className="flex items-center justify-between px-1">
+                                                   <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-900">Eventos Recientes</h3>
+                                               </div>
+
+                                               <div className="space-y-3">
+                                                   {fuelSummary?.recentTransactions?.map((txn: FuelTransaction) => {
+                                                       const isFlagged = txn.validation.status !== "compliant";
+                                                       return (
+                                                           <div key={txn.id} className={cn(
+                                                               "p-4 rounded-xl transition-all ring-1 ring-slate-200/60 bg-white hover:ring-primary/40 group cursor-pointer",
+                                                               isFlagged && "ring-2 ring-red-100 bg-red-50/10"
+                                                           )}>
+                                                               <div className="flex items-start justify-between mb-3">
+                                                                   <div className="flex gap-3">
+                                                                       <div className={cn(
+                                                                           "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                                                                           isFlagged ? "bg-red-100 text-red-600" : "bg-slate-50 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary"
+                                                                       )}>
+                                                                           <MapPin className="h-4 w-4" />
+                                                                       </div>
+                                                                       <div className="min-w-0">
+                                                                           <h5 className="text-[12px] font-semibold text-slate-900 truncate tracking-tight">{txn.location.stationName || "Estación Local"}</h5>
+                                                                           <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">
+                                                                               {new Date(txn.timestamp).toLocaleDateString("es-ES", { day: '2-digit', month: 'short' })}
+                                                                           </p>
+                                                                       </div>
+                                                                   </div>
+                                                                   <Badge className={cn(
+                                                                       "text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 border-none shadow-none",
+                                                                       isFlagged ? "bg-red-500 text-white" : "bg-primary text-primary-foreground"
+                                                                   )}>
+                                                                       {isFlagged ? "Alerta" : "Verificado"}
+                                                                   </Badge>
+                                                               </div>
+                                                               <div className="flex items-center justify-between pt-3 border-t border-slate-100/50">
+                                                                   <span className="text-[11px] font-semibold text-slate-900 tabular-nums">{txn.declared.liters}L</span>
+                                                                   <ChevronRight className="h-3 w-3 text-slate-300 group-hover:text-primary transition-colors" />
+                                                               </div>
+                                                           </div>
+                                                       );
+                                                   })}
+                                               </div>
+                                           </div>
+                                       </div>
+                                   </div>
+                               </ScrollArea>
+                            </TabsContent>
+
+                            <TabsContent value="history" className="h-full m-0">
+                                <ScrollArea className="h-full w-full">
+                                    <div className="p-8">
+                                        <div className="bg-white rounded-2xl ring-1 ring-slate-200/60 shadow-sm overflow-hidden">
+                                            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                                                <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-900">Registro de Transacciones</h3>
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-slate-50 border-b border-slate-100">
+                                                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                                                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Ubicación</th>
+                                                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Volumen</th>
+                                                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-50">
+                                                        {fuelSummary?.recentTransactions?.map((txn: FuelTransaction) => (
+                                                            <tr key={txn.id} className="hover:bg-slate-50/50 transition-colors">
+                                                                <td className="px-6 py-4 text-[11px] font-semibold text-slate-900">
+                                                                    {new Date(txn.timestamp).toLocaleString("es-ES", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-[11px] font-medium text-slate-600">
+                                                                    {txn.location.stationName || "Estación Local"}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-[11px] font-bold text-slate-900 tabular-nums">{txn.declared.liters} L</td>
+                                                                <td className="px-6 py-4">
+                                                                    <Badge className={cn(
+                                                                        "text-[8px] font-bold uppercase tracking-widest border-none",
+                                                                        txn.validation.status === "compliant" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                                                                    )}>
+                                                                        {txn.validation.status}
+                                                                    </Badge>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </ScrollArea>
+                            </TabsContent>
+
+                            <TabsContent value="analytics" className="h-full m-0 flex items-center justify-center">
+                                <div className="text-center space-y-2">
+                                    <Activity className="h-8 w-8 text-slate-200 mx-auto" />
+                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Módulo Predictivo</p>
+                                </div>
+                            </TabsContent>
+                        </div>
+                    </Tabs>
+                </div>
+
+                {/* Footer Operational Bar */}
+                <div className="shrink-0 bg-white border-t border-slate-100 h-16 px-8 flex items-center justify-between text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                    <div className="flex items-center gap-6">
+                        <div>Periodo: Últimos 30 Días</div>
+                        <div className="h-4 w-px bg-slate-100" />
+                        <div>Driver ID: {driverId}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Button variant="outline" className="h-8 text-[10px] uppercase font-bold tracking-wider rounded-lg border-slate-200">Exportar</Button>
+                        <Button onClick={onClose} className="h-8 text-[10px] uppercase font-bold tracking-wider rounded-lg bg-slate-900 text-white">Cerrar</Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }

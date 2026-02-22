@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts";
-import { Activity, Target } from "lucide-react";
+import { Activity } from "lucide-react";
 
 interface DriversTrendChartProps {
     data: any[];
@@ -12,75 +12,73 @@ export function DriversTrendChart({ data }: DriversTrendChartProps) {
     const hasData = data && data.length > 0;
 
     return (
-        <div className="p-10 border-r border-slate-100 bg-gradient-to-b from-white via-primary/3 to-white group rounded-lg">
-            <div className="flex items-start justify-between mb-10">
-                <div className="flex flex-col gap-1">
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none">
-                        KPI de Calidad de Servicio
-                    </p>
-                    <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2 mt-1">
-                        <Activity className="h-4 w-4 text-sky-500" />
-                        Histórico de Rendimiento
-                    </h3>
+        <div className="chart-container">
+            <div className="flex items-start justify-between mb-8">
+                <div className="flex flex-col gap-0.5">
+                    <p className="chart-title">Calidad de Servicio</p>
+                    <p className="chart-subtitle">Evolución histórica del rendimiento operacional.</p>
                 </div>
-
             </div>
 
-            <div className="h-[280px] w-full relative">
+            <div className="h-[260px] w-full relative">
                 {!hasData ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-slate-100 rounded-xl">
-                        <p className="text-[10px] font-bold text-slate-300 uppercase italic">Sin datos históricos suficientes</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F7F8FA] border border-dashed border-[#EAEAEA] rounded-md">
+                        <p className="text-[10px] font-medium text-[#6B7280]/40 uppercase tracking-widest">Sin datos disponibles</p>
                     </div>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#075985" stopOpacity={0.12} />
-                                    <stop offset="95%" stopColor="#075985" stopOpacity={0} />
+                                    <stop offset="5%" stopColor="#D4F04A" stopOpacity={0.5} />
+                                    <stop offset="95%" stopColor="#D4F04A" stopOpacity={0.05} />
                                 </linearGradient>
+                                <filter id="shadowScore" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#D4F04A" floodOpacity="0.3" />
+                                </filter>
                             </defs>
-                            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(7,41,68,0.04)" />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                             <XAxis
                                 dataKey="name"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 9, fontWeight: 900, fill: "#94a3b8" }}
-                                dy={12}
+                                tick={{ fontSize: 9, fontWeight: 500, fill: "#6B7280" }}
+                                dy={10}
                             />
                             <YAxis
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 9, fontWeight: 900, fill: "#94a3b8" }}
+                                tick={{ fontSize: 9, fontWeight: 500, fill: "#6B7280" }}
                                 domain={[0, 100]}
                             />
                             <Tooltip
-                                cursor={{ stroke: '#0f172a', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                cursor={{ stroke: '#1C1C1C', strokeWidth: 1 }}
                                 contentStyle={{
                                     backgroundColor: "#fff",
-                                    border: "1px solid #e2e8f0",
-                                    borderRadius: "8px",
+                                    border: "1px solid #EAEAEA",
+                                    borderRadius: "4px",
                                     fontSize: "10px",
-                                    fontWeight: "900",
-                                    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                                    fontWeight: "500",
+                                    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                                     textTransform: 'uppercase'
                                 }}
                             />
                             <ReferenceLine
                                 y={95}
-                                stroke="#10b981"
-                                strokeDasharray="3 3"
-                                label={{ position: 'right', value: 'OBJETIVO', fill: '#10b981', fontSize: 8, fontWeight: 900 }}
+                                stroke="#D4F04A"
+                                strokeDasharray="5 5"
+                                label={{ position: 'right', value: 'TARGET', fill: '#5D6B1A', fontSize: 8, fontWeight: 500 }}
                             />
                             <Area
                                 type="monotone"
                                 dataKey="score"
-                                name="Rendimiento"
-                                stroke="#075985"
-                                strokeWidth={3}
+                                name="Score"
+                                stroke="#1C1C1C"
+                                strokeWidth={4}
                                 fillOpacity={1}
                                 fill="url(#colorScore)"
-                                animationDuration={1500}
+                                animationDuration={1000}
+                                style={{ filter: "url(#shadowScore)" }}
                             />
                         </AreaChart>
                     </ResponsiveContainer>

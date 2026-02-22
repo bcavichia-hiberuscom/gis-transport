@@ -7,6 +7,7 @@ import {
   FormEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,11 +17,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  
 } from "@/components/ui/dialog";
 import {
   Pentagon,
   Settings2,
-  AlertCircle
+  AlertCircle,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { VEHICLE_TYPES } from "@/lib/types";
@@ -150,116 +154,121 @@ export function AddCustomZoneDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl bg-background/95 backdrop-blur-xl max-h-[90vh]">
-        <div className="bg-gradient-to-br from-primary/10 via-background to-background">
-          <DialogHeader className="p-6 pb-2">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="p-2 bg-primary/10 rounded-xl">
-                <Pentagon className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl font-black tracking-tight uppercase italic text-primary/90">
-                  {editingZoneData ? "Editar Zona" : "Finalizar Nueva Zona"}
-                </DialogTitle>
-                <DialogDescription className="text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground/40">
-                  Configuración de Reglas y Acceso
-                </DialogDescription>
-              </div>
+      <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden">
+        <div className="bg-white p-8">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="h-10 w-10 bg-[#F7F8FA] border border-[#EAEAEA] rounded-md flex items-center justify-center">
+              <Pentagon strokeWidth={1.5} className="h-5 w-5 text-[#1C1C1C]" />
             </div>
-          </DialogHeader>
+            <div>
+              <DialogTitle className="text-[14px] font-medium uppercase tracking-tight text-[#1C1C1C]">
+                {editingZoneData ? "Editar Zona" : "Nueva Zona"}
+              </DialogTitle>
+              <DialogDescription className="text-[10px] uppercase tracking-widest text-[#6B7280]/60 mt-0.5">
+                Geocerca y Restricciones de Acceso
+              </DialogDescription>
+            </div>
+          </div>
 
-          <form onSubmit={handleSubmitZone} className="p-6 pt-2 space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">
-                  Nombre de la Zona
+          <form onSubmit={handleSubmitZone} className="space-y-6">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]">
+                Nombre de la Zona
+              </Label>
+              <Input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="Ej. Zona Restringida Centro, MAD-LEZ..."
+                className="h-10 text-[12px] font-medium border-[#EAEAEA] focus-visible:border-[#1C1C1C] rounded transition-all"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]">
+                Observaciones
+              </Label>
+              <Textarea
+                value={description}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setDescription(e.target.value)
+                }
+                placeholder="Detalles operativos..."
+                className="min-h-[80px] text-[12px] border-[#EAEAEA] focus-visible:border-[#1C1C1C] rounded transition-all resize-none"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Settings2 strokeWidth={1.5} className="h-3.5 w-3.5 text-[#6B7280]" />
+                <Label className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]">
+                  Etiquetas Permitidas
                 </Label>
-                <Input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="Ej: Zona Restringida, LEZ Madrid..."
-                  className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all font-bold"
-                  required
-                  autoFocus
-                />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">
-                  Descripción (Opcional)
-                </Label>
-                <Textarea
-                  value={description}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                    setDescription(e.target.value)
-                  }
-                  placeholder="Detalles sobre las restricciones de esta zona..."
-                  className="min-h-[80px] bg-muted/30 border-border/50 focus:bg-background transition-all text-xs"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <Settings2 className="h-3 w-3 text-primary/60" />
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                    Etiquetas Ambientales Permitidas
-                  </Label>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {(() => {
-                    const TAG_LABELS: Record<string, string> = {
-                      "0": "Zero Emisiones (0)",
-                      eco: "ECO",
-                      zero: "ZERO",
-                      b: "Etiqueta B",
-                      c: "Etiqueta C",
-                    };
-                    const uniqueTags = Array.from(
-                      new Set(VEHICLE_TYPES.flatMap((v) => v.tags)),
-                    );
-                    return uniqueTags.map((tag) => (
+              <div className="grid grid-cols-2 gap-2">
+                {(() => {
+                  const TAG_LABELS: Record<string, string> = {
+                    "0": "Zero (0)",
+                    eco: "ECO",
+                    zero: "ZERO",
+                    b: "Etiqueta B",
+                    c: "Etiqueta C",
+                  };
+                  const uniqueTags = Array.from(
+                    new Set(VEHICLE_TYPES.flatMap((v) => v.tags)),
+                  );
+                  return uniqueTags.map((tag) => {
+                    const isActive = requiredTags.includes(tag);
+                    return (
                       <button
                         key={tag}
                         type="button"
                         onClick={() => handleToggleTag(tag)}
-                        className={`h-9 px-3 rounded-lg border text-[10px] font-black uppercase tracking-tight transition-all ${requiredTags.includes(tag)
-                          ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
-                          : "bg-muted/30 border-border/40 text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground"
-                          }`}
+                        className={cn(
+                          "h-9 px-3 rounded border text-[10px] font-medium uppercase tracking-tight transition-all",
+                          isActive
+                            ? "bg-[#1C1C1C] text-[#D4F04A] border-[#1C1C1C]"
+                            : "bg-[#F7F8FA] border-[#EAEAEA] text-[#6B7280] hover:border-[#1C1C1C]/40"
+                        )}
                       >
                         {TAG_LABELS[tag] || tag}
                       </button>
-                    ));
-                  })()}
-                </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
             {error && (
-              <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20 text-[10px] text-red-600 font-black uppercase tracking-tight flex items-center gap-2 animate-in fade-in zoom-in-95">
+              <div className="p-3 rounded bg-red-50 border border-red-100 text-[10px] text-red-700 font-medium flex items-center gap-2">
                 <AlertCircle className="h-3 w-3" />
                 {error}
               </div>
             )}
 
-            <DialogFooter className="pt-2 gap-2">
+            <div className="flex gap-4 pt-4">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 onClick={handleCancel}
-                className="flex-1 h-11 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 hover:text-foreground hover:bg-muted/50 transition-all"
+                className="flex-1 h-10 text-[11px] font-medium uppercase tracking-wider border-[#EAEAEA]"
               >
-                Descartar
+                Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={isLoading || zonePoints.length < 3}
-                className="flex-1 h-11 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="flex-1 h-10 bg-[#D4F04A] text-[#1C1C1C] hover:bg-[#D4F04A]/90 text-[11px] font-medium uppercase tracking-wider transition-all"
               >
-                {isLoading ? "Procesando..." : (editingZoneData ? "Actualizar Zona" : "Confirmar y Guardar")}
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  editingZoneData ? "Actualizar" : "Guardar Zona"
+                )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </div>
       </DialogContent>

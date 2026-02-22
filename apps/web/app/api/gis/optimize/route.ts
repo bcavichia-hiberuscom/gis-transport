@@ -18,7 +18,7 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { vehicles, jobs, startTime, zones } = body as {
+    const { vehicles, jobs, startTime, zones, preference, traffic } = body as {
       vehicles: FleetVehicle[];
       jobs: FleetJob[];
     } & OptimizeOptions;
@@ -36,6 +36,8 @@ export async function POST(req: Request) {
     const routeData: RouteData = await RoutingService.optimize(vehicles, jobs, {
       startTime,
       zones,
+      preference,
+      traffic,
     });
 
     const vehicleRoutes: VehicleRoute[] = routeData.vehicleRoutes || [];

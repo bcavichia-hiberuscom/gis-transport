@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { MapPin, AlertTriangle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface OrderLeaderboardItem {
@@ -24,96 +23,80 @@ const defaultItems: OrderLeaderboardItem[] = [
   { id: "ord-005", label: "Orden #005", value: 203.1, metric: "distance", status: "critical" },
 ];
 
-export function OrdersLeaderboard({
-  items = defaultItems,
-}: OrdersLeaderboardProps) {
+const STATUS_CONFIG = {
+  good: { dot: "bg-[#D4F04A]", text: "text-[#5D6B1A]", badge: "bg-[#D4F04A]/10 border-[#D4F04A]/30 text-[#5D6B1A]", label: "En Tiempo" },
+  warning: { dot: "bg-amber-400", text: "text-amber-700", badge: "bg-amber-50 border-amber-200 text-amber-700", label: "Atención" },
+  critical: { dot: "bg-red-500", text: "text-red-700", badge: "bg-red-50 border-red-200 text-red-700", label: "Crítico" },
+  default: { dot: "bg-[#EAEAEA]", text: "text-[#6B7280]", badge: "bg-[#F7F8FA] border-[#EAEAEA] text-[#6B7280]", label: "---" },
+};
+
+export function OrdersLeaderboard({ items = defaultItems }: OrdersLeaderboardProps) {
   const sortedItems = useMemo(() => {
     return [...(items || [])].sort((a, b) => b.value - a.value);
   }, [items]);
 
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case "good":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "warning":
-        return "bg-amber-50 text-amber-700 border-amber-200";
-      case "critical":
-        return "bg-rose-50 text-rose-700 border-rose-200";
-      default:
-        return "bg-slate-50 text-slate-700 border-slate-200";
-    }
-  };
-
-  const getMetricIcon = (metric: string) => {
-    switch (metric) {
-      case "distance":
-        return <MapPin className="h-3.5 w-3.5" />;
-      case "time":
-        return <AlertTriangle className="h-3.5 w-3.5" />;
-      default:
-        return <Zap className="h-3.5 w-3.5" />;
-    }
-  };
-
-  const getMetricLabel = (metric: string) => {
-    switch (metric) {
-      case "distance":
-        return "km";
-      case "time":
-        return "horas";
-      default:
-        return "unidades";
-    }
-  };
-
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 bg-white">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900">
-            Top Pedidos por Distancia
-          </h3>
-          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-            Entregas más distantes
-          </p>
+    <div className="chart-container">
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#EAEAEA]">
+        <div>
+          <p className="chart-title">Monitor de Cumplimiento SLA</p>
+          <p className="chart-subtitle">Detección proactiva de entregas en riesgo</p>
         </div>
+        <span className="trend-down">Activo</span>
       </div>
 
-      <div className="space-y-2">
-        {sortedItems.slice(0, 5).map((item, index) => (
-          <div
-            key={item.id}
-            className="flex items-center gap-3 p-4 bg-slate-50/50 border border-slate-100 rounded-lg hover:shadow-sm transition-all group"
-          >
-            {/* Rank Badge */}
-            <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-slate-900 text-white font-black text-[10px]">
-              {index + 1}
-            </div>
+      <div className="flex flex-col divide-y divide-[#F7F8FA]">
+        {sortedItems.slice(0, 5).map((item, index) => {
+          const cfg = STATUS_CONFIG[item.status || "default"];
+          const maxVal = sortedItems[0]?.value || 1;
+          const pct = Math.round((item.value / maxVal) * 100);
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[11px] font-black uppercase text-slate-900 truncate">
-                  {item.label}
-                </span>
-                <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-black uppercase border", getStatusColor(item.status))}>
-                  {item.value.toFixed(1)} {getMetricLabel(item.metric)}
+          return (
+            <div
+              key={item.id}
+              className="group flex items-center justify-between py-4 hover:bg-[#F7F8FA] transition-colors cursor-pointer px-2 -mx-2"
+            >
+              <div className="flex items-center gap-4">
+                {/* Rank */}
+                <span className="text-[11px] font-medium text-[#6B7280] w-5 text-center tabular-nums">{index + 1}</span>
+                {/* Status dot */}
+                <div className={cn("h-2 w-2 rounded-full flex-shrink-0", cfg.dot)} />
+                {/* Label */}
+                <div>
+                  <p className="text-[13px] font-medium text-[#1C1C1C] leading-none">{item.label}</p>
+                  <p className="text-[10px] text-[#6B7280] mt-0.5 uppercase tracking-wide">Prioritario · Punto {index + 1}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6">
+                {/* Progress bar */}
+                <div className="hidden sm:flex items-center gap-2 w-24">
+                  <div className="flex-1 h-1 bg-[#F7F8FA] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#1C1C1C] rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-[#6B7280] tabular-nums">{pct}%</span>
+                </div>
+
+                {/* Metric */}
+                <div className="text-right min-w-[56px]">
+                  <p className="text-[14px] font-medium text-[#1C1C1C] tabular-nums">{item.value.toFixed(1)}</p>
+                  <p className="text-[9px] text-[#6B7280] uppercase">km</p>
+                </div>
+
+                {/* Status badge */}
+                <span className={cn(
+                  "text-[9px] font-medium px-2 py-0.5 border rounded-sm uppercase tracking-wide hidden md:block",
+                  cfg.badge
+                )}>
+                  {cfg.label}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] text-slate-500 uppercase tracking-tighter font-semibold flex items-center gap-1 w-fit">
-                  {getMetricIcon(item.metric)}
-                  <span>{item.metric === "distance" ? "Distancia" : item.metric === "time" ? "Tiempo" : "Prioridad"}</span>
-                </span>
-              </div>
             </div>
-
-            {/* Icon */}
-            <div className={cn("shrink-0 flex items-center justify-center w-8 h-8 rounded-lg opacity-10 group-hover:opacity-20 transition-opacity", getStatusColor(item.status))}>
-              {getMetricIcon(item.metric)}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

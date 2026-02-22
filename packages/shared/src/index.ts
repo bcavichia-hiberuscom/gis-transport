@@ -183,6 +183,7 @@ export const FleetVehicleSchema = z.object({
   lastMaintenanceDate: z.number().optional(), // Unix timestamp
   nextMaintenanceDate: z.number().optional(), // Unix timestamp
   maintenanceHours: z.number().optional(),
+  groupIds: z.array(z.union([z.string(), z.number()])).optional(),
 });
 export type FleetVehicle = z.infer<typeof FleetVehicleSchema>;
 
@@ -297,6 +298,8 @@ export const WeatherAlertSchema = z.object({
   message: z.string(),
   lat: z.number(),
   lon: z.number(),
+  value: z.number().optional(),
+  direction: z.number().optional(),
 });
 export type WeatherAlert = z.infer<typeof WeatherAlertSchema>;
 
@@ -373,6 +376,7 @@ export const RawWeatherDataSchema = z.object({
   wind: z
     .object({
       speed: z.number().optional(),
+      deg: z.number().optional(),
     })
     .optional(),
   visibility: z.number().optional(),
@@ -386,6 +390,9 @@ export const LayerVisibilitySchema = z.object({
   cityZones: z.boolean(),
   route: z.boolean(),
   customZones: z.boolean(),
+  weatherRain: z.boolean().optional(),
+  weatherWind: z.boolean().optional(),
+  weatherTemp: z.boolean().optional(),
 });
 export type LayerVisibility = z.infer<typeof LayerVisibilitySchema>;
 
@@ -546,6 +553,8 @@ export type SearchPOIParams = z.infer<typeof SearchPOIParamsSchema>;
 export const OptimizeOptionsSchema = z.object({
   startTime: z.string().optional(),
   zones: z.array(ZoneSchema).optional(),
+  preference: z.enum(["fastest", "shortest", "recommended"]).optional(),
+  traffic: z.boolean().optional(),
 });
 export type OptimizeOptions = z.infer<typeof OptimizeOptionsSchema>;
 
@@ -587,6 +596,7 @@ export const WeatherIncomingBodySchema = z.object({
   jobs: z.array(FleetJobSchema).optional(),
   locations: z.array(LatLonSchema).optional(),
   matrix: z.array(z.array(z.number())).optional(),
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
 });
 export type WeatherIncomingBody = z.infer<typeof WeatherIncomingBodySchema>;
 

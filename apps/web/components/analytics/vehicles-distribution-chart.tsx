@@ -19,35 +19,36 @@ const defaultData = [
   { name: "Veh 5", orders: 14, deliveries: 13 },
 ];
 
-export function VehiclesDistributionChart({
-  data = defaultData,
-}: VehiclesDistributionChartProps) {
+const TOOLTIP_STYLE = {
+  backgroundColor: "#fff",
+  border: "1px solid #EAEAEA",
+  borderRadius: "2px",
+  fontSize: "10px",
+  fontWeight: "500",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+  textTransform: "uppercase" as const,
+};
+
+export function VehiclesDistributionChart({ data = defaultData }: VehiclesDistributionChartProps) {
   const chartData = useMemo(() => {
     return data && data.length > 0 ? data : defaultData;
   }, [data]);
 
   return (
-    <div className="h-64 w-full border-l border-b border-slate-100 bg-gradient-to-b from-white via-primary/3 to-white rounded-none p-6">
-      <div className="flex flex-col gap-2 mb-4">
-        <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Distribución de Entregas</h3>
-        <p className="text-[10px] text-slate-500">Órdenes y entregas por vehículo</p>
+    <div className="chart-container">
+      <div className="mb-6">
+        <p className="chart-title">Distribución de Entregas</p>
+        <p className="chart-subtitle">Órdenes y entregas por vehículo</p>
       </div>
-      <ResponsiveContainer width="100%" height="85%">
-        <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="name" stroke="#94a3b8" style={{ fontSize: "11px" }} />
-          <YAxis stroke="#94a3b8" style={{ fontSize: "11px" }} />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "6px",
-              fontSize: "11px",
-            }}
-          />
-          <Legend wrapperStyle={{ fontSize: "11px" }} />
-          <Bar dataKey="orders" fill="#0ea5e9" name="Órdenes" />
-          <Bar dataKey="deliveries" fill="#10b981" name="Entregas" />
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
+          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 500, fill: "#6B7280" }} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 500, fill: "#6B7280" }} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+          <Legend wrapperStyle={{ fontSize: "9px", fontWeight: 500, textTransform: "uppercase" }} />
+          <Bar dataKey="orders" fill="#1C1C1C" name="Órdenes" radius={[2, 2, 0, 0]} barSize={10} animationDuration={800} />
+          <Bar dataKey="deliveries" fill="#D4F04A" name="Entregas" radius={[2, 2, 0, 0]} barSize={10} animationDuration={800} />
         </BarChart>
       </ResponsiveContainer>
     </div>

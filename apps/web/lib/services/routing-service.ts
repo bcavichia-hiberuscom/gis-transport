@@ -38,13 +38,32 @@ async function fetchWithFallback(
     const res = await fetch(localUrl, { ...options, signal: AbortSignal.timeout(10000) });
     if (res.ok) return res;
     throw new Error(`Local returned ${res.status}`);
-  } catch {
-    console.warn(`[Fallback] Local ${localUrl} unavailable, using public`);
+  } catch (err) {
+    const isORS = publicUrl.includes("openrouteservice.org");
+    console.warn(`[Fallback] Local ${localUrl} unavailable, using public. Error: ${(err as Error).message}`);
+    
+    if (isORS && !ORS_API_KEY) {
+      console.error("[Fallback] ❌ CRITICAL: No se ha detectado ORS_API_KEY o NEXT_PUBLIC_ORS_API_KEY en las variables de entorno. Las peticiones al servicio público de ORS fallarán con 'Authorization field missing'. Por favor, añada su clave a su archivo .env");
+    }
+
+    // Si es ORS y tenemos key, la metemos también en el URL para máxima compatibilidad
+    let finalPublicUrl = publicUrl;
+    if (isORS && ORS_API_KEY) {
+      console.log(`[Fallback] Usando ORS Público con clave (longitud: ${ORS_API_KEY.length})`);
+      const separator = finalPublicUrl.includes("?") ? "&" : "?";
+      finalPublicUrl += `${separator}api_key=${ORS_API_KEY}`;
+    }
+
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
       ...extraHeaders,
     };
-    return fetch(publicUrl, { ...options, headers });
+    
+    if (isORS && ORS_API_KEY && !headers["Authorization"]) {
+      headers["Authorization"] = ORS_API_KEY;
+    }
+
+    return fetch(finalPublicUrl, { ...options, headers });
   }
 }
 
@@ -147,6 +166,7 @@ export class RoutingService {
     const matrices = await this.getMatricesForProfiles(
       snappedLocations,
       uniqueProfiles,
+      options
     );
 
     // Map each vehicle index to its profile name and avoid polygons
@@ -265,6 +285,7 @@ export class RoutingService {
       vehicles,
       jobs,
       invalidAssignments,
+      options,
     );
 
     // 6. Weather Analysis
@@ -301,12 +322,14 @@ export class RoutingService {
   private static async getMatricesForProfiles(
     locations: LatLon[],
     profiles: ProfileData[],
+    options: OptimizeOptions = {},
   ): Promise<Record<string, number[][]>> {
     const matrices: Record<string, number[][]> = {};
     for (const profile of profiles) {
       matrices[profile.name] = await this.getMatrix(
         locations,
         profile.avoidPolygons,
+        options
       );
     }
     return matrices;
@@ -413,6 +436,7 @@ export class RoutingService {
     originalVehicles: FleetVehicle[],
     originalJobs: FleetJob[],
     invalidAssignments: { vehicleIdx: number; jobLabels: string[] }[] = [],
+    options: OptimizeOptions = {},
   ): Promise<VehicleRoute[]> {
     const results: VehicleRoute[] = [];
     const invalidVehicleIndices = new Set(
@@ -459,6 +483,7 @@ export class RoutingService {
         route.steps,
         originalJobs,
         originalVehicles.length,
+        options,
       );
 
       // Si era inválida, marcamos la ruta con el error
@@ -480,6 +505,7 @@ export class RoutingService {
     steps: VroomStep[],
     originalJobs: FleetJob[],
     vehicleOffset: number,
+    options: OptimizeOptions = {},
   ): Promise<VehicleRoute> {
     const orsWaypoints = waypoints.map(([lat, lon]) => [lon, lat]);
     const avoid_polygons = this.formatAvoidPolygons(avoidPolygons);
@@ -487,7 +513,7 @@ export class RoutingService {
     const body = {
       coordinates: orsWaypoints,
       instructions: false,
-      preference: "recommended",
+      preference: options.preference || "recommended",
       radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS),
     };
 
@@ -558,6 +584,7 @@ export class RoutingService {
   private static async getMatrix(
     locations: LatLon[],
     avoidPolygons: LatLon[][],
+    options: OptimizeOptions = {},
   ): Promise<number[][]> {
     const orsLocations = locations.map(([lat, lon]) => [lon, lat]);
     const body = {
@@ -605,12 +632,33 @@ export class RoutingService {
       );
     }
 
+    // Definición de pesos dinámicos según preferencia del Orquestador
+    // fastest: Prioriza tiempo (segundos) sobre distancia (metros)
+    // shortest: Prioriza distancia pura
+    // recommended: Balanceado 1:1 aproximado
+    const pref = options.preference || "recommended";
+    const trafficFactor = options.traffic ? 1.4 : 1.0; // Simulamos 40% más de tiempo si hay tráfico
+
+    let weightDistance = 1.0;
+    let weightTime = 0.3;
+
+    if (pref === "fastest") {
+      weightDistance = 0.2;
+      weightTime = 8.0; // Mucho más peso al tiempo
+    } else if (pref === "shortest") {
+      weightDistance = 5.0; // Prioriza metros sobre todo
+      weightTime = 0.1;
+    } else {
+      // Balanceado
+      weightDistance = 1.0;
+      weightTime = 1.5;
+    }
+
     return Array.from({ length: locations.length }, (_, i) =>
       Array.from({ length: locations.length }, (_, j) => {
         if (i === j) return 0;
 
         // Si cualquiera de los dos puntos está en zona prohibida, penalización absoluta
-        // Esto previene que el optimizador automático asigne el job
         if (isLocForbidden[i] || isLocForbidden[j]) {
           return ROUTING_CONFIG.UNREACHABLE_COST;
         }
@@ -621,9 +669,12 @@ export class RoutingService {
         if (d === undefined || t === undefined || d === null || t === null)
           return ROUTING_CONFIG.UNREACHABLE_COST;
 
+        // Aplicamos los pesos dinámicos y el factor de tráfico simulado
+        const adjustedDuration = t * trafficFactor;
+
         return Math.round(
-          d * ROUTING_CONFIG.COST_PER_METER +
-          t * ROUTING_CONFIG.COST_PER_SECOND,
+          d * weightDistance +
+          adjustedDuration * weightTime
         );
       }),
     );
@@ -920,22 +971,26 @@ export class RoutingService {
       console.log(
         `[CustomStopRoute] Requesting ORS for vehicle ${vehicleId} with ${waypoints.length} waypoints`,
       );
-      console.log(
-        `[CustomStopRoute] ORS URL: ${ORS_URL}/directions/driving-car/geojson`,
+      
+      const orsHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const publicHeaders: Record<string, string> = {};
+      if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;
+
+      const res = await fetchWithFallback(
+        `${ORS_URL}/directions/driving-car/geojson`,
+        `${ORS_PUBLIC_URL}/directions/driving-car/geojson`,
+        {
+          method: "POST",
+          headers: orsHeaders,
+          body: JSON.stringify(body),
+        },
+        publicHeaders,
       );
-
-      const res = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      console.log(`[CustomStopRoute] ORS response status: ${res.status}`);
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`[CustomStopRoute] ORS error: ${errText}`);
-        throw new Error(errText);
+        console.error(`[CustomStopRoute] ORS Matrix failed: ${errText}`);
+        throw new Error(`ORS Matrix failed: ${errText}`);
       }
 
       const data: OrsDirectionsResponse = await res.json();

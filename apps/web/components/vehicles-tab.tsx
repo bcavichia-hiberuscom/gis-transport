@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FleetVehicle, VehicleType } from "@gis/shared";
+import { Badge } from "@/components/ui/badge";
 import { AddVehicleDialog } from "@/components/add-vehicle-dialog";
 
 // Analytical & Corporate Components
@@ -80,8 +81,8 @@ export function VehiclesTab({
         { name: "Dom", consumption: 7.2, goal: 7.5 },
       ],
       factorData: [
-        { name: "Motor", impact: 60, color: "#0f172a" },
-        { name: "Aerodinámica", impact: 40, color: "#334155" }
+        { name: "Motor", impact: 60, color: "#1C1C1C" },
+        { name: "Aerodinámica", impact: 40, color: "#6B7280" }
       ],
       leaderboardData: fleetVehicles.map((v, idx) => ({
         id: v.id,
@@ -111,65 +112,77 @@ export function VehiclesTab({
     <div
       key={vehicle.id}
       onClick={() => onVehicleSelect?.(vehicle)}
-      className="group bg-white border border-slate-100 rounded-xl p-4 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer animate-in fade-in zoom-in-95 duration-300"
+      className="premium-card p-5 cursor-pointer group border-[#EAEAEA] hover:border-[#D4F04A]/40 transition-all bg-white"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-4">
         <div className="relative shrink-0">
-          <div className="h-10 w-10 bg-slate-50 flex items-center justify-center rounded-lg border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all">
-            <Truck className="h-5 w-5" />
+          <div className="h-10 w-10 bg-[#F7F8FA] flex items-center justify-center rounded-lg border border-[#EAEAEA] transition-all group-hover:bg-[#1C1C1C] group-hover:text-[#D4F04A] group-hover:border-[#1C1C1C]">
+            <Truck strokeWidth={1.5} className="h-5 w-5" />
           </div>
           <span className={cn(
-            "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white",
-            (vehicle as any).status !== "maintenance" ? "bg-emerald-500" : "bg-amber-400"
+            "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white",
+            (vehicle as any).status !== "maintenance" ? "bg-[#D4F04A]" : "bg-[#6B7280]"
           )} />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
-              <h4 className="text-[13px] font-bold text-slate-900 truncate tracking-tight uppercase group-hover:text-blue-600 transition-colors">
+              <h4 className="text-[13px] font-medium tracking-tight text-[#1C1C1C] truncate leading-tight">
                 {(vehicle as FleetVehicle).licensePlate || vehicle.label || vehicle.id}
               </h4>
-              <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">
-                {(vehicle as FleetVehicle).brand || 'UNIT'} • {(vehicle as FleetVehicle).type.label}
+              <p className="text-[10px] font-medium text-[#6B7280] mt-0.5 uppercase tracking-wide">
+                {(vehicle as FleetVehicle).brand || 'GLOBAL'} • {(vehicle as FleetVehicle).type.label}
               </p>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-900 transition-colors" />
+            <div className="h-7 w-7 rounded-md bg-[#F7F8FA] flex items-center justify-center text-[#6B7280] group-hover:bg-[#1C1C1C] group-hover:text-[#D4F04A] transition-all">
+               <ChevronRight strokeWidth={1.5} className="h-4 w-4" />
+            </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Estado</span>
+          <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wider">Estado</span>
               <span className={cn(
-                "text-[9px] font-black uppercase px-1.5 py-0.5 rounded w-fit",
-                (vehicle as FleetVehicle).status !== "maintenance" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                "text-[9px] font-medium uppercase tracking-wider px-2 py-0.5 rounded border w-fit",
+                (vehicle as FleetVehicle).status !== "maintenance" ? "bg-[#D4F04A]/10 text-[#5D6B1A] border-[#D4F04A]/20" : "bg-[#F7F8FA] text-[#6B7280] border-[#EAEAEA]"
               )}>
-                {(vehicle as FleetVehicle).status !== "maintenance" ? 'Óptimo' : 'Mantenimiento'}
+                {(vehicle as FleetVehicle).status !== "maintenance" ? 'OPERATIVO' : 'MANTENIMIENTO'}
               </span>
             </div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Eficiencia</span>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wider">Rendimiento</span>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-900 tabular-nums">72%</span>
-                <div className="flex-1 h-1 bg-slate-100 rounded-full">
-                  <div className="h-full bg-blue-600 rounded-full" style={{ width: '72%' }} />
+                <span className="text-[11px] font-medium text-[#1C1C1C] tabular-nums">72%</span>
+                <div className="flex-1 h-1 bg-[#F7F8FA] rounded-full overflow-hidden border border-[#EAEAEA]">
+                  <div className="h-full bg-[#1C1C1C] rounded-full" style={{ width: '72%' }} />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-3 pt-3 border-t border-slate-50 grid grid-cols-2 gap-2">
-            <div className="flex items-center gap-1.5">
-              <Gauge className="h-3 w-3 text-slate-400" />
-              <span className="text-[10px] font-medium text-slate-600 tabular-nums truncate">
-                {((vehicle as FleetVehicle).mileage || 0).toLocaleString()} km
-              </span>
+          <div className="mt-4 pt-4 border-t border-[#F7F8FA] grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-7 w-7 bg-[#F7F8FA] flex items-center justify-center rounded-md border border-[#EAEAEA]">
+                <Gauge strokeWidth={1.5} className="h-3.5 w-3.5 text-[#6B7280]" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-medium text-[#6B7280] uppercase tracking-wider">Km Totales</span>
+                <span className="text-[10px] font-medium text-[#1C1C1C] tabular-nums">
+                  {((vehicle as FleetVehicle).mileage || 0).toLocaleString()} <span className="text-[8px] ml-0.5">km</span>
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Zap className="h-3 w-3 text-slate-400" />
-              <span className="text-[10px] font-medium text-slate-600 tabular-nums truncate">
-                {((vehicle as FleetVehicle).fuelConsumption || 0).toFixed(1)} L/100
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="h-7 w-7 bg-[#F7F8FA] flex items-center justify-center rounded-md border border-[#EAEAEA]">
+                <Zap strokeWidth={1.5} className="h-3.5 w-3.5 text-[#6B7280]" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-medium text-[#6B7280] uppercase tracking-wider">Consumo</span>
+                <span className="text-[10px] font-medium text-[#1C1C1C] tabular-nums">
+                  {((vehicle as FleetVehicle).fuelConsumption || 0).toFixed(1)} <span className="text-[8px] ml-0.5">L/100</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -178,126 +191,130 @@ export function VehiclesTab({
   );
 
   return (
-    <div className="flex flex-col grow h-full bg-white overflow-hidden">
-      <div className="shrink-0 bg-white border-b border-slate-100">
-        <div className="px-6 py-6 flex items-end justify-between gap-4">
+    <div className="flex flex-col grow h-full bg-white animate-in fade-in duration-500">
+      <div className="shrink-0 border-b border-[#EAEAEA]">
+        <div className="px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-8">
           <div className="flex flex-col gap-1">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-              HUB GLOBAL DE OPERACIONES
-            </p>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">
-              GESTIÓN DE ACTIVOS
+            <h2 className="text-base font-semibold tracking-tight text-[#1C1C1C] flex items-center gap-3">
+              <Truck strokeWidth={1.5} className="h-5 w-5" />
+              Gestión de Flota
             </h2>
+            <p className="text-[13px] text-[#6B7280] font-normal mt-1">
+              Monitoreo centralizado de activos críticos y telemetría avanzada.
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <PeriodSelector
-              currentPeriod={currentPeriod}
-              onPeriodChange={setCurrentPeriod}
-            />
-            {activeTab === "vehicles" && (
-              <Button
-                className="h-9 px-6 bg-blue-600 text-white hover:bg-blue-700 transition-all text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm"
-                onClick={() => setIsAddOpen(true)}
-              >
-                <Plus className="h-3.5 w-3.5 mr-2" />
-                Añadir Unidad
-              </Button>
-            )}
-          </div>
+          {activeTab === "vehicles" && (
+            <Button
+              className="h-10 px-6 bg-[#1C1C1C] hover:bg-[#D4F04A] hover:text-[#1C1C1C] text-white text-[12px] font-medium uppercase tracking-wider rounded-md transition-all shadow-none border-none"
+              onClick={() => setIsAddOpen(true)}
+            >
+              <Plus strokeWidth={1.5} className="h-4 w-4 mr-2" />
+              Registrar Unidad
+            </Button>
+          )}
         </div>
 
         <VehiclesSubNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
 
-      <ScrollArea className="flex-1 min-h-0 bg-slate-50/20">
+      <ScrollArea className="flex-1 min-h-0 bg-white">
         <div className="flex flex-col">
           {activeTab === "overview" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-400">
-              <VehiclesKPIStrip
-                totalVehicles={analyticsData.totalVehicles}
-                availableVehicles={analyticsData.availableVehicles}
-                maintenanceVehicles={analyticsData.maintenanceVehicles}
-                avgConsumption={analyticsData.avgConsumption}
-                trends={analyticsData.trends}
-              />
-              <div className="grid grid-cols-1 xl:grid-cols-2 bg-white border-y border-slate-100">
-                <VehiclesTrendChart data={analyticsData.trendData} />
-                <VehiclesFactorsChart data={analyticsData.factorData} />
+            <div className="animate-in fade-in duration-500">
+              <div className="px-10 pt-10 pb-6 flex justify-end">
+                <PeriodSelector
+                  currentPeriod={currentPeriod}
+                  onPeriodChange={setCurrentPeriod}
+                />
               </div>
-              <VehiclesLeaderboard
-                vehicles={analyticsData.leaderboardData}
-                trendData={analyticsData.consumptionTrendData}
-              />
+              <div className="px-10 pb-10">
+                <VehiclesKPIStrip
+                  totalVehicles={analyticsData.totalVehicles}
+                  availableVehicles={analyticsData.availableVehicles}
+                  maintenanceVehicles={analyticsData.maintenanceVehicles}
+                  avgConsumption={analyticsData.avgConsumption}
+                  trends={analyticsData.trends}
+                />
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 bg-white border-y border-[#EAEAEA] p-4 divide-x divide-[#EAEAEA]">
+                <div className="p-4">
+                  <VehiclesTrendChart data={analyticsData.trendData} />
+                </div>
+                <div className="p-4">
+                  <VehiclesFactorsChart data={analyticsData.factorData} />
+                </div>
+              </div>
+              
+              <div className="p-10">
+                 <div className="premium-card rounded-lg overflow-hidden border-[#EAEAEA]">
+                    <VehiclesLeaderboard
+                      vehicles={analyticsData.leaderboardData}
+                      trendData={analyticsData.consumptionTrendData}
+                    />
+                 </div>
+              </div>
             </div>
           )}
 
           {activeTab === "vehicles" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <VehiclesKPIStrip
-                totalVehicles={analyticsData.totalVehicles}
-                availableVehicles={analyticsData.availableVehicles}
-                maintenanceVehicles={analyticsData.maintenanceVehicles}
-                avgConsumption={analyticsData.avgConsumption}
-                trends={analyticsData.trends}
-              />
-
-              <div className="px-6 pb-8 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className="animate-in fade-in duration-500 flex flex-col h-full px-10 py-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start pb-16">
                 {/* Column: Available */}
-                <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col shadow-sm max-h-[700px]">
-                  <div className="px-4 py-3 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex flex-col h-full">
+                  <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-[#F7F8FA] border border-[#EAEAEA] rounded-t-lg border-b-none">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Unidades Operativas</span>
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#D4F04A]" />
+                      <h3 className="text-[11px] font-medium uppercase tracking-wider text-[#1C1C1C]">Unidades en Servicio</h3>
                     </div>
-                    <span className="text-[9px] font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">{groups.available.length}</span>
+                    <Badge className="bg-[#1C1C1C] text-[#D4F04A] font-medium h-6 px-3 border-none tabular-nums text-[10px] rounded-full">
+                      {groups.available.length}
+                    </Badge>
                   </div>
-                  <ScrollArea className="flex-1 p-4">
-                    <div className="space-y-3">
-                      {groups.available.length > 0 ? (
-                        groups.available.map(renderVehicleCard)
-                      ) : (
-                        <div className="py-8 text-center">
-                          <p className="text-[9px] font-bold text-slate-300 uppercase italic">Sin unidades registradas</p>
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
+                  <div className="bg-white border-x border-[#EAEAEA] border-b rounded-b-lg p-6 flex flex-col gap-4">
+                    {groups.available.length > 0 ? (
+                      groups.available.map(renderVehicleCard)
+                    ) : (
+                      <div className="py-20 text-center bg-[#F7F8FA] rounded-md border border-dashed border-[#EAEAEA]">
+                         <Truck strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mx-auto mb-3" />
+                         <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/50">Sin unidades registradas</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Column: Maintenance */}
-                <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col shadow-sm max-h-[700px]">
-                  <div className="px-4 py-3 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex flex-col h-full">
+                  <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-[#F7F8FA] border border-[#EAEAEA] rounded-t-lg border-b-none">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">En Taller / Revisión</span>
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#6B7280]/40" />
+                      <h3 className="text-[11px] font-medium uppercase tracking-wider text-[#1C1C1C]">En Mantenimiento</h3>
                     </div>
-                    <span className="text-[9px] font-black text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">{groups.maintenance.length}</span>
+                    <Badge className="bg-[#6B7280] text-white font-medium h-6 px-3 border-none tabular-nums text-[10px] rounded-full">
+                      {groups.maintenance.length}
+                    </Badge>
                   </div>
-                  <ScrollArea className="flex-1 p-4">
-                    <div className="space-y-3">
-                      {groups.maintenance.length > 0 ? (
-                        groups.maintenance.map(renderVehicleCard)
-                      ) : (
-                        <div className="py-8 text-center">
-                          <p className="text-[9px] font-bold text-slate-300 uppercase italic">Sin unidades en taller</p>
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
+                  <div className="bg-white border-x border-[#EAEAEA] border-b rounded-b-lg p-6 flex flex-col gap-4">
+                    {groups.maintenance.length > 0 ? (
+                      groups.maintenance.map(renderVehicleCard)
+                    ) : (
+                      <div className="py-20 text-center bg-[#F7F8FA] rounded-md border border-dashed border-[#EAEAEA]">
+                         <Wrench strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mx-auto mb-3" />
+                         <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/50">Sin unidades en taller</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === "maintenance" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <div className="p-8">
-                <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
-                  <Wrench className="h-16 w-16 text-slate-200 mx-auto mb-6" />
-                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest mb-2">Mantenimiento Predictivo</h3>
-                  <p className="text-slate-400 text-sm max-w-md mx-auto">Este módulo se encuentra en fase de integración con telemetría avanzada.</p>
-                </div>
+            <div className="animate-in fade-in duration-200 p-10">
+              <div className="premium-card p-16 text-center border-[#EAEAEA] bg-[#F7F8FA] rounded-lg">
+                <Wrench strokeWidth={1} className="h-12 w-12 text-[#6B7280]/20 mx-auto mb-6" />
+                <h3 className="text-sm font-medium uppercase tracking-wider text-[#1C1C1C] mb-2">Mantenimiento Predictivo</h3>
+                <p className="text-[#6B7280] text-[12px] font-normal max-w-xs mx-auto leading-relaxed">Sincronización de telemetría y análisis de ciclos de vida en proceso.</p>
               </div>
             </div>
           )}

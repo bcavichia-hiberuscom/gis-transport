@@ -17,8 +17,18 @@ import {
   ChevronDown,
   Truck,
   Activity,
+  Navigation,
+  Flame,
+  MousePointer2,
+  Gauge,
+  Workflow,
+  Sparkles,
+  Route,
+  Layers
 } from "lucide-react";
 import { cn, calculateDistance } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import type { FleetJob, FleetVehicle, RouteData, VehicleGroup, Zone } from "@gis/shared";
 
 // Analytical & Corporate Components
@@ -42,7 +52,7 @@ interface OrdersTabProps {
   fetchJobs?: () => Promise<void>;
   removeJob?: (jobId: string | number) => void;
   setJobAssignments?: (assignments: { jobId: string | number; vehicleId?: string | number, groupId?: string | number }[]) => void;
-  startRouting?: (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[] }) => Promise<any>;
+  startRouting?: (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[], preference?: "fastest" | "shortest" | "recommended", traffic?: boolean }) => Promise<any>;
   onJobSelect?: (job: FleetJob) => void;
   vehicleGroups?: VehicleGroup[];
   addVehicleGroup?: (name: string, vehicleIds?: (string | number)[]) => Promise<string | null>;
@@ -70,9 +80,10 @@ export function OrdersTab({
   toggleVehicleInGroup,
   updateVehicleGroupName,
 }: OrdersTabProps) {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(fleetJobs.length === 0 ? "orders" : "overview");
   const [currentPeriod, setCurrentPeriod] = useState<TimePeriod>("30d");
   const [visibleLogsJobId, setVisibleLogsJobId] = useState<string | number | null>(null);
+  
 
   const analyticsData = useMemo(() => {
     const totalJobs = fleetJobs.length;
@@ -89,20 +100,24 @@ export function OrdersTab({
     ];
 
     const statusData = [
-      { name: "Completadas", value: completedJobs, color: "#10b981" },
-      { name: "Pendientes", value: pendingJobs, color: "#f59e0b" },
-      { name: "En Proceso", value: inProgressJobs, color: "#3b82f6" },
+      { name: "Completadas", value: completedJobs, color: "#D4F04A" },
+      { name: "Pendientes", value: pendingJobs, color: "#6B7280" },
+      { name: "En Proceso", value: inProgressJobs, color: "#1C1C1C" },
     ];
 
     const leaderboardData = fleetJobs
-      .map((j) => ({
-        id: j.id,
-        label: (j as any).label || String(j.id),
-        value: (j as any).distance || 0,
-        metric: "distance" as const,
-        status: (j as any).status === "completed" ? ("good" as const) : (j as any).status === "in_progress" ? ("warning" as const) : ("critical" as const),
-      }))
-      .sort((a, b) => b.value - a.value)
+      .map((j) => {
+        const isCompleted = (j as any).status === "completed";
+        const isInProgress = (j as any).status === "in_progress";
+        return {
+          id: j.id,
+          label: (j as any).label || `ORD-${String(j.id).padStart(3, '0')}`,
+          value: (j as any).distance || 15.5,
+          metric: "time" as const,
+          status: isCompleted ? ("good" as const) : isInProgress ? ("warning" as const) : ("critical" as const),
+        };
+      })
+      .sort((a, b) => (a.status === "critical" ? 1 : 0) - (b.status === "critical" ? 1 : 0) || b.value - a.value)
       .slice(0, 5);
 
     return {
@@ -126,8 +141,7 @@ export function OrdersTab({
   const renderJobCard = (job: FleetJob) => {
     const assignedVehicle = fleetVehicles.find(v => String(v.id) === String(job.assignedVehicleId));
     const assignedGroup = vehicleGroups.find(g => String(g.id) === String(job.assignedGroupId));
-    const isLogsVisible = visibleLogsJobId === job.id;
-
+    
     const distanceValue = job.distance ?? (
       (assignedVehicle && job.position)
         ? (calculateDistance(assignedVehicle.position, job.position) / 1000)
@@ -139,146 +153,141 @@ export function OrdersTab({
       <div
         key={job.id}
         onClick={() => onJobSelect?.(job)}
-        className="group bg-white border border-slate-100 rounded-lg p-5 hover:bg-slate-50/50 transition-all cursor-pointer relative"
+        className="premium-card p-5 group flex flex-col gap-4 border-[#EAEAEA] hover:border-[#D4F04A]/40 transition-all bg-white cursor-pointer"
       >
-        <div className="flex items-start gap-5">
-          <div className="shrink-0">
-            <div className="h-10 w-10 bg-slate-50 flex items-center justify-center rounded-md border border-slate-200 text-[10px] font-black italic text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-all">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 bg-[#F7F8FA] flex items-center justify-center rounded-lg border border-[#EAEAEA] text-[10px] font-medium text-[#6B7280] group-hover:bg-[#1C1C1C] group-hover:text-[#D4F04A] group-hover:border-[#1C1C1C] transition-all shrink-0">
               {String((job as any).label || "PK").substring(0, 2).toUpperCase()}
             </div>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-[13px] font-medium text-[#1C1C1C] truncate tracking-tight">
+                  {(job as any).label || job.id}
+                </h4>
+                {(job as any).priority === "high" && (
+                  <span className="h-4 px-1.5 bg-red-50 text-red-700 text-[8px] font-medium rounded border border-red-100 flex items-center tracking-wider">CRÍTICO</span>
+                )}
+              </div>
+              <span className="text-[9px] font-medium text-[#6B7280]/60 tabular-nums uppercase tracking-widest mt-0.5">
+                ID: {String(job.id).substring(0, 8)}
+              </span>
+            </div>
           </div>
+          <ChevronRight strokeWidth={1.5} className="h-4 w-4 text-[#6B7280]/40 group-hover:text-[#1C1C1C] transition-all group-hover:translate-x-0.5" />
+        </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-[12px] font-black text-slate-900 truncate tracking-tighter uppercase group-hover:text-blue-600 transition-colors italic">
-                    {(job as any).label || job.id}
-                  </h4>
-                  {(job as any).priority === "high" && (
-                    <span className="h-4 px-1.5 bg-rose-50 text-rose-600 text-[8px] font-black rounded flex items-center uppercase tracking-widest border border-rose-100 italic">CRITICAL</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] tabular-nums">
-                    UNIT ID: {String(job.id).substring(0, 8)}
-                  </span>
-                </div>
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#F7F8FA]">
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wider">Asignación</span>
+            {assignedVehicle ? (
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-[#D4F04A]" />
+                <span className="text-[11px] font-medium text-[#1C1C1C] truncate">{assignedVehicle.label}</span>
               </div>
-              <ChevronRight className="h-4 w-4 text-slate-200 group-hover:text-slate-900 transition-transform group-hover:translate-x-1" />
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ASIGNACIÓN</span>
-                {assignedVehicle ? (
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-3 w-3 text-blue-500" />
-                    <span className="text-[10px] font-black text-slate-900 uppercase italic truncate">{assignedVehicle.label}</span>
-                  </div>
-                ) : assignedGroup ? (
-                  <div className="flex items-center gap-2">
-                    <Users className="h-3 w-3 text-amber-500" />
-                    <span className="text-[10px] font-black text-slate-900 uppercase italic truncate">{assignedGroup.name}</span>
-                  </div>
-                ) : (
-                  <span className="text-[9px] font-bold text-slate-300 uppercase italic italic">POOL ABIERTO</span>
-                )}
+            ) : assignedGroup ? (
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                <span className="text-[11px] font-medium text-[#1C1C1C] truncate">{assignedGroup.name}</span>
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">RESPONSABLE</span>
-                {assignedVehicle?.driver ? (
-                  <div className="flex items-center gap-2">
-                    <div className="h-1 w-1 rounded-full bg-emerald-500" />
-                    <span className="text-[10px] font-black text-slate-900 uppercase italic truncate">{assignedVehicle.driver.name}</span>
-                  </div>
-                ) : (
-                  <span className="text-[9px] font-bold text-slate-300 uppercase italic">PENDIENTE</span>
-                )}
-              </div>
-            </div>
-
-            {(distanceFormatted || job.eta) && (
-              <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-3">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3 w-3 text-slate-300" />
-                  <span className="text-[9px] font-black text-slate-500 tracking-tighter uppercase tabular-nums">{distanceFormatted || "N/A KM"}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3 w-3 text-slate-300" />
-                    <span className="text-[9px] font-black text-slate-500 uppercase tabular-nums">{job.eta || "09:00"}</span>
-                  </div>
-                  {(job as any).status === "completed" && (
-                    <div className="h-4 w-4 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <Zap className="h-2 w-2 text-emerald-600 fill-emerald-600" />
-                    </div>
-                  )}
-                </div>
-              </div>
+            ) : (
+              <span className="text-[10px] font-normal text-[#6B7280]/40 uppercase">Pendiente</span>
             )}
           </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wider">Planificación</span>
+            <div className="flex items-center gap-1.5">
+              <Clock strokeWidth={1.5} className="h-3 w-3 text-[#6B7280]/60" />
+              <span className="text-[11px] font-medium text-[#1C1C1C] tabular-nums">
+                {(job as any).status === "completed" ? "Finalizado" : (job.eta || "En cola")}
+              </span>
+            </div>
+          </div>
         </div>
+
+        {distanceFormatted && (
+          <div className="pt-3 border-t border-[#F7F8FA] flex items-center justify-between">
+             <div className="flex items-center gap-2">
+                <Navigation strokeWidth={1.5} className="h-3 w-3 text-[#6B7280]/40" />
+                <span className="text-[10px] font-medium text-[#6B7280] tabular-nums">{distanceFormatted}</span>
+             </div>
+             {(job as any).status === "completed" && (
+                <div className="flex items-center gap-1.5 bg-[#D4F04A]/10 px-2 py-0.5 rounded border border-[#D4F04A]/20">
+                  <Zap className="h-2.5 w-2.5 text-[#5D6B1A]" />
+                  <span className="text-[9px] font-medium text-[#5D6B1A] tracking-tight">SLA OK</span>
+                </div>
+             )}
+          </div>
+        )}
       </div>
     );
   };
 
 
   return (
-    <div className="flex flex-col grow h-full bg-white overflow-hidden">
-      <div className="shrink-0 bg-white border-b border-slate-100">
-        <div className="px-8 py-8 flex items-end justify-between gap-6">
+    <div className="flex flex-col grow h-full bg-white animate-in fade-in duration-500">
+      <div className="shrink-0 border-b border-[#EAEAEA]">
+        <div className="px-10 py-10 flex items-center justify-between gap-10">
           <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2">
-              <Activity className="h-4 w-4 text-sky-500" />
-              Despacho y Control Operativo
+            <h2 className="text-base font-semibold tracking-tight text-[#1C1C1C] flex items-center gap-3">
+              <Package strokeWidth={1.5} className="h-5 w-5" />
+              Gestión de Pedidos
             </h2>
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-              Monitoreo de Carga y Auditoría de Distribución
+            <p className="text-[13px] text-[#6B7280] font-normal mt-1">
+              Planificación operativa y optimización dinámica de la cadena de suministro.
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <PeriodSelector currentPeriod={currentPeriod} onPeriodChange={setCurrentPeriod} />
+          <div className="flex items-center gap-6">
             {activeTab === "orders" && (
               <Button
-                className="h-10 px-6 bg-slate-950 hover:bg-black text-white font-black text-[10px] uppercase tracking-widest rounded-lg shadow-lg shadow-slate-100 transition-all border-b-2 border-slate-800"
+                className="h-10 px-6 bg-[#1C1C1C] hover:bg-[#D4F04A] hover:text-[#1C1C1C] text-white font-medium text-[12px] uppercase tracking-wider rounded-md transition-all shadow-none border-none"
                 onClick={addJob}
               >
-                <Plus className="h-3.5 w-3.5 mr-2" />
-                Registrar Pedido
+                <Plus strokeWidth={1.5} className="h-4 w-4 mr-2" />
+                Nueva Orden
               </Button>
             )}
           </div>
         </div>
 
-        <div className="flex border-b border-slate-100 px-8 gap-10">
-          {["overview", "orders", "assignment"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "py-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative flex items-center gap-2",
-                activeTab === tab
-                  ? "text-slate-900 font-black"
-                  : "text-slate-500 hover:text-slate-900"
-              )}
-            >
-              <Settings2 className={cn("h-3.5 w-3.5", activeTab === tab ? "text-slate-950" : "text-slate-400")} />
-              {tab === "overview" ? "Analytics" : tab === "orders" ? "Gestión" : "Asignación"}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-950 rounded-t-full" />
-              )}
-            </button>
-          ))}
+        <div className="flex px-10 gap-8">
+          {[
+            { id: "overview", label: "Analytics", icon: Activity },
+            { id: "orders", label: "Gestión", icon: Layers },
+            { id: "assignment", label: "Asignación", icon: Workflow }
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "py-4 text-[11px] font-medium tracking-wider uppercase transition-all relative flex items-center gap-2",
+                  isActive
+                    ? "text-[#1C1C1C]"
+                    : "text-[#6B7280] hover:text-[#1C1C1C]"
+                )}
+              >
+                <tab.icon strokeWidth={isActive ? 2 : 1.5} className={cn("h-4 w-4 transition-all", isActive ? "text-[#1C1C1C] scale-110" : "text-[#6B7280]/60")} />
+                {tab.label}
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#1C1C1C] rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <ScrollArea className="flex-1 min-h-0 bg-white">
         <div className="flex flex-col">
           {activeTab === "overview" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-400 bg-slate-50/10">
+            <div className="animate-in fade-in duration-500 p-10 space-y-10">
+              <div className="flex justify-end mb-6">
+                <PeriodSelector currentPeriod={currentPeriod} onPeriodChange={setCurrentPeriod} />
+              </div>
               <OrdersKPIStrip
                 totalJobs={analyticsData.totalJobs}
                 completedJobs={analyticsData.completedJobs}
@@ -286,7 +295,7 @@ export function OrdersTab({
                 completionRate={analyticsData.completionRate}
                 trends={analyticsData.trends}
               />
-              <div className="grid grid-cols-1 xl:grid-cols-2 bg-white border-y border-slate-100 divide-x divide-slate-100">
+              <div className="grid grid-cols-1 xl:grid-cols-2 premium-card rounded-lg overflow-hidden border-[#EAEAEA] divide-x divide-[#EAEAEA] bg-white p-4">
                 <OrdersTrendChart data={analyticsData.trendData} />
                 <OrdersStatusChart data={analyticsData.statusData} />
               </div>
@@ -295,84 +304,101 @@ export function OrdersTab({
           )}
 
           {activeTab === "orders" && (
-            <div className="flex-1 flex flex-col min-h-full bg-white relative">
-              {/* Subtle tech grid background */}
-              <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-                style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-
+            <div className="flex-1 flex flex-col min-h-full bg-white relative px-10 pt-10 pb-20">
               {fleetJobs.length === 0 ? (
-                <div
-                  onClick={addJob}
-                  className="flex-1 flex flex-col items-center justify-center p-20 cursor-pointer group animate-in fade-in duration-300 relative z-10"
-                >
-                  <div className="relative mb-8 transition-transform duration-300">
-                    <Package className="h-24 w-24 text-slate-100 group-hover:text-slate-200 transition-colors" />
-                    <div className="absolute -bottom-1 -right-1 h-8 w-8 bg-white border border-slate-100 text-slate-300 rounded-lg flex items-center justify-center group-hover:text-blue-600 group-hover:border-blue-100 group-hover:shadow-md transition-all">
-                      <Plus className="h-5 w-5" />
+                <div className="flex flex-col gap-10 relative z-10 p-4">
+                   <div 
+                    onClick={addJob}
+                    className="flex flex-col items-center justify-center p-24 border-2 border-dashed border-[#EAEAEA] bg-[#F7F8FA] rounded-xl group transition-all cursor-pointer hover:border-[#D4F04A]/60"
+                  >
+                    <div className="relative mb-8">
+                      <Package strokeWidth={1.25} className="h-16 w-16 text-[#6B7280]/20 group-hover:scale-105 transition-all group-hover:text-[#1C1C1C]" />
+                      <div className="absolute -bottom-2 -right-2 h-10 w-10 bg-[#1C1C1C] text-[#D4F04A] rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-all">
+                        <Plus strokeWidth={1.5} className="h-6 w-6" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <h3 className="text-xl font-black italic uppercase tracking-tighter text-slate-300 group-hover:text-slate-900 transition-colors">
-                      No hay pedidos asignados
+                    <h3 className="text-base font-medium tracking-tight text-[#1C1C1C] uppercase mb-2">
+                       Protocolo Despachador Vacío
                     </h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] max-w-sm leading-relaxed transition-colors group-hover:text-blue-600">
-                      Crea el primero
+                    <p className="text-[11px] font-normal text-[#6B7280] text-center max-w-sm leading-relaxed">
+                      No se han detectado órdenes en el sistema. Inicie una nueva operación para activar los algoritmos de optimización.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="p-10 space-y-8 relative z-10 animate-in fade-in duration-200">
-                  <div className="grid grid-cols-2 gap-12 items-start">
-                    {/* Columna: Pool de Pendientes */}
-                    <div className="bg-white rounded-none border-0 flex flex-col max-h-[calc(100vh-340px)] relative">
-                      <div className="flex items-center justify-between mb-6 border-b-2 border-slate-900 pb-4">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-900 italic">Pool de Pendientes</span>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Esperando auditoría logística</p>
-                        </div>
-                        <span className="text-[10px] font-black tabular-nums bg-slate-900 text-white px-2 py-0.5 rounded tracking-tighter">
-                          {fleetJobs.filter(j => !j.assignedVehicleId && !j.assignedGroupId).length}
-                        </span>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Columna: Pool de Pendientes */}
+                  <div className="flex flex-col h-full bg-white border border-[#EAEAEA] rounded-md shadow-sm overflow-hidden group hover:border-[#D0D0D0] transition-colors">
+                    <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#EAEAEA] bg-white relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#6B7280]/20" />
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#6B7280]" />
+                        <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#1C1C1C]">Pedidos Pendientes</h3>
                       </div>
-
-                      <ScrollArea className="flex-1 pr-4 -mr-4">
-                        <div className="space-y-3 pb-10">
-                          {fleetJobs.filter(j => !j.assignedVehicleId && !j.assignedGroupId).length > 0 ? (
-                            fleetJobs.filter(j => !j.assignedVehicleId && !j.assignedGroupId).map(renderJobCard)
-                          ) : (
-                            <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-50 rounded-2xl opacity-40">
-                              <Package className="h-10 w-10 text-slate-300 mb-3" />
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Sin carga pendiente</span>
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
+                      <Badge className="bg-[#F7F8FA] text-[#6B7280] h-6 px-3 border border-[#EAEAEA] font-bold tabular-nums rounded text-[10px]">
+                        {fleetJobs.filter(j => !j.assignedVehicleId && !j.assignedGroupId && (j as any).status !== "completed").length}
+                      </Badge>
                     </div>
 
-                    {/* Columna: Asignaciones en Curso */}
-                    <div className="bg-white rounded-none border-0 flex flex-col max-h-[calc(100vh-340px)] relative">
-                      <div className="flex items-center justify-between mb-6 border-b-2 border-slate-200 pb-4">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Asignaciones Activas</span>
-                          <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">Flota en movimiento o preparada</p>
+                    <div className="flex-1 p-4 bg-[#F7F8FA]/50 flex flex-col gap-4 overflow-y-auto">
+                      {fleetJobs.filter(j => !j.assignedVehicleId && !j.assignedGroupId && (j as any).status !== "completed").length > 0 ? (
+                        fleetJobs.filter(j => !j.assignedVehicleId && !j.assignedGroupId && (j as any).status !== "completed").map(renderJobCard)
+                      ) : (
+                        <div className="py-20 text-center bg-white rounded-md border border-dashed border-[#EAEAEA] flex flex-col items-center justify-center h-full">
+                          <Package strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mb-3" />
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/50">Cola Vacía</p>
                         </div>
-                        <span className="text-[10px] font-black tabular-nums bg-slate-100 text-slate-600 px-2 py-0.5 rounded tracking-tighter border border-slate-200">
-                          {fleetJobs.filter(j => !!j.assignedVehicleId || !!j.assignedGroupId).length}
-                        </span>
-                      </div>
+                      )}
+                    </div>
+                  </div>
 
-                      <ScrollArea className="flex-1 pr-4 -mr-4">
-                        <div className="space-y-3 pb-10">
-                          {fleetJobs.filter(j => !!j.assignedVehicleId || !!j.assignedGroupId).length > 0 ? (
-                            fleetJobs.filter(j => !!j.assignedVehicleId || !!j.assignedGroupId).map(renderJobCard)
-                          ) : (
-                            <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-50 rounded-2xl opacity-40">
-                              <Truck className="h-10 w-10 text-slate-300 mb-3" />
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Sin flota activa</span>
-                            </div>
-                          )}
+                  {/* Columna: En Tránsito */}
+                  <div className="flex flex-col h-full bg-white border border-[#EAEAEA] rounded-md shadow-sm overflow-hidden group hover:border-[#D0D0D0] transition-colors">
+                    <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#EAEAEA] bg-white relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#1C1C1C]" />
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#1C1C1C] outline outline-2 outline-offset-1 outline-[#EAEAEA]" />
+                        <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#1C1C1C]">En Tránsito</h3>
+                      </div>
+                      <Badge className="bg-[#1C1C1C] text-[#D4F04A] h-6 px-3 border border-[#1C1C1C] font-bold tabular-nums rounded text-[10px]">
+                        {fleetJobs.filter(j => (!!j.assignedVehicleId || !!j.assignedGroupId) && (j as any).status !== "completed").length}
+                      </Badge>
+                    </div>
+
+                    <div className="flex-1 p-4 bg-[#F7F8FA]/50 flex flex-col gap-4 overflow-y-auto">
+                      {fleetJobs.filter(j => (!!j.assignedVehicleId || !!j.assignedGroupId) && (j as any).status !== "completed").length > 0 ? (
+                        fleetJobs.filter(j => (!!j.assignedVehicleId || !!j.assignedGroupId) && (j as any).status !== "completed").map(renderJobCard)
+                      ) : (
+                        <div className="py-20 text-center bg-white rounded-md border border-dashed border-[#EAEAEA] flex flex-col items-center justify-center h-full">
+                          <Truck strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mb-3" />
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/50">Sin Actividad</p>
                         </div>
-                      </ScrollArea>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Columna: Completados */}
+                  <div className="flex flex-col h-full bg-white border border-[#EAEAEA] rounded-md shadow-sm overflow-hidden group hover:border-[#D0D0D0] transition-colors">
+                    <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#EAEAEA] bg-white relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#D4F04A]" />
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#D4F04A]" />
+                        <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#1C1C1C]">Finalizados</h3>
+                      </div>
+                      <Badge className="bg-[#D4F04A]/10 text-[#5D6B1A] border-[#D4F04A]/20 h-6 px-3 font-bold tabular-nums rounded text-[10px]">
+                        {fleetJobs.filter(j => (j as any).status === "completed").length}
+                      </Badge>
+                    </div>
+
+                    <div className="flex-1 p-4 bg-[#F7F8FA]/50 flex flex-col gap-4 overflow-y-auto">
+                      {fleetJobs.filter(j => (j as any).status === "completed").length > 0 ? (
+                        fleetJobs.filter(j => (j as any).status === "completed").map(renderJobCard)
+                      ) : (
+                        <div className="py-20 text-center bg-white rounded-md border border-dashed border-[#EAEAEA] flex flex-col items-center justify-center h-full">
+                          <Zap strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mb-3" />
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/50">Sin Historial</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -381,7 +407,7 @@ export function OrdersTab({
           )}
 
           {activeTab === "assignment" && (
-            <div className="flex-1">
+            <div className="flex-1 animate-in fade-in duration-500">
               <AsignacionView
                 fleetJobs={fleetJobs}
                 fleetVehicles={fleetVehicles}

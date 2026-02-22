@@ -105,11 +105,6 @@ interface RenderVehiclesProps {
   onUpdateType?: (vehicleId: string, type: VehicleType) => void;
   onUpdateLabel?: (vehicleId: string, label: string) => void;
   onSelect?: (vehicleId: string) => void;
-  onHover?: (
-    vehicleId: string,
-    pixelPosition: { x: number; y: number },
-  ) => void;
-  onHoverOut?: () => void;
   zoom: number;
   vehicleAlerts?: Record<string | number, any[]>;
 }
@@ -294,8 +289,6 @@ export function renderVehicleMarkers({
   selectedVehicleId,
   createVehicleIcon,
   onSelect,
-  onHover,
-  onHoverOut,
   zoom,
   vehicleAlerts = {},
 }: RenderVehiclesProps) {
@@ -368,14 +361,6 @@ export function renderVehicleMarkers({
           }}
           eventHandlers={{
             click: () => onSelect?.(String(vehicle.id)),
-            mouseover: (e) => {
-              const map = e.target._map;
-              if (map) {
-                const point = map.latLngToContainerPoint(e.latlng);
-                onHover?.(String(vehicle.id), { x: point.x, y: point.y });
-              }
-            },
-            mouseout: () => onHoverOut?.(),
           }}
         />
       );
@@ -392,14 +377,6 @@ export function renderVehicleMarkers({
         opacity={opacity}
         eventHandlers={{
           click: () => onSelect?.(String(vehicle.id)),
-          mouseover: (e) => {
-            const map = e.target._map;
-            if (map) {
-              const point = map.latLngToContainerPoint(e.latlng);
-              onHover?.(String(vehicle.id), { x: point.x, y: point.y });
-            }
-          },
-          mouseout: () => onHoverOut?.(),
         }}
       />
     );

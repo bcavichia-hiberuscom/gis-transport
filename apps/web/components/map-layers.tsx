@@ -4,7 +4,8 @@ import { memo, useMemo } from "react";
 import { Polygon, Popup, Marker, Tooltip } from "react-leaflet";
 import { Edit2, Eye, Trash2 } from "lucide-react";
 import { THEME } from "@/lib/theme";
-import type { Zone, RouteWeather } from "@gis/shared";
+import { cn } from "@/lib/utils";
+import type { Zone, RouteWeather, LayerVisibility } from "@gis/shared";
 
 interface ZoneLayerProps {
   zones: Zone[];
@@ -86,34 +87,37 @@ export const ZoneLayer = memo(
           let style;
           if (isCustom) {
             if (isLEZ) {
-              // Custom LEZ zones with modern purple gradient styling
+              // Custom LEZ zones
               const config = THEME.map.polygons.customZone.lez;
               style = {
                 color: config.primaryColor,
-                fillColor: config.primaryColor,
+                fillColor: (config as any).fillColor || "#1C1C1C",
                 fillOpacity: config.fillOpacity,
                 weight: config.weight,
                 dashArray: config.dashArray,
+                className: "custom-zone-polygon"
               };
             } else if (hasAccess) {
-              // Custom accessible zones with modern cyan gradient styling
+              // Custom accessible zones
               const config = THEME.map.polygons.customZone.accessible;
               style = {
                 color: config.primaryColor,
-                fillColor: config.primaryColor,
+                fillColor: (config as any).fillColor || "#1C1C1C",
                 fillOpacity: config.fillOpacity,
                 weight: config.weight,
                 dashArray: config.dashArray,
+                className: "custom-zone-polygon"
               };
             } else {
-              // Custom restricted zones with modern red gradient styling
+              // Custom restricted zones
               const config = THEME.map.polygons.customZone.restricted;
               style = {
                 color: config.primaryColor,
-                fillColor: config.primaryColor,
+                fillColor: (config as any).fillColor || "#1C1C1C",
                 fillOpacity: config.fillOpacity,
                 weight: config.weight,
                 dashArray: config.dashArray,
+                className: "custom-zone-polygon"
               };
             }
           } else {
@@ -185,72 +189,53 @@ export const ZoneLayer = memo(
                 <Popup
                   closeButton={false}
                   autoClose={false}
-                  className="zone-popup"
+                  className="premium-map-popup"
                 >
-                  <div
-                    style={{ fontSize: THEME.map.popups.fontSize }}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <div>
-                      <strong>{zone.name}</strong>
-                      {zone.description && (
-                        <div style={{ fontSize: '11px', color: '#888', marginTop: 2 }}>
-                          {zone.description}
-                        </div>
-                      )}
-                      {zType === "LEZ" && (
-                        <div
-                          style={{
-                            color: hasAccess
-                              ? THEME.colors.success
-                              : THEME.colors.danger,
-                            marginTop: 4,
-                          }}
-                        >
-                          {hasAccess ? "Access OK" : "Restricted"}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {isCustom && onToggleVisibility && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleVisibility(zone.id);
-                          }}
-                          className="p-1.5 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-primary"
-                          title="Ocultar zona"
-                        >
-                          <Eye size={16} />
-                        </button>
-                      )}
-                      {isCustom && onEditZone && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditZone(zone.id);
-                          }}
-                          className="p-1.5 hover:bg-muted rounded transition-colors"
-                          title="Editar zona"
-                        >
-                          <Edit2 size={16} className="text-primary" />
-                        </button>
-                      )}
-                      {isCustom && onDeleteZone && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`¿Estás seguro de eliminar la zona "${zone.name}"?`)) {
-                              onDeleteZone(zone.id);
-                            }
-                          }}
-                          className="p-1.5 hover:bg-red-50 rounded transition-colors text-red-500 hover:text-red-600"
-                          title="Eliminar zona"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
+                  <div className="bg-[#1C1C1C] text-white px-3 py-2 min-w-[180px] rounded-md shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/10 border-l-2 border-l-[#D4F04A] flex items-center justify-between gap-4">
+                    <strong className="text-[11px] font-bold tracking-widest uppercase leading-tight truncate max-w-[150px]">{zone.name}</strong>
+                    
+                    {(isCustom && (onToggleVisibility || onEditZone || onDeleteZone)) && (
+                      <div className="flex items-center gap-0.5">
+                        {onToggleVisibility && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleVisibility(zone.id);
+                            }}
+                            className="p-1.5 hover:bg-[#D4F04A]/10 rounded transition-colors text-[#D4F04A] hover:opacity-80"
+                            title="Ocultar zona"
+                          >
+                            <Eye size={12} strokeWidth={2.5} />
+                          </button>
+                        )}
+                        {onEditZone && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditZone(zone.id);
+                            }}
+                            className="p-1.5 hover:bg-[#D4F04A]/10 rounded transition-colors text-[#D4F04A] hover:opacity-80"
+                            title="Editar zona"
+                          >
+                            <Edit2 size={12} strokeWidth={2.5} />
+                          </button>
+                        )}
+                        {onDeleteZone && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`¿Estás seguro de eliminar la zona "${zone.name}"?`)) {
+                                onDeleteZone(zone.id);
+                              }
+                            }}
+                            className="p-1.5 hover:bg-[#EF4444]/20 rounded transition-colors text-[#EF4444]"
+                            title="Eliminar zona"
+                          >
+                            <Trash2 size={12} strokeWidth={2.5} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Popup>
               )}
@@ -282,57 +267,68 @@ interface WeatherMarkersLayerProps {
     ice: any;
     wind: any;
     fog: any;
+    heat: any;
+    cold: any;
   };
+  layers: LayerVisibility;
 }
 
 export const WeatherMarkersLayer = memo(
   function WeatherMarkersLayer({
     weatherRoutes,
     icons,
+    layers
   }: WeatherMarkersLayerProps) {
-    // Memoize weather markers processing
     const weatherMarkers = useMemo(() => {
-      if (!weatherRoutes) return [];
+      if (!weatherRoutes || weatherRoutes.length === 0) return [];
 
-      return weatherRoutes.flatMap(
-        (wr, wrIdx) =>
-          wr.alerts
-            ?.map((alert, idx) => {
-              if (alert.lat == null || alert.lon == null) return null;
+      // Priority for severity: HIGH > MEDIUM > LOW
+      const severityMap: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      
+      let overallBest: any = null;
 
-              let icon;
-              switch (alert.event) {
-                case "SNOW":
-                  icon = icons.snow;
-                  break;
-                case "RAIN":
-                  icon = icons.rain;
-                  break;
-                case "ICE":
-                  icon = icons.ice;
-                  break;
-                case "WIND":
-                  icon = icons.wind;
-                  break;
-                case "FOG":
-                  icon = icons.fog;
-                  break;
-                default:
-                  return null;
-              }
+      weatherRoutes.forEach(wr => {
+        if (!wr.alerts) return;
+        wr.alerts.forEach(alert => {
+            // Filter by active layers
+            const isRainType = ["RAIN", "SNOW", "ICE", "FOG"].includes(alert.event);
+            const isWindType = alert.event === "WIND";
+            const isTempType = ["HEAT", "COLD"].includes(alert.event);
 
-              return {
-                key: `weather-${wrIdx}-${idx}`,
-                position: [alert.lat, alert.lon] as [number, number],
-                icon,
-                message: alert.message,
-              };
-            })
-            .filter(
-              (marker): marker is NonNullable<typeof marker> => marker !== null,
-            ) || [],
-      );
-    }, [weatherRoutes, icons]);
+            if (isRainType && !layers.weatherRain) return;
+            if (isWindType && !layers.weatherWind) return;
+            if (isTempType && !layers.weatherTemp) return;
+
+            if (!overallBest || (severityMap[alert.severity] || 0) > (severityMap[overallBest.severity] || 0)) {
+                overallBest = { ...alert, vehicle: wr.vehicle };
+            }
+        });
+      });
+
+      if (!overallBest || overallBest.lat == null || overallBest.lon == null) return [];
+
+      let icon;
+      switch (overallBest.event) {
+        case "SNOW": icon = icons.snow; break;
+        case "RAIN": icon = icons.rain; break;
+        case "ICE": icon = icons.ice; break;
+        case "WIND": icon = icons.wind; break;
+        case "FOG": icon = icons.fog; break;
+        case "HEAT": icon = icons.heat; break;
+        case "COLD": icon = icons.cold; break;
+        default: return [];
+      }
+
+      return [{
+        key: 'weather-primary-alert',
+        position: [overallBest.lat + 0.0003, overallBest.lon + 0.0003] as [number, number],
+        icon,
+        value: overallBest.value,
+        direction: overallBest.direction,
+        event: overallBest.event,
+        severity: overallBest.severity
+      }];
+    }, [weatherRoutes, icons, layers]);
 
     return (
       <>
@@ -342,8 +338,40 @@ export const WeatherMarkersLayer = memo(
             position={marker.position}
             icon={marker.icon}
           >
-            <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-              <span style={{ fontSize: 12 }}>{marker.message}</span>
+            <Tooltip 
+              direction="right" 
+              offset={[10, 0]} 
+              opacity={1} 
+              className="!p-0 !bg-transparent !border-none !shadow-none"
+            >
+              <div className="flex items-center gap-2 px-2 py-1 bg-white border border-[#EAEAEA] rounded shadow-sm">
+                <div className="flex flex-col items-center leading-none border-r border-[#EAEAEA] pr-2">
+                   <span className="text-[11px] font-bold text-[#1C1C1C]">
+                     {marker.value != null ? Math.round(marker.value) : ''}
+                   </span>
+                   <span className="text-[7px] text-[#6B7280] uppercase tracking-tighter">
+                     {marker.event === 'WIND' ? 'm/s' : 'º'}
+                   </span>
+                </div>
+                
+                {marker.direction !== undefined && marker.event === 'WIND' && (
+                  <div 
+                    className="text-[10px] text-[#1C1C1C]"
+                    style={{ transform: `rotate(${marker.direction}deg)` }}
+                  >
+                    ↓
+                  </div>
+                )}
+
+                <div className={cn(
+                  "text-[8px] font-bold px-1 rounded uppercase",
+                  marker.severity === 'HIGH' ? "text-red-600 bg-red-50" : 
+                  marker.severity === 'MEDIUM' ? "text-amber-600 bg-amber-50" : 
+                  "text-blue-600 bg-blue-50"
+                )}>
+                  {marker.event}
+                </div>
+              </div>
             </Tooltip>
           </Marker>
         ))}

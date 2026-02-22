@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 interface VehiclesStatusChartProps {
   data?: Array<{
@@ -17,7 +17,18 @@ const defaultData = [
   { name: "Offline", value: 2 },
 ];
 
-const COLORS = ["#10b981", "#64748b", "#f59e0b", "#ef4444"];
+// Monochrome palette
+const COLORS = ["#1C1C1C", "#D4F04A", "#6B7280", "#EAEAEA"];
+
+const TOOLTIP_STYLE = {
+  backgroundColor: "#fff",
+  border: "1px solid #EAEAEA",
+  borderRadius: "2px",
+  fontSize: "10px",
+  fontWeight: "500",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+  textTransform: "uppercase" as const,
+};
 
 export function VehiclesStatusChart({ data = defaultData }: VehiclesStatusChartProps) {
   const chartData = useMemo(() => {
@@ -25,37 +36,38 @@ export function VehiclesStatusChart({ data = defaultData }: VehiclesStatusChartP
   }, [data]);
 
   return (
-    <div className="h-64 w-full border-b border-slate-100 bg-gradient-to-b from-white via-primary/3 to-white rounded-none p-6">
-      <div className="flex flex-col gap-2 mb-4">
-        <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Estado de Flota</h3>
-        <p className="text-[10px] text-slate-500">Distribución de vehículos por estado</p>
+    <div className="chart-container">
+      <div className="mb-4">
+        <p className="chart-title">Estado de Flota</p>
+        <p className="chart-subtitle">Distribución de vehículos por estado</p>
       </div>
-      <ResponsiveContainer width="100%" height="85%">
-        <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={220}>
+        <PieChart>
           <Pie
             data={chartData}
             cx="50%"
             cy="50%"
-            labelLine={false}
-            label={({ name, value }) => `${name}: ${value}`}
-            outerRadius={60}
-            fill="#8884d8"
+            innerRadius={50}
+            outerRadius={80}
+            paddingAngle={2}
             dataKey="value"
           >
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "6px",
-              fontSize: "11px",
-            }}
-          />
+          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [`${value}`, name]} />
         </PieChart>
       </ResponsiveContainer>
+      {/* Custom legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+        {chartData.map((entry, index) => (
+          <div key={entry.name} className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+            <span className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wide">{entry.name}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

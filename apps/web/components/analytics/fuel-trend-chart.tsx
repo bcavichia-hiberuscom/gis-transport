@@ -11,7 +11,6 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { Fuel } from "lucide-react";
 
 interface FuelTrendDataPoint {
   date: string;
@@ -23,121 +22,120 @@ interface FuelTrendDataPoint {
 interface FuelTrendChartProps {
   data: FuelTrendDataPoint[];
   className?: string;
-  title?: string;
+  title?: string; // Kept for compatibility but not used for rendering header
 }
 
 export function FuelTrendChart({
   data,
-  title = "Tendencia de Consumo",
 }: FuelTrendChartProps) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const hasData = data && data.length > 0;
 
-  return (
-    <div className="p-10 border-r border-slate-100 bg-gradient-to-b from-white via-primary/3 to-white group">
-      <div className="flex items-start justify-between mb-10">
-        <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none">
-            Métricas de Fidelidad de Carga
-          </p>
-          <h3 className="text-sm font-black italic uppercase tracking-tighter text-slate-900 flex items-center gap-2 mt-1">
-            <Fuel className="h-4 w-4 text-orange-500" />
-            {title}
-          </h3>
-        </div>
-      </div>
+  if (!mounted) return <div className="h-full w-full bg-slate-50/50 animate-pulse rounded-lg" />;
 
-      <div className="h-[280px] w-full relative">
+  return (
+    <div className="h-full w-full flex flex-col" style={{ transform: 'translateZ(0)' }}>
+      <div className="flex-1 w-full relative">
         {!hasData ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-slate-100 rounded-xl">
-            <p className="text-[10px] font-bold text-slate-300 uppercase italic">
-              Sin datos históricos suficientes
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              Sin datos operativos
             </p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={data}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="4 4"
-                vertical={false}
-                stroke="rgba(0,0,0,0.04)"
-              />
-              <XAxis
-                dataKey="date"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 9, fontWeight: 900, fill: "#94a3b8" }}
-                dy={12}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 9, fontWeight: 900, fill: "#94a3b8" }}
-                domain={["auto", "auto"]}
-              />
-              <Tooltip
-                cursor={{
-                  stroke: "#0f172a",
-                  strokeWidth: 1,
-                  strokeDasharray: "4 4",
+          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={data}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                style={{ 
+                  transform: 'translateZ(0)',
+                  shapeRendering: 'geometricPrecision'
                 }}
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  fontSize: "10px",
-                  fontWeight: "900",
-                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                  textTransform: "uppercase",
-                }}
-              />
-              <Legend
-                verticalAlign="top"
-                align="right"
-                iconType="circle"
-                wrapperStyle={{
-                  fontSize: "9px",
-                  fontWeight: "900",
-                  textTransform: "uppercase",
-                  paddingBottom: "20px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="declared"
-                name="Facturado (L)"
-                stroke="#ff8a53"
-                strokeWidth={3}
-                dot={{ r: 4, fill: "#0f172a", strokeWidth: 2, stroke: "#fff" }}
-                activeDot={{ r: 6, strokeWidth: 0 }}
-                animationDuration={800}
-              />
-              <Line
-                type="monotone"
-                dataKey="expected"
-                name="Sensor (L)"
-                stroke="#a1e073"
-                strokeWidth={2}
-                strokeDasharray="6 4"
-                dot={{
-                  r: 3,
-                  fill: "#64748b",
-                  strokeWidth: 1.5,
-                  stroke: "#fff",
-                }}
-                animationDuration={1000}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+              >
+                <defs>
+                  <filter id="shadowLine1" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#1C1C1C" floodOpacity="0.2" />
+                  </filter>
+                  <filter id="shadowLine2" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#D4F04A" floodOpacity="0.3" />
+                  </filter>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f1f5f9"
+                  shapeRendering="crispEdges"
+                />
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 9, fontWeight: 600, fill: "#1e293b" }}
+                  dy={10}
+                  shapeRendering="crispEdges"
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 9, fontWeight: 600, fill: "#1e293b" }}
+                  shapeRendering="crispEdges"
+                />
+                <Tooltip
+                  cursor={{ stroke: "#f1f5f9", strokeWidth: 1 }}
+                  contentStyle={{
+                    backgroundColor: "#fff",
+                    border: "1px solid #f1f5f9",
+                    borderRadius: "12px",
+                    fontSize: "11px",
+                    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                    fontWeight: 600
+                  }}
+                />
+                <Legend
+                  verticalAlign="top"
+                  align="right"
+                  iconType="circle"
+                  wrapperStyle={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    paddingBottom: "25px",
+                  }}
+                />
+                <Line
+                  type="linear"
+                  dataKey="declared"
+                  name="Auditado"
+                  stroke="#1C1C1C"
+                  strokeWidth={4}
+                  dot={{ r: 4, fill: "#1C1C1C", strokeWidth: 2, stroke: "#fff" }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                  isAnimationActive={false}
+                  style={{ filter: "url(#shadowLine1)" }}
+                />
+                <Line
+                  type="linear"
+                  dataKey="expected"
+                  name="Telemetría"
+                  stroke="#D4F04A"
+                  strokeWidth={4}
+                  strokeDasharray="6 6"
+                  dot={{ r: 4, fill: "#D4F04A", strokeWidth: 2, stroke: "#1C1C1C" }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                  isAnimationActive={false}
+                  style={{ filter: "url(#shadowLine2)" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
-      </div>
-
-      <div className="mt-8 pt-6 border-t border-slate-100">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">
-          Unidad: Litros (L)
-        </p>
       </div>
     </div>
   );

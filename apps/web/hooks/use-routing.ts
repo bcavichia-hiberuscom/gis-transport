@@ -8,6 +8,7 @@ import type {
   LayerVisibility,
   IGisResponse,
   RouteNotice,
+  VehicleGroup,
 } from "@gis/shared";
 import { type RouteError } from "@/components/route-error-alert";
 
@@ -109,7 +110,7 @@ export function useRouting({
   }, []);
 
   // STABLE callback - uses refs to access current values
-  const startRouting = useCallback(async (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[] }) => {
+  const startRouting = useCallback(async (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[], preference?: "fastest" | "shortest" | "recommended", traffic?: boolean }) => {
     const vehicles = overrides?.vehicles || fleetVehiclesRef.current;
     const jobs = overrides?.jobs || fleetJobsRef.current;
     const pois = customPOIsRef.current;
@@ -201,6 +202,8 @@ export function useRouting({
           startTime: new Date().toISOString(),
           zones: zones,
           vehicleGroups: groups,
+          preference: overrides?.preference,
+          traffic: overrides?.traffic,
         }),
       });
 

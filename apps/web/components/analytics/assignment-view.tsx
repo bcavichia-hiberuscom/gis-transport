@@ -14,18 +14,26 @@ import {
     X,
     Search,
     Plus,
+    Workflow,
+    Gauge,
+    Route,
+    Sparkles,
+    Flame,
+    Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FleetJob, FleetVehicle, Zone, VehicleGroup } from "@gis/shared";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ManageGroupsDialog } from "@/components/manage-groups-dialog";
+import { Switch } from "@/components/ui/switch";
 
 interface AsignacionViewProps {
     fleetJobs: FleetJob[];
     fleetVehicles: FleetVehicle[];
     activeZones: Zone[];
     setJobAssignments: (assignments: { jobId: string | number; vehicleId?: string | number, groupId?: string | number }[]) => void;
-    startRouting: (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[] }) => Promise<any>;
+    startRouting: (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[], preference?: "fastest" | "shortest" | "recommended", traffic?: boolean }) => Promise<any>;
     isCalculatingRoute?: boolean;
     vehicleGroups?: VehicleGroup[];
     addVehicleGroup?: (name: string, vehicleIds?: (string | number)[]) => Promise<string | null>;
@@ -54,7 +62,13 @@ export function AsignacionView({
     const [focusGroupId, setFocusGroupId] = useState<string | number | null>(null);
     const [assignmentError, setAssignmentError] = useState<string | null>(null);
     const [jobSearch, setJobSearch] = useState("");
+    const [groupSearch, setGroupSearch] = useState("");
+    const [vehicleSearch, setVehicleSearch] = useState("");
     const [isCreateOnly, setIsCreateOnly] = useState(false);
+
+    // Filter states for routing
+    const [routingPreference, setRoutingPreference] = useState<"fastest" | "shortest" | "recommended">("recommended");
+    const [trafficEnabled, setTrafficEnabled] = useState(false);
 
     const unassignedJobs = useMemo(() =>
         fleetJobs.filter(j => !j.assignedVehicleId && !j.assignedGroupId),
@@ -67,6 +81,20 @@ export function AsignacionView({
             j.label.toLowerCase().includes(jobSearch.toLowerCase())
         );
     }, [unassignedJobs, jobSearch]);
+
+    const filteredGroups = useMemo(() => {
+        if (!groupSearch) return vehicleGroups;
+        return vehicleGroups.filter(g =>
+            g.name.toLowerCase().includes(groupSearch.toLowerCase())
+        );
+    }, [vehicleGroups, groupSearch]);
+
+    const filteredVehicles = useMemo(() => {
+        if (!vehicleSearch) return fleetVehicles;
+        return fleetVehicles.filter(v =>
+            v.label.toLowerCase().includes(vehicleSearch.toLowerCase())
+        );
+    }, [fleetVehicles, vehicleSearch]);
 
     const handleJobClick = (e: React.MouseEvent, jobId: string | number) => {
         if (e.shiftKey && lastClickedJobId && unassignedJobs.some(j => j.id === lastClickedJobId)) {
@@ -111,7 +139,7 @@ export function AsignacionView({
                     })) as FleetVehicle[];
 
                 if (vehiclesOverride.length === 0) {
-                    setAssignmentError("EL GRUPO SELECCIONADO NO TIENE VEHÍCULOS VINCULADOS");
+                    setAssignmentError("El grupo seleccionado no tiene vehículos vinculados");
                     setPendingAssignment(null);
                     return;
                 }
@@ -121,8 +149,15 @@ export function AsignacionView({
         try {
             const result = await startRouting({
                 jobs: nextJobs,
-                vehicles: vehiclesOverride
+                vehicles: vehiclesOverride,
+                preference: routingPreference,
+                traffic: trafficEnabled
             });
+
+            if (result && (result as any).aborted) {
+                // Routing was temporarily aborted (e.g. missing driver). We still want to assign the jobs! 
+                // The dialog in gis-map will handle the routing once the driver is assigned.
+            }
 
             if (result && (result as any).error) {
                 throw new Error((result as any).error);
@@ -134,7 +169,7 @@ export function AsignacionView({
 
                 if (actuallyFailedSelection.length > 0) {
                     const failInfo = result.unassignedJobs.find((u: any) => String(u.id) === String(actuallyFailedSelection[0]));
-                    throw new Error(failInfo?.reason || "RESTRICTED: NO SE ENCONTRÓ RUTA VÁLIDA PARA ESTA ASIGNACIÓN");
+                    throw new Error(failInfo?.reason || "Restricción: No se encontró ruta válida para esta asignación");
                 }
             }
 
@@ -142,64 +177,116 @@ export function AsignacionView({
                 jobId,
                 vehicleId: target.vehicleId,
                 groupId: target.groupId
-            }));
+              }));
             setJobAssignments(assignments);
             setSelectedJobIds([]);
 
         } catch (err) {
             console.error("[AsignacionView] Fallo en la asignación:", err);
-            setAssignmentError(`ERROR: ${(err as Error).message}`.toUpperCase());
+            setAssignmentError(`Error: ${(err as Error).message}`);
         } finally {
             setPendingAssignment(null);
         }
     };
 
-    const hasGroups = vehicleGroups.length > 0;
+    const handleAutoOptimize = async () => {
+        if (unassignedJobs.length === 0) return;
+        setAssignmentError(null);
+        
+        try {
+            const result = await startRouting({
+                jobs: unassignedJobs, // Auto-optimization takes all unassigned jobs
+                preference: routingPreference,
+                traffic: trafficEnabled
+            });
+
+            if (result && (result as any).aborted) return;
+            if (result && (result as any).error) throw new Error((result as any).error);
+
+            setSelectedJobIds([]);
+        } catch (err) {
+            console.error("[AsignacionView] Fallo en la optimización:", err);
+            setAssignmentError(`Error: ${(err as Error).message}`);
+        }
+    };
 
     return (
-        <div className="flex flex-col grow h-full bg-white overflow-hidden">
-            {/* Operational Header */}
-            <div className="shrink-0 bg-white border-b border-slate-100">
-                <div className="px-6 py-8 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-                    <div className="flex flex-col gap-1">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                            Fleet Operations Audit
-                        </p>
-                        <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-                            Asignación de Pedidos
-                        </h2>
+        <div className="flex flex-col grow h-full bg-white animate-in fade-in duration-500">
+            {/* Operational Metrics Sub-header */}
+            <div className="shrink-0 px-10 py-6 border-b border-[#EAEAEA] bg-[#F7F8FA]">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-[#1C1C1C] text-[#D4F04A] flex items-center justify-center rounded-lg shadow-sm">
+                            <Workflow strokeWidth={1.5} className="h-5 w-5" />
+                        </div>
+                     
                     </div>
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {unassignedJobs.length} Pendientes
-                            </span>
+
+                    <div className="flex flex-wrap items-center gap-6">
+                        <div className="flex items-center gap-1.5 p-1 bg-white rounded-lg border border-[#EAEAEA]">
+                            {[
+                                { id: 'fastest', label: 'Rápido', icon: Gauge },
+                                { id: 'shortest', label: 'Eficiente', icon: Route },
+                                { id: 'recommended', label: 'Óptimo', icon: Sparkles }
+                            ].map((pref) => (
+                                <button
+                                    key={pref.id}
+                                    onClick={() => setRoutingPreference(pref.id as any)}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-medium uppercase tracking-wider transition-all",
+                                        routingPreference === pref.id
+                                            ? "bg-[#1C1C1C] text-[#D4F04A]"
+                                            : "text-[#6B7280] hover:text-[#1C1C1C]"
+                                    )}
+                                >
+                                    <pref.icon strokeWidth={1.5} className="h-3.5 w-3.5" />
+                                    {pref.label}
+                                </button>
+                            ))}
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {vehicleGroups.length} Grupos
-                            </span>
+
+                        <div className="h-4 w-[1px] bg-[#EAEAEA]" />
+
+                        <div className="flex items-center gap-3 px-4 py-1.5 rounded-lg border border-[#EAEAEA] bg-white">
+                            <div className="flex items-center gap-2">
+                                <Flame strokeWidth={1.5} className={cn("h-4 w-4 transition-colors", trafficEnabled ? "text-orange-500" : "text-[#6B7280]/40")} />
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-[#1C1C1C]">Tráfico</span>
+                            </div>
+                            <Switch
+                                checked={trafficEnabled}
+                                onCheckedChange={setTrafficEnabled}
+                                className="data-[state=checked]:bg-[#D4F04A] scale-75"
+                            />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {fleetVehicles.length} Vehículos
-                            </span>
-                        </div>
+
+                        <div className="h-4 w-[1px] bg-[#EAEAEA]" />
+
+                        <button
+                            onClick={handleAutoOptimize}
+                            disabled={isCalculatingRoute || unassignedJobs.length === 0}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-[#1C1C1C] text-[#D4F04A] hover:bg-[#D4F04A] hover:text-[#1C1C1C] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                        >
+                            {isCalculatingRoute ? (
+                                <Activity className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Sparkles className="h-4 w-4" />
+                            )}
+                            <span className="text-[11px] font-bold uppercase tracking-widest">Optimización Eficiente</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
             {/* Error Banner */}
             {assignmentError && (
-                <div className="shrink-0 bg-rose-50 border-b border-rose-100 px-6 py-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
-                    <p className="text-xs font-bold text-rose-600 flex-1">{assignmentError}</p>
+                <div className="shrink-0 bg-red-50 border-b border-red-100 px-10 py-3 flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-3">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <p className="text-xs font-medium text-red-600">{assignmentError}</p>
+                    </div>
                     <button
                         onClick={() => setAssignmentError(null)}
-                        className="text-[10px] font-bold text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-colors shrink-0"
+                        className="text-[10px] font-medium text-red-400 uppercase tracking-wider hover:text-red-700 transition-all bg-white px-2 py-1 rounded border border-red-100"
                     >
                         Descartar
                     </button>
@@ -208,40 +295,37 @@ export function AsignacionView({
 
 
             {/* Three-column layout */}
-            <div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 items-start">
+            <div className="flex-1 min-h-0 px-10 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start pb-20">
 
                 {/* Column 1: Pedidos Pendientes */}
-                <div className="border border-slate-100 rounded-lg overflow-hidden flex flex-col max-h-[calc(100vh-300px)]">
-                    <div className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-3 bg-amber-50/40 border-b border-amber-100/50">
-                        <div className="flex items-center gap-3">
-                            <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]" />
-                            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Pedidos</span>
-                            <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">{unassignedJobs.length}</span>
+                <div className="flex flex-col h-full min-h-[500px] bg-white border border-[#EAEAEA] rounded-md shadow-sm overflow-hidden group hover:border-[#D0D0D0] transition-colors">
+                    <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#EAEAEA] bg-white relative">
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#6B7280]/20" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 rounded-full bg-[#6B7280]" />
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#1C1C1C]">Pedidos</span>
                         </div>
-                        {selectedJobIds.length > 0 && (
-                            <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                                {selectedJobIds.length} sel.
-                            </span>
-                        )}
+                        <Badge className="bg-[#F7F8FA] text-[#6B7280] h-6 px-3 border border-[#EAEAEA] font-bold tabular-nums rounded text-[10px]">
+                            {unassignedJobs.length}
+                        </Badge>
                     </div>
 
-                    {/* Search */}
-                    <div className="shrink-0 px-3 sm:px-4 py-2.5 border-b border-slate-50 bg-white">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
+                    <div className="shrink-0 px-6 py-4 border-b border-[#EAEAEA] bg-[#F7F8FA]/50">
+                        <div className="relative group">
+                            <Search strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]/40 group-focus-within:text-[#1C1C1C] transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Buscar pedidos..."
+                                placeholder="Filtrar por ID..."
                                 value={jobSearch}
                                 onChange={(e) => setJobSearch(e.target.value)}
-                                className="w-full bg-slate-50 pl-9 pr-4 py-2 text-xs font-medium placeholder:text-slate-300 outline-none rounded-lg border border-slate-100 focus:border-blue-200 focus:bg-white transition-all"
+                                className="w-full bg-white pl-9 pr-4 py-2 text-[11px] font-medium placeholder:text-[#6B7280]/50 outline-none rounded border border-[#EAEAEA] focus:border-[#1C1C1C] transition-all tabular-nums"
                             />
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-y-auto bg-white">
+                    <ScrollArea className="flex-1 bg-[#F7F8FA]/50 border-t-0 p-4">
                         {filteredJobs.length > 0 ? (
-                            <div className="p-3 sm:p-4 grid grid-cols-1 gap-2">
+                            <div className="p-4 flex flex-col gap-3">
                                 {filteredJobs.map(job => {
                                     const isSelected = selectedJobIds.includes(job.id);
                                     return (
@@ -249,77 +333,89 @@ export function AsignacionView({
                                             key={job.id}
                                             onClick={(e) => handleJobClick(e, job.id)}
                                             className={cn(
-                                                "group bg-white border rounded-2xl p-3.5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all cursor-pointer",
+                                                "p-4 flex items-center gap-4 transition-all duration-300 cursor-pointer rounded-lg border",
                                                 isSelected
-                                                    ? "border-blue-200 bg-blue-50/30 shadow-sm"
-                                                    : "border-slate-100 hover:border-slate-200"
+                                                    ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]"
+                                                    : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
                                             )}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className={cn(
-                                                    "h-9 w-9 flex items-center justify-center rounded-xl border shrink-0 transition-colors",
-                                                    isSelected
-                                                        ? "bg-blue-50 border-blue-200 text-blue-600"
-                                                        : "bg-slate-50/50 border-slate-100/50 text-slate-400"
-                                                )}>
-                                                    <Package className="h-3.5 w-3.5" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className={cn(
-                                                        "text-[13px] font-semibold truncate tracking-tight transition-colors",
-                                                        isSelected ? "text-blue-600" : "text-slate-900"
-                                                    )}>
-                                                        {job.label}
-                                                    </h4>
-                                                    <div className="flex items-center gap-3 mt-0.5">
-                                                        <div className="flex items-center gap-1">
-                                                            <MapPin className="h-3 w-3 text-slate-300" />
-                                                            <span className="text-[10px] font-medium text-slate-400 truncate max-w-[80px]">{String(job.id).substring(0, 8)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {isSelected && (
-                                                    <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
-                                                )}
+                                            <div className={cn(
+                                                "h-8 w-8 flex items-center justify-center rounded-md border shrink-0 transition-all",
+                                                isSelected
+                                                    ? "bg-[#1C1C1C] border-[#D4F04A]/20 text-[#D4F04A]"
+                                                    : "bg-[#F7F8FA] border-[#EAEAEA] text-[#6B7280]"
+                                            )}>
+                                                <Package strokeWidth={1.5} className="h-4 w-4" />
                                             </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className={cn(
+                                                    "text-[12px] font-medium truncate tracking-tight",
+                                                    isSelected ? "text-white" : "text-[#1C1C1C]"
+                                                )}>
+                                                    {job.label}
+                                                </h4>
+                                                <span className={cn("text-[9px] font-medium tabular-nums uppercase tracking-wider", isSelected ? "text-[#D4F04A]/60" : "text-[#6B7280]/60")}>ID-{String(job.id).substring(0, 8)}</span>
+                                            </div>
+                                            {isSelected && (
+                                                <CheckCircle2 strokeWidth={2} className="h-4 w-4 text-[#D4F04A]" />
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <div className="py-12 text-center">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 italic">
-                                    {jobSearch ? "Sin resultados para esta búsqueda" : "Ningún pedido pendiente"}
+                            <div className="py-20 text-center px-10 bg-white border border-dashed border-[#EAEAEA] rounded-md h-full flex flex-col items-center justify-center">
+                                <Package strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mb-3" />
+                                <p className="text-[10px] font-medium uppercase tracking-wider text-[#6B7280]/40">
+                                    Sin registros pendientes
                                 </p>
                             </div>
                         )}
-                    </div>
+                    </ScrollArea>
                 </div>
 
                 {/* Column 2: Grupos Operativos */}
-                <div className="border border-slate-100 rounded-lg overflow-hidden flex flex-col max-h-[calc(100vh-300px)]">
-                    <div className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-3 bg-blue-50/40 border-b border-blue-100/50">
-                        <div className="flex items-center gap-3">
-                            <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
-                            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Grupos</span>
-                            <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">{vehicleGroups.length}</span>
+                <div className="flex flex-col h-full min-h-[500px] bg-white border border-[#EAEAEA] rounded-md shadow-sm overflow-hidden group hover:border-[#D0D0D0] transition-colors">
+                    <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#EAEAEA] bg-white relative">
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#1C1C1C]" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 rounded-full bg-[#1C1C1C] outline outline-2 outline-offset-1 outline-[#EAEAEA]" />
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#1C1C1C]">Grupos Logísticos</span>
                         </div>
-                        <button
-                            onClick={() => {
-                                setFocusGroupId(null);
-                                setIsCreateOnly(true);
-                                setIsGroupManagerOpen(true);
-                            }}
-                            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-blue-100/50 text-blue-600 transition-colors"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <Badge className="bg-[#1C1C1C] text-[#D4F04A] h-6 px-3 border border-[#1C1C1C] font-bold tabular-nums rounded text-[10px]">
+                                {vehicleGroups.length}
+                            </Badge>
+                            <button
+                                onClick={() => {
+                                    setFocusGroupId(null);
+                                    setIsCreateOnly(true);
+                                    setIsGroupManagerOpen(true);
+                                }}
+                                className="h-6 w-6 flex items-center justify-center rounded bg-[#F7F8FA] border border-[#EAEAEA] text-[#1C1C1C] hover:bg-[#1C1C1C] hover:text-[#D4F04A] transition-all"
+                            >
+                                <Plus strokeWidth={1.5} className="h-4 w-4" />
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-y-auto bg-white">
-                        <div className="p-3 sm:p-4 grid grid-cols-1 gap-2">
-                            {vehicleGroups.length > 0 ? (
-                                vehicleGroups.map(group => {
+                    <div className="shrink-0 px-6 py-4 border-b border-[#EAEAEA] bg-[#F7F8FA]/50">
+                        <div className="relative group">
+                            <Search strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]/40 group-focus-within:text-[#1C1C1C] transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Filtrar grupos..."
+                                value={groupSearch}
+                                onChange={(e) => setGroupSearch(e.target.value)}
+                                className="w-full bg-white pl-9 pr-4 py-2 text-[11px] font-medium placeholder:text-[#6B7280]/50 outline-none rounded border border-[#EAEAEA] focus:border-[#1C1C1C] transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <ScrollArea className="flex-1 bg-[#F7F8FA]/50 border-t-0">
+                        <div className="p-4 flex flex-col gap-3">
+                            {filteredGroups.length > 0 ? (
+                                filteredGroups.map(group => {
                                     const isPending = pendingAssignment?.groupId === group.id;
                                     const canAssign = !!selectedJobIds.length && !isPending;
                                     const vehicleCount = (group.vehicleIds || []).length;
@@ -336,61 +432,74 @@ export function AsignacionView({
                                                 }
                                             }}
                                             className={cn(
-                                                "group bg-white border rounded-2xl p-4 transition-all cursor-pointer",
+                                                "p-4 flex items-center gap-4 transition-all duration-300 cursor-pointer rounded-lg border",
                                                 canAssign
-                                                    ? "border-blue-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-blue-300"
-                                                    : "border-slate-100 hover:border-slate-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+                                                    ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]"
+                                                    : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
                                             )}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className={cn(
-                                                    "h-10 w-10 flex items-center justify-center rounded-xl border shrink-0 transition-colors",
-                                                    canAssign
-                                                        ? "bg-blue-50 border-blue-200 text-blue-600"
-                                                        : "bg-slate-50/50 border-slate-100/50 text-slate-400"
-                                                )}>
-                                                    {isPending ? <Activity className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="text-sm font-semibold text-slate-900 truncate tracking-tight group-hover:text-blue-600 transition-colors">
-                                                        {group.name}
-                                                    </h4>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                                                        {vehicleCount} {vehicleCount === 1 ? 'Unidad' : 'Unidades'}
-                                                    </p>
-                                                </div>
-                                                <div className="p-1.5 bg-slate-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                                                    <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-                                                </div>
+                                            <div className={cn(
+                                                "h-10 w-10 flex items-center justify-center rounded-md border shrink-0 transition-all",
+                                                canAssign
+                                                    ? "bg-[#1C1C1C] border-[#D4F04A]/20 text-[#D4F04A]"
+                                                    : "bg-[#F7F8FA] border-[#EAEAEA] text-[#6B7280]"
+                                            )}>
+                                                {isPending ? <Activity strokeWidth={1.5} className="h-5 w-5 animate-spin" /> : <Users strokeWidth={1.5} className="h-5 w-5" />}
                                             </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="text-[12px] font-medium text-[#1C1C1C] truncate uppercase tracking-tight">
+                                                    {group.name}
+                                                </h4>
+                                                <p className="text-[9px] font-medium text-[#6B7280] uppercase tracking-wider mt-1 opacity-60">
+                                                    {vehicleCount} Unidades
+                                                </p>
+                                            </div>
+                                            <ChevronRight strokeWidth={1.5} className="h-4 w-4 text-[#6B7280]/40" />
                                         </div>
                                     );
                                 })
                             ) : (
-                                <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-50 rounded-2xl opacity-40">
-                                    <Users className="h-10 w-10 text-slate-300 mb-3" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic text-center px-4">
-                                        Sin grupos operativos definidos
+                                <div className="py-20 text-center px-10 bg-white border border-dashed border-[#EAEAEA] rounded-md h-full flex flex-col items-center justify-center">
+                                    <Users strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mb-3" />
+                                    <span className="text-[10px] font-medium text-[#6B7280]/50 uppercase tracking-wider">
+                                        Sin grupos configurados
                                     </span>
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </ScrollArea>
                 </div>
 
-                {/* Column 3 (or 2 if no groups): Vehículos Individuales */}
-                <div className="border border-slate-100 rounded-lg overflow-hidden flex flex-col max-h-[calc(100vh-300px)]">
-                    <div className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-3 bg-emerald-50/40 border-b border-emerald-100/50">
-                        <div className="flex items-center gap-3">
-                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
-                            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Vehículos</span>
-                            <span className="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 uppercase tracking-tighter">{fleetVehicles.length}</span>
+                {/* Column 3: Vehículos Individuales */}
+                <div className="flex flex-col h-full min-h-[500px] bg-white border border-[#EAEAEA] rounded-md shadow-sm overflow-hidden group hover:border-[#D0D0D0] transition-colors">
+                    <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-[#EAEAEA] bg-white relative">
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#D4F04A]" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 rounded-full bg-[#D4F04A]" />
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#1C1C1C]">Activos Flota</span>
+                        </div>
+                        <Badge className="bg-[#D4F04A]/10 text-[#5D6B1A] border-[#D4F04A]/20 h-6 px-3 font-bold tabular-nums rounded text-[10px]">
+                            {fleetVehicles.length}
+                        </Badge>
+                    </div>
+
+                    <div className="shrink-0 px-6 py-4 border-b border-[#EAEAEA] bg-[#F7F8FA]/50">
+                        <div className="relative group">
+                            <Search strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]/40 group-focus-within:text-[#1C1C1C] transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Filtrar vehículos..."
+                                value={vehicleSearch}
+                                onChange={(e) => setVehicleSearch(e.target.value)}
+                                className="w-full bg-white pl-9 pr-4 py-2 text-[11px] font-medium placeholder:text-[#6B7280]/50 outline-none rounded border border-[#EAEAEA] focus:border-[#1C1C1C] transition-all"
+                            />
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-y-auto bg-white">
-                        <div className="p-3 sm:p-4 grid grid-cols-1 gap-2">
-                            {fleetVehicles.map(vehicle => {
+                    <ScrollArea className="flex-1 bg-[#F7F8FA]/50 border-t-0 p-4">
+                        <div className="p-4 flex flex-col gap-3">
+                            {filteredVehicles.length > 0 ? (
+                                filteredVehicles.map(vehicle => {
                                 const isPending = pendingAssignment?.vehicleId === vehicle.id;
                                 const canAssign = !!selectedJobIds.length && !isPending;
                                 return (
@@ -398,66 +507,70 @@ export function AsignacionView({
                                         key={vehicle.id}
                                         onClick={() => canAssign && handleManualAssign({ vehicleId: vehicle.id })}
                                         className={cn(
-                                            "group bg-white border rounded-2xl p-4 transition-all",
+                                            "p-4 flex items-center gap-4 transition-all duration-300 cursor-pointer rounded-lg border",
                                             canAssign
-                                                ? "cursor-pointer border-emerald-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-300"
-                                                : "cursor-pointer border-slate-100 hover:border-slate-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+                                                ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]"
+                                                : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
                                         )}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative shrink-0">
-                                                <div className={cn(
-                                                    "h-10 w-10 flex items-center justify-center rounded-xl border transition-colors",
-                                                    canAssign
-                                                        ? "bg-emerald-50 border-emerald-200 text-emerald-600"
-                                                        : "bg-slate-50/50 border-slate-100/50 text-slate-400"
-                                                )}>
-                                                    {isPending ? <Activity className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
-                                                </div>
-                                                <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+                                        <div className="relative shrink-0">
+                                            <div className={cn(
+                                                "h-10 w-10 flex items-center justify-center rounded-md border shrink-0 transition-all",
+                                                canAssign
+                                                    ? "bg-[#1C1C1C] border-[#D4F04A]/20 text-[#D4F04A]"
+                                                    : "bg-[#F7F8FA] border-[#EAEAEA] text-[#6B7280]"
+                                            )}>
+                                                {isPending ? <Activity strokeWidth={1.5} className="h-5 w-5 animate-spin" /> : <Truck strokeWidth={1.5} className="h-5 w-5" />}
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-semibold text-slate-900 truncate tracking-tight group-hover:text-blue-600 transition-colors">
-                                                    {vehicle.label}
-                                                </h4>
-                                                <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                                                    {vehicle.type.label}
-                                                </p>
-                                            </div>
-                                            {canAssign && (
-                                                <div className="p-1.5 bg-emerald-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                                                </div>
-                                            )}
                                         </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className={cn("text-[12px] font-medium truncate uppercase tracking-tight", canAssign ? "text-white" : "text-[#1C1C1C]")}>
+                                                {vehicle.label}
+                                            </h4>
+                                            <p className={cn("text-[9px] font-medium uppercase tracking-wider mt-1 opacity-60", canAssign ? "text-[#D4F04A]" : "text-[#6B7280]")}>
+                                                {vehicle.type.label}
+                                            </p>
+                                        </div>
+                                        {canAssign && (
+                                            <CheckCircle2 strokeWidth={2} className="h-4 w-4 text-[#D4F04A]" />
+                                        )}
                                     </div>
                                 );
-                            })}
+                            })
+                        ) : (
+                                <div className="py-20 text-center px-10 bg-white border border-dashed border-[#EAEAEA] rounded-md h-full flex flex-col items-center justify-center">
+                                    <Truck strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mb-3" />
+                                    <span className="text-[10px] font-medium text-[#6B7280]/50 uppercase tracking-wider">
+                                        Sin vehículos encontrados
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                    </div>
+                    </ScrollArea>
                 </div>
             </div>
 
             {/* SELECCIÓN FLOTANTE */}
             {selectedJobIds.length > 0 && (
-                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-white border border-slate-200 text-slate-900 rounded-xl px-8 py-4 flex items-center gap-8 shadow-[0_15px_40px_-5px_rgba(0,0,0,0.15)] z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#1C1C1C] rounded-lg px-8 py-4 flex items-center gap-10 border border-[#D4F04A]/20 shadow-2xl z-50 animate-in slide-in-from-bottom-8 duration-500">
                     <div className="flex items-center gap-4">
-                        <div className="h-9 w-9 bg-blue-600 text-white flex items-center justify-center font-bold text-xs rounded-xl">
+                        <div className="h-10 w-10 bg-[#D4F04A] text-[#1C1C1C] flex items-center justify-center font-semibold text-lg rounded shadow-lg">
                             {selectedJobIds.length}
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-900">Carga Preparada</span>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Seleccione destino</span>
+                            <span className="text-sm font-medium text-white uppercase tracking-wider">Lote Seleccionado</span>
+                            <span className="text-[10px] font-medium text-[#D4F04A] uppercase tracking-widest opacity-80">Asignar a destino</span>
                         </div>
                     </div>
+                    <div className="h-8 w-[1px] bg-white/10" />
                     <button
-                        className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-2"
+                        className="text-[11px] font-medium text-white/60 hover:text-white uppercase tracking-widest transition-all flex items-center gap-2 group"
                         onClick={() => {
                             setSelectedJobIds([]);
                             setAssignmentError(null);
                         }}
                     >
-                        <X className="h-3.5 w-3.5" />
+                        <X strokeWidth={1.5} className="h-4 w-4" />
                         Cancelar
                     </button>
                 </div>
