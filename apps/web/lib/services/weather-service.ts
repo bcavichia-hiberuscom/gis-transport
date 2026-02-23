@@ -124,7 +124,7 @@ export class WeatherService {
             const res = await fetch(url);
             if (!res.ok) return [];
             const data = await res.json();
-            
+
             return (data.list || []).map((item: any) => {
                 const node = {
                     lat: item.coord.Lat || item.coord.lat,
@@ -146,7 +146,7 @@ export class WeatherService {
             const res = await fetch(url);
             if (!res.ok) return null;
             const data = await res.json();
-            
+
             return {
                 main: data.main,
                 wind: data.wind,

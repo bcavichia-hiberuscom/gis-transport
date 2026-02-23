@@ -81,7 +81,7 @@ interface MapContainerProps {
   onRemoveZonePoint?: (index: number) => void; // Callback to remove a specific zone point
   onUpdateZonePoint?: (index: number, newCoords: [number, number]) => void; // Callback to update a zone point position
   onZonesUpdate?: (zones: Zone[]) => void;
-  onEditZone?: (zoneId: string) => void; 
+  onEditZone?: (zoneId: string) => void;
   onDeleteZone?: (zoneId: string) => void;
   isInteracting?: boolean;
   onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
@@ -228,7 +228,7 @@ export default function MapContainer({
       // If we don't have bounds yet, try to wait or use mapCenter to trigger something
       // but usually Leaflet provides bounds very quickly after mount.
       const currentBounds = viewportBounds;
-      
+
       const body: any = {
         vehicleRoutes: [],
         startTime: new Date().toISOString()
@@ -286,13 +286,13 @@ export default function MapContainer({
         speed: (a as any).value!,
         direction: (a as any).direction || 0
       }));
-    
+
     // Combine route alerts with global data, prioritizing route data
     const combined = [...routeWindAlerts];
-    
+
     // Only add global nodes that are not near existing route nodes (simple dedup)
     for (const gw of globalWeather) {
-      const exists = combined.some(rc => 
+      const exists = combined.some(rc =>
         Math.abs(rc.lat - gw.lat) < 0.1 && Math.abs(rc.lon - gw.lon) < 0.1
       );
       if (!exists) combined.push(gw);
@@ -334,14 +334,14 @@ export default function MapContainer({
 
         {/* CONTRAST OVERLAY: A world-spanning black rectangle between tiles and weather */}
         {(layers.weatherWind || layers.weatherRain) && activeStyle.id !== 'dark' && (
-          <Rectangle 
-            bounds={[[-90, -180], [90, 180]]} 
-            pathOptions={{ 
-              color: 'transparent', 
-              fillColor: '#000000', 
+          <Rectangle
+            bounds={[[-90, -180], [90, 180]]}
+            pathOptions={{
+              color: 'transparent',
+              fillColor: '#000000',
               fillOpacity: 0.65,
-              stroke: false 
-            }} 
+              stroke: false
+            }}
           />
         )}
 
@@ -363,8 +363,8 @@ export default function MapContainer({
               opacity={0.4}
               zIndex={200}
             />
-            <WindFlowLayer 
-              visible={true} 
+            <WindFlowLayer
+              visible={true}
               opacity={0.8}
               data={windData}
             />
@@ -485,7 +485,7 @@ export default function MapContainer({
         {renderedJobs}
 
         <WeatherMarkersLayer
-          weatherRoutes={(weatherRoutes || []).filter(wr => 
+          weatherRoutes={(weatherRoutes || []).filter(wr =>
             vehicleRoutes?.some(vr => String(vr.vehicleId) === String(wr.vehicle))
           )}
           icons={{ snow, rain, ice, wind, fog, heat, cold }}

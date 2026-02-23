@@ -20,7 +20,7 @@ export function WindFlowLayer({ opacity = 1.0, visible = false, data = [] }: Win
   const map = useMap();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number>(0);
-  
+
   useEffect(() => {
     if (!visible) {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
@@ -35,25 +35,25 @@ export function WindFlowLayer({ opacity = 1.0, visible = false, data = [] }: Win
 
     // Increased count for better visibility
     const particleCount = 700;
-    const particles: {x: number, y: number, px: number, py: number, l: number, m: number, v: number}[] = [];
-    
+    const particles: { x: number, y: number, px: number, py: number, l: number, m: number, v: number }[] = [];
+
     // GRID CACHE for O(1) particle updates
     const gridSize = 25;
-    const grid: {vx: number, vy: number, speed: number}[] = [];
-    
+    const grid: { vx: number, vy: number, speed: number }[] = [];
+
     const updateGrid = () => {
       grid.length = 0;
       if (!data || data.length === 0) return;
-      
+
       const w = canvas.width;
       const h = canvas.height;
-      
+
       for (let gy = 0; gy < gridSize; gy++) {
         for (let gx = 0; gx < gridSize; gx++) {
           const x = (gx / (gridSize - 1)) * w;
           const y = (gy / (gridSize - 1)) * h;
           const latlng = map.containerPointToLatLng([x, y]);
-          
+
           let tw = 0, fvx = 0, fvy = 0, fsp = 0;
           for (const d of data) {
             const weight = 1 / (Math.pow(d.lat - latlng.lat, 2) + Math.pow(d.lon - latlng.lng, 2) + 0.005);
@@ -89,28 +89,28 @@ export function WindFlowLayer({ opacity = 1.0, visible = false, data = [] }: Win
           x, y, px: x, py: y,
           l: 0,
           m: 120 + Math.random() * 180,
-          v: 0.3 + Math.random() * 0.4 
+          v: 0.3 + Math.random() * 0.4
         });
       }
     };
 
     function animate() {
       if (!ctx || !canvas) return;
-      
+
       // Adjusted clear for slightly longer trails
       ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = "rgba(255, 255, 255, 0.035)"; 
+      ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.globalCompositeOperation = "source-over";
 
       // VIBRANT NEON
-      ctx.strokeStyle = `rgba(180, 255, 50, ${opacity * 0.8})`; 
+      ctx.strokeStyle = `rgba(180, 255, 50, ${opacity * 0.8})`;
 
-      
+
       particles.forEach(p => {
         const wind = getWindAt(p.x, p.y);
         const speedFactor = (wind.speed || 8) * p.v * 0.22;
-        
+
         const vx = wind.vx * speedFactor;
         const vy = wind.vy * speedFactor;
 

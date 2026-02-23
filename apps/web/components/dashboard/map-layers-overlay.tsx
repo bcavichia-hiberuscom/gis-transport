@@ -16,8 +16,6 @@ import {
     Trash2,
     X,
     Menu,
-    CloudDrizzle,
-    Thermometer,
     Wind
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +32,7 @@ interface MapLayersOverlayProps {
     hiddenZones?: string[];
     onToggleZoneVisibility?: (id: string) => void;
     onDeleteZone?: (id: string) => void;
+    hasWindAlert?: { hasAlert: boolean; message?: string };
 }
 
 export function MapLayersOverlay({
@@ -43,7 +42,8 @@ export function MapLayersOverlay({
     customZones,
     hiddenZones,
     onToggleZoneVisibility,
-    onDeleteZone
+    onDeleteZone,
+    hasWindAlert
 }: MapLayersOverlayProps) {
     const [isCollapsed, setIsCollapsed] = useState(true);
 
@@ -100,22 +100,12 @@ export function MapLayersOverlay({
                         <div className="h-[1px] bg-[#EAEAEA] my-2" />
                         <span className="text-[10px] font-medium text-[#6B7280]/60 uppercase tracking-widest pl-1 mb-1 block">Meteorología</span>
                         <LayerToggleItem
-                            icon={<CloudDrizzle strokeWidth={1.5} className="h-4 w-4" />}
-                            label="Precipitaciones"
-                            checked={!!layers.weatherRain}
-                            onToggle={() => toggleLayer("weatherRain")}
-                        />
-                        <LayerToggleItem
                             icon={<Wind strokeWidth={1.5} className="h-4 w-4" />}
                             label="Viento"
                             checked={!!layers.weatherWind}
                             onToggle={() => toggleLayer("weatherWind")}
-                        />
-                        <LayerToggleItem
-                            icon={<Thermometer strokeWidth={1.5} className="h-4 w-4" />}
-                            label="Temperatura"
-                            checked={!!layers.weatherTemp}
-                            onToggle={() => toggleLayer("weatherTemp")}
+                            hasAlert={hasWindAlert?.hasAlert}
+                            alertMessage={hasWindAlert?.message}
                         />
                     </div>
 
@@ -193,12 +183,6 @@ export function MapLayersOverlay({
                     </div>
                 </div>
             </ScrollArea>
-
-            {/* Footer Summary */}
-            <div className="p-4 bg-[#F7F8FA] border-t border-[#EAEAEA] text-[9px] font-medium text-[#6B7280]/40 uppercase tracking-widest flex items-center justify-between">
-                <span>GIS ENGINE ACTIVE</span>
-                <ChevronRight strokeWidth={1.5} className="h-3.5 w-3.5" />
-            </div>
         </div>
     );
 }
@@ -207,43 +191,68 @@ function LayerToggleItem({
     icon,
     label,
     checked,
-    onToggle
+    onToggle,
+    hasAlert,
+    alertMessage
 }: {
     icon: React.ReactNode;
     label: string;
     checked: boolean;
     onToggle: () => void;
+    hasAlert?: boolean;
+    alertMessage?: string;
 }) {
     return (
-        <div
-            onClick={(e) => {
-                e.preventDefault();
-                onToggle();
-            }}
-            className={cn(
-                "flex items-center justify-between px-4 py-3 rounded-md transition-all duration-300 cursor-pointer group border",
-                checked ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]" : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
-            )}
-        >
-            <div className="flex items-center gap-4">
-                <div className={cn(
-                    "transition-all",
-                    checked ? "text-[#D4F04A]" : "text-[#6B7280]/40"
-                )}>
-                    {icon}
+        <div className="flex flex-col w-full">
+            <div
+                onClick={(e) => {
+                    e.preventDefault();
+                    onToggle();
+                }}
+                className={cn(
+                    "flex items-center justify-between px-4 py-3 rounded-md transition-all duration-300 cursor-pointer group border",
+                    checked ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]" : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
+                )}
+            >
+                <div className="flex items-center gap-4">
+                    <div className={cn(
+                        "transition-all",
+                        checked ? "text-[#D4F04A]" : "text-[#6B7280]/40"
+                    )}>
+                        {icon}
+                    </div>
+                    <span className={cn(
+                        "text-[11px] font-medium uppercase tracking-wider transition-colors",
+                        checked ? "text-white" : "text-[#1C1C1C]"
+                    )}>
+                        {label}
+                    </span>
                 </div>
-                <span className={cn(
-                    "text-[11px] font-medium uppercase tracking-wider transition-colors",
-                    checked ? "text-white" : "text-[#1C1C1C]"
-                )}>
-                    {label}
-                </span>
+                <Switch
+                    checked={checked}
+                    onCheckedChange={onToggle}
+                    className="data-[state=checked]:bg-[#D4F04A]"
+                />
             </div>
-            <Switch
-                checked={checked}
-                onCheckedChange={onToggle}
-                className="data-[state=checked]:bg-[#D4F04A]"
-            />
+            {(hasAlert !== undefined && checked) && (
+                <div className="px-1 mt-2.5 flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                    {hasAlert ? (
+                        <>
+                            <div className="h-1 w-1 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.5)] animate-pulse shrink-0" />
+                            <span className="text-[8px] font-bold text-amber-600/90 uppercase tracking-widest leading-none">
+                                {alertMessage || "Riesgo de rachas fuertes"}
+                            </span>
+                        </>
+                    ) : (
+                        <>
+                            <div className="h-1 w-1 rounded-full bg-[#D4F04A] shrink-0" />
+                            <span className="text-[8px] font-bold text-[#1C1C1C] uppercase tracking-widest leading-none">
+                                Ninguna alerta para rutas
+                            </span>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

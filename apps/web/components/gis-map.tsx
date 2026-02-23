@@ -328,6 +328,63 @@ export function GISMap() {
     isTracking,
   );
 
+  // Background global weather monitoring for the layers overlay
+  const [globalWeatherAlerts, setGlobalWeatherAlerts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchGlobalWeather = async () => {
+      try {
+        const res = await fetch('/api/weather', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicleRoutes: [], startTime: new Date().toISOString() })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const globalRoute = data.routes?.find((r: any) => r.vehicle === 'GLOBAL');
+          if (globalRoute?.alerts) {
+            setGlobalWeatherAlerts(globalRoute.alerts);
+          }
+        }
+      } catch (e) {
+        console.error("GISMap: Failed to fetch background weather", e);
+      }
+    };
+
+    fetchGlobalWeather();
+    const interval = setInterval(fetchGlobalWeather, 5 * 60 * 1000); // 5 mins
+    return () => clearInterval(interval);
+  }, []);
+
+  const hasWindAlert = useMemo(() => {
+    // Check if any vehicle has a wind alert from operational metrics or route analysis
+    const vehicleAlertsHasWind = Object.values(vehicleAlerts).some(alerts =>
+      alerts.some(a => a.type === 'weather' && a.data?.wa?.event === 'WIND')
+    );
+
+    // Also check global weather alerts from background fetch or route data
+    const hasGlobalRouteWind = routeData?.weatherRoutes?.some(wr =>
+      wr.vehicle === 'GLOBAL' && wr.alerts?.some(wa => wa.event === 'WIND')
+    );
+
+    const allWindAlerts = [
+      ...Object.values(vehicleAlerts).flatMap(alerts =>
+        alerts.filter(a => a.type === 'weather' && a.data?.wa?.event === 'WIND').map(a => a.data?.wa?.message)
+      ),
+      ...(routeData?.weatherRoutes?.flatMap(wr =>
+        wr.vehicle === 'GLOBAL' ? wr.alerts?.filter(wa => wa.event === 'WIND').map(wa => wa.message) : []
+      ) || []),
+      ...globalWeatherAlerts.filter(wa => wa.event === 'WIND').map(wa => wa.message)
+    ].filter(Boolean);
+
+    const message = allWindAlerts.length > 0 ? allWindAlerts[0] : undefined;
+
+    return {
+      hasAlert: allWindAlerts.length > 0,
+      message
+    };
+  }, [vehicleAlerts, routeData?.weatherRoutes, globalWeatherAlerts]);
+
   // Vehicle coordination (add, remove, update, clear)
   const {
     handleClearAll,
@@ -637,6 +694,7 @@ export function GISMap() {
           hiddenZones={state.hiddenZones}
           onToggleZoneVisibility={(id) => dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })}
           onDeleteZone={removeCustomPOI}
+          hasWindAlert={hasWindAlert}
         />
       </div>
 
@@ -823,7 +881,7 @@ export function GISMap() {
         onClose={() => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: false })}
         driverId={state.selectedDriver?.id || null}
       />
-      
+
       {state.selectedDriver && (
         <DriverDetailsSheet
           driver={state.selectedDriver}
