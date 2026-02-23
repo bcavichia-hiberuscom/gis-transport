@@ -6,7 +6,7 @@ import {
   RouteErrorAlert,
   type RouteError,
 } from "@/components/route-error-alert";
-import type { RouteNotice, Driver } from "@gis/shared";
+import type { RouteNotice, Driver, FleetVehicle } from "@gis/shared";
 import { AssignDriverDialog } from "@/components/assign-driver-dialog";
 
 interface EditingZoneData {
@@ -86,6 +86,7 @@ export function GISMapDialogs({
   onAssignDriver,
   assigningVehicleLabel,
 }: GISMapDialogsProps) {
+
   return (
     <>
       <AddJobDialog

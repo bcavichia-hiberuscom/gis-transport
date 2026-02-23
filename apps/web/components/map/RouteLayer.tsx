@@ -61,7 +61,7 @@ export const RouteLayer = memo(function RouteLayer({
         const isDimmed = !!selectedVehicleId && !isSelected;
 
         return (
-          <Fragment key={`route-group-${r.vehicleId}`}>
+          <Fragment key={`route-group-${r.vehicleId}-${index}`}>
             <Polyline
               ref={(el) => {
                 if (el) coreRefs.current[r.vehicleId as string] = el;

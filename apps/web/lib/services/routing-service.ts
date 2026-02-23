@@ -539,12 +539,16 @@ export class RoutingService {
       const data: OrsDirectionsResponse = await res.json();
       const feat = data.features[0];
 
+      console.log(
+        `[FetchOrsRoute] Raw ORS distance: ${feat.properties.summary.distance}m, divided by 1000: ${feat.properties.summary.distance / 1000}km`
+      );
+
       return {
         vehicleId,
         coordinates: feat.geometry.coordinates.map(
           ([lon, lat]: [number, number]) => [lat, lon],
         ),
-        distance: Math.round(feat.properties.summary.distance),
+        distance: Math.round(feat.properties.summary.distance / 1000),
         duration: Math.round(feat.properties.summary.duration),
         color,
         jobsAssigned: steps.filter((s) => s.type === "job").length,
@@ -1013,7 +1017,7 @@ export class RoutingService {
         coordinates: feat.geometry.coordinates.map(
           ([lon, lat]: [number, number]) => [lat, lon],
         ),
-        distance: Math.round(feat.properties.summary.distance),
+        distance: Math.round(feat.properties.summary.distance / 1000),
         duration: Math.round(feat.properties.summary.duration),
         color: "#8B5CF6", // Purple for custom stop routes
         jobsAssigned: 0,

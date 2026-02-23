@@ -262,6 +262,8 @@ export class PrismaGisRepository implements IGisRepository {
   }
 
   async updateDriver(id: string, data: any): Promise<any> {
+    console.log("[PrismaGisRepository.updateDriver] Called with:", { id, data });
+    
     const updateData: any = { ...data };
 
     // Handle phoneNumber specially - don't update if it's an empty string
@@ -271,10 +273,15 @@ export class PrismaGisRepository implements IGisRepository {
       updateData.phoneNumber = updateData.phoneNumber.trim();
     }
 
-    return this.prisma.driver.update({
+    console.log("[PrismaGisRepository.updateDriver] Executing Prisma update with:", { id, updateData });
+
+    const result = await this.prisma.driver.update({
       where: { id },
       data: updateData,
     });
+
+    console.log("[PrismaGisRepository.updateDriver] Update result:", result);
+    return result;
   }
 
   async logSpeeding(driverId: string, event: any): Promise<void> {

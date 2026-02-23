@@ -35,15 +35,47 @@ export async function POST(req: Request) {
     }
 
     if (!isSimulation) {
-      // Robust backend validation: A vehicle must have an assigned driver to be legally routed in the system
-      const vehiclesWithoutDriver = vehicles.filter((v: any) => !v.driver && !v.driverId && !v.assignedDriverId);
+      // Backend validation: Only vehicles that will be routed need an assigned driver
+      // This allows users to manage their fleet individually without requiring all vehicles to have drivers
+      console.log("[route.ts] Vehicles received:", vehicles.map((v: any) => ({
+        id: v.id,
+        label: v.label,
+        hasDriver: !!v.driver,
+        driverId: v.driver?.id,
+        driverName: v.driver?.name,
+        hasDriverId: !!v.driverId,
+        hasAssignedDriverId: !!v.assignedDriverId,
+      })));
+
+      const vehiclesWithoutDriver = vehicles.filter((v: any) => {
+        // Check multiple ways a driver might be assigned:
+        // 1. driver object exists and has an id
+        // 2. driverId property exists
+        // 3. assignedDriverId property exists
+        const hasDriverObject = v.driver && (v.driver.id || v.driver.name);
+        const hasDriverId = v.driverId || v.assignedDriverId;
+        
+        return !hasDriverObject && !hasDriverId;
+      });
+      
       if (vehiclesWithoutDriver.length > 0) {
+        console.error("[route.ts] Vehicles without driver:", vehiclesWithoutDriver.map((v: any) => ({
+          id: v.id,
+          label: v.label,
+          driver: v.driver,
+          driverId: v.driverId,
+          assignedDriverId: v.assignedDriverId,
+        })));
+        
+        // Build a more helpful error message
+        const vehicleLabels = vehiclesWithoutDriver.map((v: any) => v.label).join(", ");
+        
         return NextResponse.json(
           {
             success: false,
             error: { 
               code: "VALIDATION_FAILED", 
-              message: `Operación denegada (Backend): ${vehiclesWithoutDriver.length} vehículo(s) sin conductor asignado.` 
+              message: `Por favor, asigna un conductor a los siguientes vehículos antes de optimizar: ${vehicleLabels}` 
             },
           } as IGisResponse,
           { status: 400 },

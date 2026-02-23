@@ -45,8 +45,8 @@ interface MapPreviewProps {
 }
 
 // Map style constants
-const LIGHT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const LIGHT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const LIGHT_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const LIGHT_ATTRIBUTION = '&copy; <a href="https://www.esri.com/">Esri</a>, Digitalglobe, Earthstar Geographics';
 const DEFAULT_ZOOM = 14;
 
 const MapPreview = memo(({

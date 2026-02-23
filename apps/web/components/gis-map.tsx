@@ -40,6 +40,7 @@ import { DriverDetailsSheet } from "./driver-details-sheet";
 import { FuelDetailsSheet } from "./fuel-details-sheet";
 import { FuelManagementTab } from "./fuel-management-tab";
 import { WeatherTab } from "./weather-tab";
+import { AnalyticsTab } from "./analytics-tab";
 
 // Types
 import type {
@@ -805,6 +806,16 @@ export function GISMap() {
         </div>
       )}
 
+      {/* 6.1 Analytics Module */}
+      {activeModule === "analytics" && (
+        <div className="h-full flex flex-col bg-background overflow-hidden relative">
+          <AnalyticsTab
+            routeData={routeData}
+            fleetVehicles={fleetVehicles || []}
+          />
+        </div>
+      )}
+
       {/* Global HUD elements (Dialogs, Popups, etc) */}
       <GISMapDialogs
         isAddJobOpen={state.isAddJobOpen}
@@ -842,19 +853,38 @@ export function GISMap() {
         drivers={drivers}
         onAssignDriver={(driver) => {
           if (state.assigningVehicleId) {
+            console.log("[GISMap] Starting driver assignment for vehicle:", state.assigningVehicleId, "Driver:", driver?.name);
+            
+            // Start async driver assignment but don't await
             handleAssignDriver(state.assigningVehicleId, driver);
+            
             dispatch({ type: "SET_IS_ASSIGN_DRIVER_OPEN", payload: false });
             dispatch({ type: "SET_ASSIGNING_VEHICLE_ID", payload: null });
 
             // Resume the routing that was blocked by the driver guard.
-            // We use a short delay so React can flush the driver assignment
-            // (assignDriverToVehicle) into fleetVehicles before the next check.
             const pendingOverrides = pendingRoutingOverridesRef.current;
             pendingRoutingOverridesRef.current = null;
+            
+            // Pass current fleetVehicles but manually ensure the assigned vehicle has the driver
+            // This prevents timing issues with state updates
             setTimeout(() => {
-              console.log("[GISMap] Resuming routing after driver assignment", { pendingOverrides });
-              startRouting(pendingOverrides ?? undefined);
-            }, 150);
+              // Find and update the specific vehicle with the driver to ensure it's included
+              const updatedVehicles = fleetVehicles.map(v => 
+                String(v.id) === String(state.assigningVehicleId) 
+                  ? { ...v, driver } // Explicitly include the assigned driver
+                  : v
+              );
+              
+              console.log("[GISMap] Resuming routing after driver assignment", { 
+                hasPendingOverrides: !!pendingOverrides,
+                vehicleId: state.assigningVehicleId,
+                vehicleHasDriver: updatedVehicles.find(v => String(v.id) === String(state.assigningVehicleId))?.driver?.name,
+              });
+              startRouting({ 
+                ...pendingOverrides,
+                vehicles: updatedVehicles // Pass vehicles with driver explicitly set
+              });
+            }, 250);
           }
         }}
         assigningVehicleLabel={

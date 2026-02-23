@@ -11,6 +11,7 @@ import {
     LogOut,
     Fuel,
     CloudRain,
+    Zap,
 } from "lucide-react";
 import { DashboardModule } from "./dashboard";
 
@@ -26,6 +27,7 @@ const navItems = [
     { id: "fuel", label: "Combustible", icon: Fuel },
     { id: "orders", label: "Pedidos", icon: Package },
     { id: "weather", label: "Climatología", icon: CloudRain },
+    { id: "analytics", label: "Análisis Predictivo", icon: Zap },
 ] as const;
 
 export function NavPanel({ activeModule, onModuleChange }: NavPanelProps) {

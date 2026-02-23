@@ -68,6 +68,8 @@ export class DriverService {
      * Updates an existing driver. Handles vehicle assignment logic.
      */
     static async updateDriver(id: string, data: any) {
+        console.log("[DriverService.updateDriver] Called with:", { id, data });
+        
         // Validation: Vehicle ID format
         if (data.currentVehicleId && data.currentVehicleId !== null) {
             if (typeof data.currentVehicleId !== "string" && typeof data.currentVehicleId !== "number") {
@@ -82,6 +84,7 @@ export class DriverService {
         if (USE_MOCKS) {
             const idx = MOCK_DRIVERS.findIndex(d => d.id === id);
             if (idx !== -1) MOCK_DRIVERS[idx] = { ...MOCK_DRIVERS[idx], ...data };
+            console.log("[DriverService.updateDriver] Mock mode - updated:", MOCK_DRIVERS[idx]);
             return MOCK_DRIVERS[idx] ?? null;
         }
 
@@ -89,6 +92,7 @@ export class DriverService {
 
         // Assignment History Logic
         const currentDriver = await repository.getDriverById(id);
+        console.log("[DriverService.updateDriver] Current driver from DB:", currentDriver);
 
         if (
             currentDriver &&
@@ -106,6 +110,7 @@ export class DriverService {
                         assignedAt: new Date(currentDriver.updatedAt),
                         unassignedAt: new Date(),
                     });
+                    console.log("[DriverService.updateDriver] Assignment history recorded");
                 } catch (historyErr) {
                     console.error("Failed to record assignment history:", historyErr);
                     // Don't fail the entire request if history fails
@@ -113,7 +118,11 @@ export class DriverService {
             }
         }
 
-        return repository.updateDriver(id, data);
+        console.log("[DriverService.updateDriver] Calling repository.updateDriver with:", { id, data });
+        const updatedDriver = await repository.updateDriver(id, data);
+        console.log("[DriverService.updateDriver] Repository update result:", updatedDriver);
+        
+        return updatedDriver;
     }
 
     /**

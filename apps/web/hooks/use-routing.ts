@@ -111,7 +111,7 @@ export function useRouting({
 
   // STABLE callback - uses refs to access current values
   const startRouting = useCallback(async (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[], preference?: "fastest" | "shortest" | "recommended", traffic?: boolean }) => {
-    const vehicles = overrides?.vehicles || fleetVehiclesRef.current;
+    let vehicles = overrides?.vehicles || fleetVehiclesRef.current;
     const jobs = overrides?.jobs || fleetJobsRef.current;
     const pois = customPOIsRef.current;
     const zones = activeZonesRef.current;
@@ -120,7 +120,15 @@ export function useRouting({
     const doSetLayers = setLayersRef.current;
     const groups = vehicleGroupsRef.current;
 
-    console.log("[useRouting] startRouting called", { hasOverrides: !!overrides, overrideJobs: overrides?.jobs?.length });
+    console.log("[useRouting] startRouting called", { 
+      hasOverrides: !!overrides, 
+      overrideJobs: overrides?.jobs?.length,
+      refVehicles: vehicles.map(v => ({
+        id: v.id,
+        hasDriver: !!v.driver,
+        driverName: v.driver?.name,
+      }))
+    });
 
     const key = JSON.stringify({
       vehicles: vehicles.map((v) => ({
@@ -164,9 +172,24 @@ export function useRouting({
       }));
 
     const allFleetJobs = [...jobs, ...selectedPOIsAsJobs];
-    console.log("[useRouting] Validation:", { vehicleCount: vehicles.length, jobCount: allFleetJobs.length });
+    
+    // Filter vehicles to only include those that have assigned jobs
+    // This allows users to manage their fleet individually without requiring all vehicles to have drivers
+    const vehiclesWithJobs = vehicles.filter((v) => 
+      allFleetJobs.some((j) => String(j.assignedVehicleId) === String(v.id))
+    );
+    
+    // If no vehicles have jobs assigned, include all vehicles (legacy behavior for manual routing)
+    const vehiclesToRoute = vehiclesWithJobs.length > 0 ? vehiclesWithJobs : vehicles;
+    
+    console.log("[useRouting] Validation:", { 
+      totalVehicles: vehicles.length,
+      vehiclesWithJobs: vehiclesWithJobs.length,
+      vehiclesToRoute: vehiclesToRoute.length,
+      jobCount: allFleetJobs.length 
+    });
 
-    if (vehicles.length === 0 || allFleetJobs.length === 0) {
+    if (vehiclesToRoute.length === 0 || allFleetJobs.length === 0) {
       console.warn("[useRouting] Validation failed: Empty vehicles or jobs");
       // Only alert if this was a manual trigger (has overrides or direct call)
       if (overrides) alert("You need at least 1 vehicle and 1 job or selected POI");
@@ -176,11 +199,27 @@ export function useRouting({
     setIsCalculatingRoute(true);
 
     try {
+      // Enrich vehicles with driver info to ensure proper serialization
+      const enrichedVehicles = vehiclesToRoute.map(v => ({
+        ...v,
+        // Ensure driver object is included if vehicle has one
+        driver: v.driver ? { ...v.driver } : undefined,
+      }));
+
+      console.log("[useRouting] Vehicle details before sending:", enrichedVehicles.map(v => ({
+        id: v.id,
+        label: v.label,
+        hasDriver: !!v.driver,
+        driverId: v.driver?.id,
+        driverName: v.driver?.name,
+      })));
+
       console.log("[useRouting] Starting route optimization with", {
-        vehicleCount: vehicles.length,
+        vehicleCount: enrichedVehicles.length,
         jobCount: allFleetJobs.length,
-        vehicleIds: vehicles.map((v) => v.id),
+        vehicleIds: enrichedVehicles.map((v) => v.id),
         jobIds: allFleetJobs.map((j) => j.id),
+        driversAssigned: enrichedVehicles.filter(v => v.driver?.id).length,
         zoneCount: zones.length,
         zones:
           zones.length > 0
@@ -197,7 +236,7 @@ export function useRouting({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vehicles: vehicles,
+          vehicles: enrichedVehicles,
           jobs: allFleetJobs,
           startTime: new Date().toISOString(),
           zones: zones,

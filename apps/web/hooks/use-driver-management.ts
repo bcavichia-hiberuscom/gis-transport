@@ -100,7 +100,7 @@ export function useDriverManagement({
           }
         }
 
-        // Optimistic update: Update frontend fleet state immediately
+        // Optimistic update: Update frontend fleet state immediately with full driver object
         assignDriverToVehicle(vehicleId, newDriver);
 
         // 1. Release the OLD driver (check both sources: vehicle.driver and drivers array)
@@ -145,23 +145,47 @@ export function useDriverManagement({
 
         // 2. Assign the NEW driver if provided
         if (newDriver) {
+          // First, update the driver in the drivers array
           optimisticUpdateDriver(newDriver.id, {
             isAvailable: false,
             currentVehicleId: String(vehicleId),
           });
 
-          await updateDriver(newDriver.id, {
+          // Update driver in backend and get full updated driver record
+          const updateResult = await updateDriver(newDriver.id, {
             isAvailable: false,
             currentVehicleId: String(vehicleId),
           });
+          
+          // Use the full updated driver from backend, or fall back to newDriver if result is incomplete
+          const driverToAssign = updateResult && updateResult.id ? updateResult : newDriver;
+          
+          // Update the vehicle with the full driver object to ensure data consistency
+          assignDriverToVehicle(vehicleId, driverToAssign);
+          
+          console.log("[useDriverManagement] Driver assigned to vehicle:", {
+            vehicleId,
+            driverId: driverToAssign.id,
+            driverName: driverToAssign.name,
+            isAvailable: driverToAssign.isAvailable,
+            currentVehicleId: driverToAssign.currentVehicleId,
+          });
         }
 
-        // Final sync with server to ensure data consistency
-        await fetchDrivers();
+        console.log("[useDriverManagement] Driver assignment complete:", {
+          vehicleId,
+          driverId: newDriver?.id,
+          driverName: newDriver?.name
+        });
+        
+        // Trigger a background refresh of drivers to stay in sync, but don't wait for it
+        // This prevents blocking the routing operation
+        fetchDrivers().catch((err) =>
+          console.error("Background driver refresh failed:", err),
+        );
       } catch (error) {
         console.error("Error assigning driver:", error);
-        // Refresh drivers to recover from any inconsistent state
-        await fetchDrivers();
+        // Don't block if there's an error, still try to continue
       }
     },
     [

@@ -35,10 +35,26 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
+    console.log("[PATCH /api/drivers/[id]] Received update request:", {
+      driverId: id,
+      payload: body,
+    });
+
     const driver = await DriverService.updateDriver(id, body);
+    
+    console.log("[PATCH /api/drivers/[id]] Update successful:", {
+      driverId: id,
+      resultDriver: driver,
+    });
+    
     return NextResponse.json({ success: true, data: driver });
   } catch (err) {
     const error = err as FetchError;
+    console.error("[PATCH /api/drivers/[id]] Error:", {
+      driverId: params?.id,
+      errorMessage: error.message,
+      errorStack: error.stack,
+    });
     // Handle validation errors from service
     if (error.message.includes("Invalid vehicle ID") || error.message.includes("Cannot mark driver as unavailable")) {
       return NextResponse.json({ success: false, error: error.message }, { status: 400 });
