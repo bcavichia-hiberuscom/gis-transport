@@ -16,6 +16,7 @@ import { ORS_URL, ORS_PUBLIC_URL, ORS_API_KEY, VROOM_URL, SNAP_URL, ROUTING_CONF
 import { WeatherService } from "./weather-service";
 import {
   isPointInZone,
+  isPointInPolygon,
   isZoneForbiddenForVehicle,
   getForbiddenZones,
   getZoneForbiddenReason,
@@ -914,6 +915,13 @@ export class RoutingService {
    */
   private static isPointInZone(point: LatLon, zoneCoords: any): boolean {
     return isPointInZone(point, zoneCoords);
+  }
+
+  /**
+   * Checks if a point is inside a polygon using the ray casting algorithm
+   */
+  static isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+    return isPointInPolygon(point, polygon);
   }
 
   private static getForbiddenZonesForVehicle(
