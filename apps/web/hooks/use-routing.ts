@@ -204,6 +204,7 @@ export function useRouting({
           vehicleGroups: groups,
           preference: overrides?.preference,
           traffic: overrides?.traffic,
+          isSimulation: false,
         }),
       });
 

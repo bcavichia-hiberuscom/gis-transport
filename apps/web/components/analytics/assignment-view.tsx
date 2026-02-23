@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ManageGroupsDialog } from "@/components/manage-groups-dialog";
 import { Switch } from "@/components/ui/switch";
+import { MapPreviewModal } from "@/components/map-preview-modal";
 
 interface AsignacionViewProps {
     fleetJobs: FleetJob[];
@@ -59,6 +60,15 @@ export function AsignacionView({
     const [lastClickedJobId, setLastClickedJobId] = useState<string | number | null>(null);
     const [pendingAssignment, setPendingAssignment] = useState<{ jobIds: (string | number)[]; vehicleId?: string | number, groupId?: string | number } | null>(null);
     const [isGroupManagerOpen, setIsGroupManagerOpen] = useState(false);
+    
+    // Map Preview Modal State
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+    const [previewTarget, setPreviewTarget] = useState<{
+        jobs: FleetJob[];
+        vehicles?: FleetVehicle[];
+        groupId?: string | number;
+    } | null>(null);
+
     const [focusGroupId, setFocusGroupId] = useState<string | number | null>(null);
     const [assignmentError, setAssignmentError] = useState<string | null>(null);
     const [jobSearch, setJobSearch] = useState("");
@@ -118,29 +128,51 @@ export function AsignacionView({
         if (selectedJobIds.length === 0) return;
         setAssignmentError(null);
 
-        setPendingAssignment({ jobIds: selectedJobIds, ...target });
+        const targetJobs = fleetJobs.filter(j => selectedJobIds.includes(j.id));
+        setPreviewTarget({
+            jobs: targetJobs,
+            vehicles: target.vehicleId ? fleetVehicles.filter(v => String(v.id) === String(target.vehicleId)) : undefined,
+            groupId: target.groupId
+        });
+        setIsPreviewModalOpen(true);
+    };
+
+    const handleAutoOptimize = async () => {
+        if (unassignedJobs.length === 0) return;
+        setAssignmentError(null);
+        
+        setPreviewTarget({
+            jobs: unassignedJobs,
+        });
+        setIsPreviewModalOpen(true);
+    };
+
+    const confirmRouting = async (preference: "shortest" | "fastest") => {
+        if (!previewTarget) return;
+        setAssignmentError(null);
+
+        const jobIdsToAssign = previewTarget.jobs.map(j => j.id);
 
         const nextJobs = fleetJobs.map(j =>
-            selectedJobIds.includes(j.id)
-                ? { ...j, assignedVehicleId: target.vehicleId, assignedGroupId: target.groupId }
+            jobIdsToAssign.includes(j.id)
+                ? { ...j, assignedVehicleId: previewTarget.vehicles?.[0]?.id, assignedGroupId: previewTarget.groupId }
                 : j
         );
 
-        let vehiclesOverride: FleetVehicle[] | undefined = undefined;
-        if (target.groupId) {
-            const group = vehicleGroups.find(g => String(g.id) === String(target.groupId));
+        let vehiclesOverride: FleetVehicle[] | undefined = previewTarget.vehicles;
+        if (previewTarget.groupId && (!vehiclesOverride || vehiclesOverride.length === 0)) {
+            const group = vehicleGroups.find(g => String(g.id) === String(previewTarget.groupId));
             if (group) {
                 const groupVehicleIds = new Set(group.vehicleIds.map(String));
                 vehiclesOverride = fleetVehicles
                     .filter(v => groupVehicleIds.has(String(v.id)))
                     .map(v => ({
                         ...v,
-                        groupIds: Array.from(new Set([...((v as any).groupIds || []), target.groupId!]))
+                        groupIds: Array.from(new Set([...((v as any).groupIds || []), previewTarget.groupId!]))
                     })) as FleetVehicle[];
 
                 if (vehiclesOverride.length === 0) {
                     setAssignmentError("El grupo seleccionado no tiene vehículos vinculados");
-                    setPendingAssignment(null);
                     return;
                 }
             }
@@ -150,13 +182,17 @@ export function AsignacionView({
             const result = await startRouting({
                 jobs: nextJobs,
                 vehicles: vehiclesOverride,
-                preference: routingPreference,
+                preference: preference,
                 traffic: trafficEnabled
             });
 
             if (result && (result as any).aborted) {
-                // Routing was temporarily aborted (e.g. missing driver). We still want to assign the jobs! 
                 // The dialog in gis-map will handle the routing once the driver is assigned.
+                // We must not map jobs yet to prevent bypassing the driver rule.
+                setPreviewTarget(null);
+                setIsPreviewModalOpen(false);
+                setSelectedJobIds([]); // Clear selection so the user isn't stuck visually
+                return;
             }
 
             if (result && (result as any).error) {
@@ -165,7 +201,7 @@ export function AsignacionView({
 
             if (result && result.unassignedJobs && result.unassignedJobs.length > 0) {
                 const failedIds = result.unassignedJobs.map((u: any) => String(u.id));
-                const actuallyFailedSelection = selectedJobIds.filter(id => failedIds.includes(String(id)));
+                const actuallyFailedSelection = jobIdsToAssign.filter(id => failedIds.includes(String(id)));
 
                 if (actuallyFailedSelection.length > 0) {
                     const failInfo = result.unassignedJobs.find((u: any) => String(u.id) === String(actuallyFailedSelection[0]));
@@ -173,40 +209,24 @@ export function AsignacionView({
                 }
             }
 
-            const assignments = selectedJobIds.map(jobId => ({
-                jobId,
-                vehicleId: target.vehicleId,
-                groupId: target.groupId
-              }));
-            setJobAssignments(assignments);
+            // Only set assignments if this was a manual specific assignment
+            if (previewTarget.vehicles?.length! > 0 || previewTarget.groupId) {
+                 const assignments = jobIdsToAssign.map(jobId => ({
+                    jobId,
+                    vehicleId: previewTarget.vehicles?.[0]?.id,
+                    groupId: previewTarget.groupId
+                  }));
+                setJobAssignments(assignments);
+            }
+            
             setSelectedJobIds([]);
 
         } catch (err) {
             console.error("[AsignacionView] Fallo en la asignación:", err);
             setAssignmentError(`Error: ${(err as Error).message}`);
         } finally {
-            setPendingAssignment(null);
-        }
-    };
-
-    const handleAutoOptimize = async () => {
-        if (unassignedJobs.length === 0) return;
-        setAssignmentError(null);
-        
-        try {
-            const result = await startRouting({
-                jobs: unassignedJobs, // Auto-optimization takes all unassigned jobs
-                preference: routingPreference,
-                traffic: trafficEnabled
-            });
-
-            if (result && (result as any).aborted) return;
-            if (result && (result as any).error) throw new Error((result as any).error);
-
-            setSelectedJobIds([]);
-        } catch (err) {
-            console.error("[AsignacionView] Fallo en la optimización:", err);
-            setAssignmentError(`Error: ${(err as Error).message}`);
+            setPreviewTarget(null);
+            setIsPreviewModalOpen(false);
         }
     };
 
@@ -223,43 +243,7 @@ export function AsignacionView({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-6">
-                        <div className="flex items-center gap-1.5 p-1 bg-white rounded-lg border border-[#EAEAEA]">
-                            {[
-                                { id: 'fastest', label: 'Rápido', icon: Gauge },
-                                { id: 'shortest', label: 'Eficiente', icon: Route },
-                                { id: 'recommended', label: 'Óptimo', icon: Sparkles }
-                            ].map((pref) => (
-                                <button
-                                    key={pref.id}
-                                    onClick={() => setRoutingPreference(pref.id as any)}
-                                    className={cn(
-                                        "flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-medium uppercase tracking-wider transition-all",
-                                        routingPreference === pref.id
-                                            ? "bg-[#1C1C1C] text-[#D4F04A]"
-                                            : "text-[#6B7280] hover:text-[#1C1C1C]"
-                                    )}
-                                >
-                                    <pref.icon strokeWidth={1.5} className="h-3.5 w-3.5" />
-                                    {pref.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="h-4 w-[1px] bg-[#EAEAEA]" />
-
-                        <div className="flex items-center gap-3 px-4 py-1.5 rounded-lg border border-[#EAEAEA] bg-white">
-                            <div className="flex items-center gap-2">
-                                <Flame strokeWidth={1.5} className={cn("h-4 w-4 transition-colors", trafficEnabled ? "text-orange-500" : "text-[#6B7280]/40")} />
-                                <span className="text-[10px] font-medium uppercase tracking-wider text-[#1C1C1C]">Tráfico</span>
-                            </div>
-                            <Switch
-                                checked={trafficEnabled}
-                                onCheckedChange={setTrafficEnabled}
-                                className="data-[state=checked]:bg-[#D4F04A] scale-75"
-                            />
-                        </div>
-
-                        <div className="h-4 w-[1px] bg-[#EAEAEA]" />
+                        {/* Routing Preferences and Traffic removed as per user request (handled in Modal now) */}
 
                         <button
                             onClick={handleAutoOptimize}
@@ -592,6 +576,19 @@ export function AsignacionView({
                 focusGroupId={focusGroupId}
                 createOnly={isCreateOnly}
             />
+
+            {/* MAP PREVIEW MODAL */}
+            {previewTarget && (
+                <MapPreviewModal
+                    open={isPreviewModalOpen}
+                    onOpenChange={setIsPreviewModalOpen}
+                    targetVariables={previewTarget}
+                    fleetVehicles={fleetVehicles}
+                    vehicleGroups={vehicleGroups}
+                    activeZones={activeZones}
+                    onConfirm={confirmRouting}
+                />
+            )}
         </div>
     );
 }

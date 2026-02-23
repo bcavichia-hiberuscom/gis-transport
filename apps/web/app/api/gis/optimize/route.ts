@@ -18,9 +18,10 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { vehicles, jobs, startTime, zones, preference, traffic } = body as {
+    const { vehicles, jobs, startTime, zones, preference, traffic, isSimulation } = body as {
       vehicles: FleetVehicle[];
       jobs: FleetJob[];
+      isSimulation?: boolean;
     } & OptimizeOptions;
 
     if (!vehicles || !jobs) {
@@ -31,6 +32,23 @@ export async function POST(req: Request) {
         } as IGisResponse,
         { status: 400 },
       );
+    }
+
+    if (!isSimulation) {
+      // Robust backend validation: A vehicle must have an assigned driver to be legally routed in the system
+      const vehiclesWithoutDriver = vehicles.filter((v: any) => !v.driver && !v.driverId && !v.assignedDriverId);
+      if (vehiclesWithoutDriver.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { 
+              code: "VALIDATION_FAILED", 
+              message: `Operación denegada (Backend): ${vehiclesWithoutDriver.length} vehículo(s) sin conductor asignado.` 
+            },
+          } as IGisResponse,
+          { status: 400 },
+        );
+      }
     }
 
     const routeData: RouteData = await RoutingService.optimize(vehicles, jobs, {
@@ -124,10 +142,12 @@ export async function POST(req: Request) {
       },
     };
 
-    // 3. Persist background snapshot
-    GisDataService.saveSnapshot(context).catch((err: unknown) =>
-      console.error("Failed to save background snapshot in orchestrator", err),
-    );
+    // 3. Persist background snapshot ONLY on real assignment launch (not simulation)
+    if (!isSimulation) {
+      GisDataService.saveSnapshot(context).catch((err: unknown) =>
+        console.error("Failed to save background snapshot in orchestrator", err),
+      );
+    }
 
     return NextResponse.json({
       success: true,

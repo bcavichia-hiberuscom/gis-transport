@@ -271,7 +271,7 @@ export function GISMap() {
       );
 
       const vehiclesWithNoDriver = vehiclesToCheck.filter((v) =>
-        assignedVehicleIds.has(String(v.id)) && !v.driver
+        assignedVehicleIds.has(String(v.id)) && !v.driver && !v.driverId && !v.assignedDriverId
       );
 
       console.log("[GISMap] Driver Pre-check:", {
@@ -292,8 +292,17 @@ export function GISMap() {
         return { success: false, aborted: true, unassignedJobs: [] };
       }
 
-      console.log("[GISMap] Driver check passed — starting route calculation...");
-      return startRouting(overrides);
+      console.log("[GISMap] Driver check passed — excluding un-driven non-targeted vehicles");
+      
+      // Filter out vehicles that don't have drivers AND aren't targeted for manual assignment
+      const operationalVehicles = vehiclesToCheck.filter(v => 
+        assignedVehicleIds.has(String(v.id)) || (v.driver || v.driverId || v.assignedDriverId)
+      );
+
+      return startRouting({
+          ...(overrides || {}),
+          vehicles: operationalVehicles
+      });
     },
     [fleetVehicles, fleetJobs, startRouting, dispatch],
   );

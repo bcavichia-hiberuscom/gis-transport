@@ -40,6 +40,7 @@ interface MapPreviewProps {
     vehicle?: FleetVehicle | null;
     jobs?: FleetJob[];
     routeData?: RouteData | null;
+    compareRoutes?: RouteData[];
     vehicleAlerts?: Record<string | number, Alert[]>;
 }
 
@@ -53,26 +54,33 @@ const MapPreview = memo(({
     vehicle = null,
     jobs = [],
     routeData = null,
+    compareRoutes = [],
     vehicleAlerts = {}
 }: MapPreviewProps) => {
     const mapIcons = useMemo(() => createMapIcons(), []);
 
-    // Filter routes for this specific vehicle
+    // Filter routes for this specific vehicle or map all compare routes
+    // For previewing alternatives, we might just want to show the first vehicle's route 
+    // from each option since the modal focuses on the whole plan
     const displayedRoutes = useMemo(() => {
+        if (compareRoutes.length > 0) {
+            // Flatten all vehicle routes from all compare plans
+            return compareRoutes.flatMap(cRoute => cRoute.vehicleRoutes || []);
+        }
         if (!routeData?.vehicleRoutes || !vehicle) return [];
         return routeData.vehicleRoutes.filter(r => String(r.vehicleId) === String(vehicle.id));
-    }, [routeData, vehicle]);
+    }, [routeData, vehicle, compareRoutes]);
 
     const renderedJobs = useMemo(() => {
         return renderJobMarkers({
             jobs: jobs, // Already filtered by parent
             icon: mapIcons.job,
-            routeData,
+            routeData: compareRoutes.length > 0 ? compareRoutes[0] : routeData,
             vehicles: vehicle ? [vehicle] : [],
             zoom: DEFAULT_ZOOM,
             selectedVehicleId: vehicle ? String(vehicle.id) : null,
         });
-    }, [jobs, mapIcons.job, routeData, vehicle]);
+    }, [jobs, mapIcons.job, routeData, vehicle, compareRoutes]);
 
     const center = useMemo(() => {
         if (coords) return coords;
@@ -91,13 +99,19 @@ const MapPreview = memo(({
                 zoom={zoom}
                 scrollWheelZoom={false}
                 zoomControl={false}
-                dragging={false}
-                touchZoom={false}
-                doubleClickZoom={false}
+                dragging={compareRoutes.length > 0} // Allow dragging if we are in compare mode
+                touchZoom={compareRoutes.length > 0} 
+                doubleClickZoom={compareRoutes.length > 0}
                 className="h-full w-full grayscale-[0.3]"
             >
                 <MapResizer />
-                {(vehicle || coords) && <AutoCenter center={center} zoom={zoom} />}
+                {(vehicle || coords) && compareRoutes.length === 0 && <AutoCenter center={center} zoom={zoom} />}
+                
+                {/* Auto fit bounds to displayed routes if we are in compare mode */}
+                {compareRoutes.length > 0 && displayedRoutes.length > 0 && (
+                    <FitBounds routes={displayedRoutes} />
+                )}
+
                 <TileLayer attribution={LIGHT_ATTRIBUTION} url={LIGHT_TILE_URL} />
 
                 {coords && <Marker position={coords} />}
@@ -123,8 +137,10 @@ const MapPreview = memo(({
             {/* Subtle Gradient Overlay */}
             <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/10 to-transparent pointer-events-none" />
 
-            {/* Overlay to ensure strictly read-only */}
-            <div className="absolute inset-0 z-[1001] bg-transparent cursor-default" />
+            {/* Overlay to ensure strictly read-only when not in compare mode */}
+            {compareRoutes.length === 0 && (
+               <div className="absolute inset-0 z-[1001] bg-transparent cursor-default" />
+            )}
         </div>
     );
 });
