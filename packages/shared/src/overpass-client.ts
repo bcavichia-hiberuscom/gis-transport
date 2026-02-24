@@ -150,6 +150,27 @@ export class OverpassClient {
     return {
       maxSpeed,
       roadName: bestWay?.tags?.name,
+      smoothness: bestWay?.tags?.smoothness,
+      surface: bestWay?.tags?.surface,
+      highway: bestWay?.tags?.highway,
     };
+  }
+
+  /**
+   * Fetches road segments with poor smoothness values within a bounding box.
+   */
+  static async fetchPoorSmoothnessWays(
+    bbox: [number, number, number, number],
+  ): Promise<OverpassElement[]> {
+    const [minLat, minLon, maxLat, maxLon] = bbox;
+    const query = `[out:json][timeout:25];
+            (
+              way["smoothness"~"bad|very_bad|horrible|very_horrible|impassable"](${minLat},${minLon},${maxLat},${maxLon});
+              way["surface"~"unpaved|dirt|earth|grass|mud|sand|gravel|pebblestone|ground"](${minLat},${minLon},${maxLat},${maxLon});
+            );
+            out geom;`;
+
+    const data = await this.query(query, { timeout: 20000 });
+    return data.elements || [];
   }
 }

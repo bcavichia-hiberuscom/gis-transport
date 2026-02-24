@@ -34,7 +34,7 @@ interface AsignacionViewProps {
     fleetVehicles: FleetVehicle[];
     activeZones: Zone[];
     setJobAssignments: (assignments: { jobId: string | number; vehicleId?: string | number, groupId?: string | number }[]) => void;
-    startRouting: (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[], preference?: "fastest" | "shortest" | "recommended", traffic?: boolean }) => Promise<any>;
+    startRouting: (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[], preference?: "fastest" | "shortest" | "recommended" | "health", traffic?: boolean, avoidPoorSmoothness?: boolean }) => Promise<any>;
     isCalculatingRoute?: boolean;
     vehicleGroups?: VehicleGroup[];
     addVehicleGroup?: (name: string, vehicleIds?: (string | number)[]) => Promise<string | null>;
@@ -60,7 +60,7 @@ export function AsignacionView({
     const [lastClickedJobId, setLastClickedJobId] = useState<string | number | null>(null);
     const [pendingAssignment, setPendingAssignment] = useState<{ jobIds: (string | number)[]; vehicleId?: string | number, groupId?: string | number } | null>(null);
     const [isGroupManagerOpen, setIsGroupManagerOpen] = useState(false);
-    
+
     // Map Preview Modal State
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [previewTarget, setPreviewTarget] = useState<{
@@ -140,14 +140,14 @@ export function AsignacionView({
     const handleAutoOptimize = async () => {
         if (unassignedJobs.length === 0) return;
         setAssignmentError(null);
-        
+
         setPreviewTarget({
             jobs: unassignedJobs,
         });
         setIsPreviewModalOpen(true);
     };
 
-    const confirmRouting = async (preference: "shortest" | "fastest") => {
+    const confirmRouting = async (preference: "shortest" | "fastest" | "health") => {
         if (!previewTarget) return;
         setAssignmentError(null);
 
@@ -183,7 +183,8 @@ export function AsignacionView({
                 jobs: nextJobs,
                 vehicles: vehiclesOverride,
                 preference: preference,
-                traffic: trafficEnabled
+                traffic: trafficEnabled,
+                avoidPoorSmoothness: preference === 'health'
             });
 
             if (result && (result as any).aborted) {
@@ -211,14 +212,14 @@ export function AsignacionView({
 
             // Only set assignments if this was a manual specific assignment
             if (previewTarget.vehicles?.length! > 0 || previewTarget.groupId) {
-                 const assignments = jobIdsToAssign.map(jobId => ({
+                const assignments = jobIdsToAssign.map(jobId => ({
                     jobId,
                     vehicleId: previewTarget.vehicles?.[0]?.id,
                     groupId: previewTarget.groupId
-                  }));
+                }));
                 setJobAssignments(assignments);
             }
-            
+
             setSelectedJobIds([]);
 
         } catch (err) {
@@ -239,7 +240,7 @@ export function AsignacionView({
                         <div className="h-10 w-10 bg-[#1C1C1C] text-[#D4F04A] flex items-center justify-center rounded-lg shadow-sm">
                             <Workflow strokeWidth={1.5} className="h-5 w-5" />
                         </div>
-                     
+
                     </div>
 
                     <div className="flex flex-wrap items-center gap-6">
@@ -484,44 +485,44 @@ export function AsignacionView({
                         <div className="p-4 flex flex-col gap-3">
                             {filteredVehicles.length > 0 ? (
                                 filteredVehicles.map(vehicle => {
-                                const isPending = pendingAssignment?.vehicleId === vehicle.id;
-                                const canAssign = !!selectedJobIds.length && !isPending;
-                                return (
-                                    <div
-                                        key={vehicle.id}
-                                        onClick={() => canAssign && handleManualAssign({ vehicleId: vehicle.id })}
-                                        className={cn(
-                                            "p-4 flex items-center gap-4 transition-all duration-300 cursor-pointer rounded-lg border",
-                                            canAssign
-                                                ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]"
-                                                : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
-                                        )}
-                                    >
-                                        <div className="relative shrink-0">
-                                            <div className={cn(
-                                                "h-10 w-10 flex items-center justify-center rounded-md border shrink-0 transition-all",
+                                    const isPending = pendingAssignment?.vehicleId === vehicle.id;
+                                    const canAssign = !!selectedJobIds.length && !isPending;
+                                    return (
+                                        <div
+                                            key={vehicle.id}
+                                            onClick={() => canAssign && handleManualAssign({ vehicleId: vehicle.id })}
+                                            className={cn(
+                                                "p-4 flex items-center gap-4 transition-all duration-300 cursor-pointer rounded-lg border",
                                                 canAssign
-                                                    ? "bg-[#1C1C1C] border-[#D4F04A]/20 text-[#D4F04A]"
-                                                    : "bg-[#F7F8FA] border-[#EAEAEA] text-[#6B7280]"
-                                            )}>
-                                                {isPending ? <Activity strokeWidth={1.5} className="h-5 w-5 animate-spin" /> : <Truck strokeWidth={1.5} className="h-5 w-5" />}
+                                                    ? "border-[#1C1C1C] bg-[#1C1C1C] text-[#D4F04A]"
+                                                    : "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
+                                            )}
+                                        >
+                                            <div className="relative shrink-0">
+                                                <div className={cn(
+                                                    "h-10 w-10 flex items-center justify-center rounded-md border shrink-0 transition-all",
+                                                    canAssign
+                                                        ? "bg-[#1C1C1C] border-[#D4F04A]/20 text-[#D4F04A]"
+                                                        : "bg-[#F7F8FA] border-[#EAEAEA] text-[#6B7280]"
+                                                )}>
+                                                    {isPending ? <Activity strokeWidth={1.5} className="h-5 w-5 animate-spin" /> : <Truck strokeWidth={1.5} className="h-5 w-5" />}
+                                                </div>
                                             </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className={cn("text-[12px] font-medium truncate uppercase tracking-tight", canAssign ? "text-white" : "text-[#1C1C1C]")}>
+                                                    {vehicle.label}
+                                                </h4>
+                                                <p className={cn("text-[9px] font-medium uppercase tracking-wider mt-1 opacity-60", canAssign ? "text-[#D4F04A]" : "text-[#6B7280]")}>
+                                                    {vehicle.type.label}
+                                                </p>
+                                            </div>
+                                            {canAssign && (
+                                                <CheckCircle2 strokeWidth={2} className="h-4 w-4 text-[#D4F04A]" />
+                                            )}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className={cn("text-[12px] font-medium truncate uppercase tracking-tight", canAssign ? "text-white" : "text-[#1C1C1C]")}>
-                                                {vehicle.label}
-                                            </h4>
-                                            <p className={cn("text-[9px] font-medium uppercase tracking-wider mt-1 opacity-60", canAssign ? "text-[#D4F04A]" : "text-[#6B7280]")}>
-                                                {vehicle.type.label}
-                                            </p>
-                                        </div>
-                                        {canAssign && (
-                                            <CheckCircle2 strokeWidth={2} className="h-4 w-4 text-[#D4F04A]" />
-                                        )}
-                                    </div>
-                                );
-                            })
-                        ) : (
+                                    );
+                                })
+                            ) : (
                                 <div className="py-20 text-center px-10 bg-white border border-dashed border-[#EAEAEA] rounded-md h-full flex flex-col items-center justify-center">
                                     <Truck strokeWidth={1.25} className="h-8 w-8 text-[#6B7280]/30 mb-3" />
                                     <span className="text-[10px] font-medium text-[#6B7280]/50 uppercase tracking-wider">

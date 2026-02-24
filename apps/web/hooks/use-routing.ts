@@ -110,7 +110,13 @@ export function useRouting({
   }, []);
 
   // STABLE callback - uses refs to access current values
-  const startRouting = useCallback(async (overrides?: { vehicles?: FleetVehicle[], jobs?: FleetJob[], preference?: "fastest" | "shortest" | "recommended", traffic?: boolean }) => {
+  const startRouting = useCallback(async (overrides?: {
+    vehicles?: FleetVehicle[],
+    jobs?: FleetJob[],
+    preference?: "fastest" | "shortest" | "recommended" | "health",
+    traffic?: boolean,
+    avoidPoorSmoothness?: boolean
+  }) => {
     let vehicles = overrides?.vehicles || fleetVehiclesRef.current;
     const jobs = overrides?.jobs || fleetJobsRef.current;
     const pois = customPOIsRef.current;
@@ -120,8 +126,8 @@ export function useRouting({
     const doSetLayers = setLayersRef.current;
     const groups = vehicleGroupsRef.current;
 
-    console.log("[useRouting] startRouting called", { 
-      hasOverrides: !!overrides, 
+    console.log("[useRouting] startRouting called", {
+      hasOverrides: !!overrides,
       overrideJobs: overrides?.jobs?.length,
       refVehicles: vehicles.map(v => ({
         id: v.id,
@@ -169,24 +175,25 @@ export function useRouting({
         id: poi.id,
         position: poi.position,
         label: `POI: ${poi.name}`,
+        assignedVehicleId: undefined,
       }));
 
     const allFleetJobs = [...jobs, ...selectedPOIsAsJobs];
-    
+
     // Filter vehicles to only include those that have assigned jobs
     // This allows users to manage their fleet individually without requiring all vehicles to have drivers
-    const vehiclesWithJobs = vehicles.filter((v) => 
+    const vehiclesWithJobs = vehicles.filter((v) =>
       allFleetJobs.some((j) => String(j.assignedVehicleId) === String(v.id))
     );
-    
+
     // If no vehicles have jobs assigned, include all vehicles (legacy behavior for manual routing)
     const vehiclesToRoute = vehiclesWithJobs.length > 0 ? vehiclesWithJobs : vehicles;
-    
-    console.log("[useRouting] Validation:", { 
+
+    console.log("[useRouting] Validation:", {
       totalVehicles: vehicles.length,
       vehiclesWithJobs: vehiclesWithJobs.length,
       vehiclesToRoute: vehiclesToRoute.length,
-      jobCount: allFleetJobs.length 
+      jobCount: allFleetJobs.length
     });
 
     if (vehiclesToRoute.length === 0 || allFleetJobs.length === 0) {
@@ -243,6 +250,7 @@ export function useRouting({
           vehicleGroups: groups,
           preference: overrides?.preference,
           traffic: overrides?.traffic,
+          avoidPoorSmoothness: overrides?.avoidPoorSmoothness,
           isSimulation: false,
         }),
       });

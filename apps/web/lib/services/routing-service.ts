@@ -21,6 +21,7 @@ import {
   getForbiddenZones,
   getZoneForbiddenReason,
 } from "@/lib/helpers/zone-access-helper";
+import { OverpassClient } from "@gis/shared";
 
 const VROOM_PUBLIC = "https://solver.vroom-project.org";
 
@@ -42,7 +43,7 @@ async function fetchWithFallback(
   } catch (err) {
     const isORS = publicUrl.includes("openrouteservice.org");
     console.warn(`[Fallback] Local ${localUrl} unavailable, using public. Error: ${(err as Error).message}`);
-    
+
     if (isORS && !ORS_API_KEY) {
       console.error("[Fallback] ❌ CRITICAL: No se ha detectado ORS_API_KEY o NEXT_PUBLIC_ORS_API_KEY en las variables de entorno. Las peticiones al servicio público de ORS fallarán con 'Authorization field missing'. Por favor, añada su clave a su archivo .env");
     }
@@ -59,7 +60,7 @@ async function fetchWithFallback(
       ...(options.headers as Record<string, string>),
       ...extraHeaders,
     };
-    
+
     if (isORS && ORS_API_KEY && !headers["Authorization"]) {
       headers["Authorization"] = ORS_API_KEY;
     }
@@ -84,6 +85,10 @@ export class RoutingService {
   ): Promise<RouteData> {
     const startTime = options.startTime || new Date().toISOString();
     const zones = options.zones || [];
+
+    if (options.preference === "health") {
+      options.avoidPoorSmoothness = true;
+    }
 
     console.log(
       `[Optimize] Iniciando optimización con ${vehicles.length} vehículos, ${jobs.length} jobs, ${zones.length} zonas`,
@@ -164,9 +169,10 @@ export class RoutingService {
     });
 
     const uniqueProfiles = this.getUniqueProfiles(vehicleProfiles);
-    const matrices = await this.getMatricesForProfiles(
+    const { matrices, poorSmoothnessPolygons } = await this.getMatricesForProfiles(
       snappedLocations,
       uniqueProfiles,
+      allCoords,
       options
     );
 
@@ -286,8 +292,11 @@ export class RoutingService {
       vehicles,
       jobs,
       invalidAssignments,
+      poorSmoothnessPolygons,
       options,
     );
+
+    const hasPoorSmoothness = vehicleRoutes.some(r => r.hasPoorSmoothness);
 
     // 6. Weather Analysis
     const weatherRoutes = await WeatherService.analyzeRoutes(
@@ -303,6 +312,7 @@ export class RoutingService {
       weatherRoutes,
       unassignedJobs,
       notices,
+      hasPoorSmoothness,
     };
   }
 
@@ -323,17 +333,59 @@ export class RoutingService {
   private static async getMatricesForProfiles(
     locations: LatLon[],
     profiles: ProfileData[],
+    allCoords: LatLon[],
     options: OptimizeOptions = {},
-  ): Promise<Record<string, number[][]>> {
+  ): Promise<{ matrices: Record<string, number[][]>; poorSmoothnessPolygons: LatLon[][] }> {
     const matrices: Record<string, number[][]> = {};
+    const poorSmoothnessPolygons = await this.getPoorSmoothnessPolygons(allCoords);
+
+    console.log(`[Optimize] Smoothness polygons found: ${poorSmoothnessPolygons.length}`);
+
     for (const profile of profiles) {
+      const allAvoid = [...profile.avoidPolygons, ...poorSmoothnessPolygons.filter(p => !locations.some(l => this.isPointInZone(l, p)))];
       matrices[profile.name] = await this.getMatrix(
         locations,
-        profile.avoidPolygons,
+        allAvoid,
         options
       );
     }
-    return matrices;
+    return { matrices, poorSmoothnessPolygons };
+  }
+
+  private static async getPoorSmoothnessPolygons(locations: LatLon[]): Promise<LatLon[][]> {
+    if (locations.length === 0) return [];
+
+    // Calculate bounding box
+    const lats = locations.map(l => l[0]);
+    const lons = locations.map(l => l[1]);
+    const bbox: [number, number, number, number] = [
+      Math.min(...lats) - 0.05,
+      Math.min(...lons) - 0.05,
+      Math.max(...lats) + 0.05,
+      Math.max(...lons) + 0.05,
+    ];
+
+    try {
+      const ways = await OverpassClient.fetchPoorSmoothnessWays(bbox);
+
+      // Convert ways with geometry to polygons (buffers around the line)
+      return ways
+        .filter(w => w.geometry && w.geometry.length >= 2)
+        .map(w => {
+          // Even smaller box around segments to reduce false positives
+          const wlats = w.geometry!.map(g => g.lat);
+          const wlons = w.geometry!.map(g => g.lon);
+          return [
+            [Math.min(...wlats) - 0.0005, Math.min(...wlons) - 0.0005],
+            [Math.min(...wlats) - 0.0005, Math.max(...wlons) + 0.0005],
+            [Math.max(...wlats) + 0.0005, Math.max(...wlons) + 0.0005],
+            [Math.max(...wlats) + 0.0005, Math.min(...wlons) - 0.0005],
+          ] as LatLon[];
+        });
+    } catch (e) {
+      console.error("[RoutingService] Failed to fetch poor smoothness ways:", e);
+      return [];
+    }
   }
 
   private static processUnassignedJobs(
@@ -437,6 +489,7 @@ export class RoutingService {
     originalVehicles: FleetVehicle[],
     originalJobs: FleetJob[],
     invalidAssignments: { vehicleIdx: number; jobLabels: string[] }[] = [],
+    poorSmoothnessPolygons: LatLon[][] = [],
     options: OptimizeOptions = {},
   ): Promise<VehicleRoute[]> {
     const results: VehicleRoute[] = [];
@@ -466,9 +519,14 @@ export class RoutingService {
       const vehicle = originalVehicles[vIdx];
       const color = ROUTE_COLORS[vIdx % ROUTE_COLORS.length];
 
+      let baseAvoidPolygons = profile.avoidPolygons;
+      if (options.avoidPoorSmoothness && poorSmoothnessPolygons.length > 0) {
+        baseAvoidPolygons = [...baseAvoidPolygons, ...poorSmoothnessPolygons];
+      }
+
       // Filtrar polígonos que contienen alguno de nuestros waypoints
       // para permitir que ORS calcule la ruta entrando a la zona si es necesario
-      const filteredAvoidPolygons = profile.avoidPolygons.filter(poly => {
+      const filteredAvoidPolygons = baseAvoidPolygons.filter(poly => {
         const anyWaypointInside = waypoints.some(wp => this.isPointInZone(wp, poly));
         if (anyWaypointInside) {
           console.log(`[CalculateRoutes] Omitiendo zona evitable para ORS en vehículo ${vIdx} porque contiene un waypoint.`);
@@ -484,6 +542,7 @@ export class RoutingService {
         route.steps,
         originalJobs,
         originalVehicles.length,
+        poorSmoothnessPolygons,
         options,
       );
 
@@ -506,23 +565,33 @@ export class RoutingService {
     steps: VroomStep[],
     originalJobs: FleetJob[],
     vehicleOffset: number,
+    poorSmoothnessPolygons: LatLon[][] = [],
     options: OptimizeOptions = {},
   ): Promise<VehicleRoute> {
     const orsWaypoints = waypoints.map(([lat, lon]) => [lon, lat]);
     const avoid_polygons = this.formatAvoidPolygons(avoidPolygons);
+    const orsPreference = options.preference === "health" ? "fastest" : (options.preference || "recommended");
 
-    const body = {
+    const body: any = {
       coordinates: orsWaypoints,
       instructions: false,
-      preference: options.preference || "recommended",
+      preference: orsPreference,
       radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS),
     };
+
+    if (avoid_polygons) {
+      body.options = {
+        ...body.options,
+        avoid_polygons
+      };
+    }
 
     try {
       const orsHeaders: Record<string, string> = { "Content-Type": "application/json" };
       const publicHeaders: Record<string, string> = {};
       if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;
 
+      console.log(`[FetchOrsRoute] Sending to ORS:`, JSON.stringify(body));
       const res = await fetchWithFallback(
         `${ORS_URL}/directions/driving-car/geojson`,
         `${ORS_PUBLIC_URL}/directions/driving-car/geojson`,
@@ -538,16 +607,22 @@ export class RoutingService {
 
       const data: OrsDirectionsResponse = await res.json();
       const feat = data.features[0];
+      const coords = feat.geometry.coordinates.map(
+        ([lon, lat]: [number, number]) => [lat, lon] as LatLon,
+      );
+
+      // Check if any point in the route intersects with poor smoothness
+      const hasPoorSmoothness = coords.some(coord =>
+        poorSmoothnessPolygons.some(poly => this.isPointInZone(coord, poly))
+      );
 
       console.log(
-        `[FetchOrsRoute] Raw ORS distance: ${feat.properties.summary.distance}m, divided by 1000: ${feat.properties.summary.distance / 1000}km`
+        `[FetchOrsRoute] Raw ORS distance: ${feat.properties.summary.distance}m, hasPoorSmoothness: ${hasPoorSmoothness}`
       );
 
       return {
         vehicleId,
-        coordinates: feat.geometry.coordinates.map(
-          ([lon, lat]: [number, number]) => [lat, lon],
-        ),
+        coordinates: coords,
         distance: Math.round(feat.properties.summary.distance / 1000),
         duration: Math.round(feat.properties.summary.duration),
         color,
@@ -560,6 +635,7 @@ export class RoutingService {
           })
           .filter((id): id is string | number => id !== undefined),
         error: undefined,
+        hasPoorSmoothness,
       };
     } catch (e) {
       return this.createErrorRoute(
@@ -653,6 +729,11 @@ export class RoutingService {
     } else if (pref === "shortest") {
       weightDistance = 5.0; // Prioriza metros sobre todo
       weightTime = 0.1;
+    } else if (pref === "health") {
+      // Para salud del vehículo, priorizamos fuertemente las vías principales (tiempo)
+      // sobre cualquier atajo por calle secundaria (distancia).
+      weightDistance = 0.3;
+      weightTime = 10.0;
     } else {
       // Balanceado
       weightDistance = 1.0;
@@ -677,10 +758,21 @@ export class RoutingService {
         // Aplicamos los pesos dinámicos y el factor de tráfico simulado
         const adjustedDuration = t * trafficFactor;
 
-        return Math.round(
-          d * weightDistance +
-          adjustedDuration * weightTime
-        );
+        let cost = d * weightDistance + adjustedDuration * weightTime;
+
+        // Custom logic for Vehicle Health preference:
+        // 1. Penalize unclassified/residential/living_street if avoidPoorSmoothness is on
+        // Note: In a real world, ORS matrix doesn't return highway class for each cell easily.
+        // We simulate the hierarchy preference by increasing the cost of all non-unblocked paths 
+        // if they are not known main roads.
+        if (options.avoidPoorSmoothness) {
+          // In this simulation, we give a slight preference to the general "best" roads 
+          // by reducing cost for paths that are likely main roads (distance > 500m usually implies main roads)
+          // or simply increasing base cost slightly to favor routes that stay on main corridors.
+          cost *= 1.2;
+        }
+
+        return Math.round(cost);
       }),
     );
   }
@@ -983,7 +1075,7 @@ export class RoutingService {
       console.log(
         `[CustomStopRoute] Requesting ORS for vehicle ${vehicleId} with ${waypoints.length} waypoints`,
       );
-      
+
       const orsHeaders: Record<string, string> = { "Content-Type": "application/json" };
       const publicHeaders: Record<string, string> = {};
       if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;

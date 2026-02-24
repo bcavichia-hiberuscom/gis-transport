@@ -18,7 +18,7 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { vehicles, jobs, startTime, zones, preference, traffic, isSimulation } = body as {
+    const { vehicles, jobs, startTime, zones, preference, traffic, isSimulation, avoidPoorSmoothness } = body as {
       vehicles: FleetVehicle[];
       jobs: FleetJob[];
       isSimulation?: boolean;
@@ -54,10 +54,10 @@ export async function POST(req: Request) {
         // 3. assignedDriverId property exists
         const hasDriverObject = v.driver && (v.driver.id || v.driver.name);
         const hasDriverId = v.driverId || v.assignedDriverId;
-        
+
         return !hasDriverObject && !hasDriverId;
       });
-      
+
       if (vehiclesWithoutDriver.length > 0) {
         console.error("[route.ts] Vehicles without driver:", vehiclesWithoutDriver.map((v: any) => ({
           id: v.id,
@@ -66,16 +66,16 @@ export async function POST(req: Request) {
           driverId: v.driverId,
           assignedDriverId: v.assignedDriverId,
         })));
-        
+
         // Build a more helpful error message
         const vehicleLabels = vehiclesWithoutDriver.map((v: any) => v.label).join(", ");
-        
+
         return NextResponse.json(
           {
             success: false,
-            error: { 
-              code: "VALIDATION_FAILED", 
-              message: `Por favor, asigna un conductor a los siguientes vehículos antes de optimizar: ${vehicleLabels}` 
+            error: {
+              code: "VALIDATION_FAILED",
+              message: `Por favor, asigna un conductor a los siguientes vehículos antes de optimizar: ${vehicleLabels}`
             },
           } as IGisResponse,
           { status: 400 },
@@ -88,6 +88,7 @@ export async function POST(req: Request) {
       zones,
       preference,
       traffic,
+      avoidPoorSmoothness,
     });
 
     const vehicleRoutes: VehicleRoute[] = routeData.vehicleRoutes || [];

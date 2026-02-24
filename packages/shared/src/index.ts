@@ -11,6 +11,9 @@ export type RiskLevel = z.infer<typeof RiskLevelSchema>;
 export const RoadInfoSchema = z.object({
   maxSpeed: z.number().optional(),
   roadName: z.string().optional(),
+  smoothness: z.string().optional(),
+  surface: z.string().optional(),
+  highway: z.string().optional(),
 });
 export type RoadInfo = z.infer<typeof RoadInfoSchema>;
 
@@ -277,6 +280,7 @@ export const VehicleRouteSchema = z.object({
   jobsAssigned: z.number(),
   assignedJobIds: z.array(z.union([z.string(), z.number()])).optional(), // IDs of jobs assigned to this route
   error: z.string().optional(),
+  hasPoorSmoothness: z.boolean().optional(),
 });
 export type VehicleRoute = z.infer<typeof VehicleRouteSchema>;
 
@@ -343,6 +347,7 @@ export const RouteDataSchema = z.object({
     .optional(),
   notices: z.array(RouteNoticeSchema).optional(),
   avoidPolygons: z.array(z.array(LatLonSchema)).optional(),
+  hasPoorSmoothness: z.boolean().optional(),
 });
 export type RouteData = z.infer<typeof RouteDataSchema>;
 
@@ -553,8 +558,9 @@ export type SearchPOIParams = z.infer<typeof SearchPOIParamsSchema>;
 export const OptimizeOptionsSchema = z.object({
   startTime: z.string().optional(),
   zones: z.array(ZoneSchema).optional(),
-  preference: z.enum(["fastest", "shortest", "recommended"]).optional(),
+  preference: z.enum(["fastest", "shortest", "recommended", "health"]).optional(),
   traffic: z.boolean().optional(),
+  avoidPoorSmoothness: z.boolean().optional(),
 });
 export type OptimizeOptions = z.infer<typeof OptimizeOptionsSchema>;
 

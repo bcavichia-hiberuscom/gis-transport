@@ -14,8 +14,10 @@ import {
   Navigation,
   Clock,
   DollarSign,
-  Leaf
+  Leaf,
+  AlertCircle
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type {
   FleetJob,
@@ -34,7 +36,7 @@ const MapPreview = dynamic(() => import('@/components/map-preview'), {
 })
 
 interface RouteAlternative {
-  preference: 'shortest' | 'fastest'
+  preference: 'shortest' | 'fastest' | 'health'
   label: string
   icon: React.ElementType
   data: RouteData | null
@@ -43,6 +45,8 @@ interface RouteAlternative {
   fuelPrice: number
   description?: string
   error?: string
+  disabled?: boolean
+  disabledReason?: string
 }
 
 interface MapPreviewModalProps {
@@ -56,7 +60,7 @@ interface MapPreviewModalProps {
   fleetVehicles: FleetVehicle[]
   vehicleGroups?: VehicleGroup[]
   activeZones: Zone[]
-  onConfirm: (preference: 'shortest' | 'fastest') => void
+  onConfirm: (preference: 'shortest' | 'fastest' | 'health') => void
 }
 
 export function MapPreviewModal({
@@ -90,11 +94,22 @@ export function MapPreviewModal({
       fuelPrice: 0,
       description:
         'Calculada con foco en minimizar el tiempo operativo (prioriza vías rápidas o autopistas).'
+    },
+    {
+      preference: 'health',
+      label: 'Salud del Vehículo',
+      icon: Activity,
+      data: null,
+      estimatedCost: 0,
+      fuelSource: '',
+      fuelPrice: 0,
+      description:
+        'Prioriza pavimentos de alta calidad y vías principales para minimizar vibraciones y proteger la mecánica.'
     }
   ])
   const [isCalculating, setIsCalculating] = useState(false)
   const [selectedPreference, setSelectedPreference] = useState<
-    'shortest' | 'fastest'
+    'shortest' | 'fastest' | 'health'
   >('shortest')
   const [globalError, setGlobalError] = useState<string | null>(null)
 
@@ -175,7 +190,7 @@ export function MapPreviewModal({
     isEV: boolean
   ) => {
     const performance =
-      (primaryVehicle as any)?.metadata?.performance || (isEV ? 15 : 8) // kWh/100km or L/100km
+      (primaryVehicle as any)?.metadata?.fuel_consumption || (primaryVehicle as any)?.fuelConsumption || (isEV ? 15 : 8) // kWh/100km or L/100km
     return (distanceKm / 100) * performance * pricePerUnit
   }
 
@@ -220,9 +235,32 @@ export function MapPreviewModal({
         return responseData.data as RouteData
       }
 
-      const [shortestData, fastestData] = await Promise.all([
+      const [shortestData, fastestData, healthData] = await Promise.all([
         fetchRoute('shortest'),
-        fetchRoute('fastest')
+        fetchRoute('fastest'),
+        // Health route: shortest + avoidPoorSmoothness
+        (async () => {
+          const res = await fetch('/api/gis/optimize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vehicles: resolvedVehicles,
+              jobs: targetVariables.jobs,
+              startTime: new Date().toISOString(),
+              zones: activeZones,
+              preference: 'health',
+              traffic: false,
+              isSimulation: true,
+            })
+          })
+          const responseData = await res.json()
+          if (!res.ok || !responseData.success) {
+            throw new Error(
+              responseData.error?.message || 'Error al calcular ruta de salud'
+            )
+          }
+          return responseData.data as RouteData
+        })()
       ])
 
       // Sum distance across all vehicle routes returned in this option
@@ -272,8 +310,51 @@ export function MapPreviewModal({
         }))
       } as any
 
+      const sumDistanceHealth =
+        healthData.vehicleRoutes?.reduce(
+          (acc, r) => acc + (r.distance || 0),
+          0
+        ) || 0
+      const sumDurationHealth =
+        healthData.vehicleRoutes?.reduce(
+          (acc, r) => acc + (r.duration || 0),
+          0
+        ) || 0
+
+      const healthWithSummary = {
+        ...healthData,
+        _computedSummary: {
+          distance: sumDistanceHealth,
+          duration: sumDurationHealth
+        },
+        vehicleRoutes: healthData.vehicleRoutes?.map(r => ({
+          ...r,
+          color: '#8b5cf6' // Purple for health
+        }))
+      } as any
+
       // 3. Process results
-      setAlternatives([
+      const hasPoorQuality = (shortestWithSummary as any).hasPoorSmoothness || (fastestWithSummary as any).hasPoorSmoothness;
+
+      const healthIsFastest = Math.abs(sumDistanceHealth - sumDistanceFastest) < 0.1 && Math.abs(sumDurationHealth - sumDurationFastest) < 60;
+      const healthIsShortest = Math.abs(sumDistanceHealth - sumDistanceShortest) < 0.1 && Math.abs(sumDurationHealth - sumDurationShortest) < 60;
+
+      const isHealthRedundant = hasPoorQuality && (healthIsFastest || healthIsShortest);
+      const isHealthDisabled = !hasPoorQuality || isHealthRedundant;
+
+      let healthDescription = 'Prioriza pavimentos de alta calidad y vías principales para minimizar vibraciones y proteger la mecánica.';
+      let healthDisabledReason = 'No se han detectado vías de baja calidad. Las opciones sugeridas ya protegen la mecánica.';
+
+      if (!hasPoorQuality) {
+        healthDescription = 'No se han detectado vías de baja calidad en la zona. Las rutas sugeridas ya aseguran la integridad del vehículo.';
+      } else if (isHealthRedundant) {
+        healthDescription = 'Las rutas actuales ya trazan la trayectoria más segura posible evadiendo irregularidades detectadas.';
+        healthDisabledReason = healthIsFastest
+          ? 'La trayectoria óptima coincide con la ruta Rápida obteniendo el máximo cuidado posible para la unidad.'
+          : 'La trayectoria óptima coincide con la ruta Eficiente obteniendo el máximo cuidado posible para la unidad.';
+      }
+
+      const standardAlternatives: RouteAlternative[] = [
         {
           preference: 'shortest',
           label: 'Eficiente',
@@ -295,8 +376,22 @@ export function MapPreviewModal({
           fuelPrice: fuelInfo.price,
           fuelSource: fuelInfo.source,
           estimatedCost: calculateCost(sumDistanceFastest, fuelInfo.price, isEV)
+        },
+        {
+          preference: 'health',
+          label: 'Salud del Vehículo',
+          icon: Activity,
+          data: healthWithSummary,
+          fuelPrice: fuelInfo.price,
+          fuelSource: fuelInfo.source,
+          estimatedCost: calculateCost(sumDistanceHealth, fuelInfo.price, isEV),
+          disabled: isHealthDisabled,
+          disabledReason: healthDisabledReason,
+          description: healthDescription
         }
-      ])
+      ]
+
+      setAlternatives(standardAlternatives)
     } catch (err) {
       console.error(err)
       setGlobalError('Hubo un error calculando las alternativas de ruta.')
@@ -307,6 +402,12 @@ export function MapPreviewModal({
 
   const handleConfirm = () => {
     if (selectedPreference) {
+      // For health route, we need to pass the extra option if we were to trigger routing again
+      // but onConfirm only takes 'shortest' | 'fastest'. 
+      // We'll treat 'Salud' as a special shortest route for now or the user might expect it to persist.
+      // However, the prompt says "return an optimized route". 
+      // Since map-preview-modal 'Lanzar Ruta' probably triggers the main routing in useRouting,
+      // I might need to update useRouting to support avoidPoorSmoothness.
       onConfirm(selectedPreference)
       onOpenChange(false)
     }
@@ -380,14 +481,25 @@ export function MapPreviewModal({
                   return (
                     <div
                       key={alt.preference}
-                      onClick={() => setSelectedPreference(alt.preference)}
+                      onClick={() => !alt.disabled && setSelectedPreference(alt.preference)}
                       className={cn(
-                        'p-5 flex flex-col gap-4 rounded-xl border transition-all cursor-pointer relative overflow-hidden group',
-                        isSelected
+                        'p-5 flex flex-col gap-4 rounded-xl border transition-all relative overflow-hidden group',
+                        alt.disabled ? 'cursor-not-allowed border-[#EAEAEA] bg-white' : 'cursor-pointer',
+                        isSelected && !alt.disabled
                           ? 'border-[#1C1C1C] bg-[#1C1C1C] shadow-lg'
-                          : 'border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40'
+                          : !alt.disabled ? 'border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40' : ''
                       )}
                     >
+                      {/* Dark Overlay when disabled */}
+                      {alt.disabled && (
+                        <div className="absolute inset-0 bg-[#1C1C1C]/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-6 text-center select-none">
+                          <div className="h-10 w-10 bg-white/5 rounded-full flex items-center justify-center mb-3 ring-1 ring-white/10">
+                            <Activity strokeWidth={1.5} className="h-5 w-5 text-white/80" />
+                          </div>
+                          <span className="text-[11px] font-bold text-white uppercase tracking-widest mb-1.5">Integralidad Asegurada</span>
+                          <span className="text-[10px] text-white/60 leading-relaxed font-medium">{alt.disabledReason || 'No disponible'}</span>
+                        </div>
+                      )}
                       {/* Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -407,8 +519,17 @@ export function MapPreviewModal({
                               isSelected ? 'text-white' : 'text-[#1C1C1C]'
                             )}
                           >
-                            Opción {alt.label}
+                            {alt.label}
                           </span>
+                          {(alt.data as any).hasPoorSmoothness && (
+                            <Badge variant="outline" className={cn(
+                              "text-[9px] uppercase tracking-tighter h-5 px-1.5 border-[#F43F5E] text-[#F43F5E] bg-[#F43F5E]/5 animate-pulse",
+                              isSelected && "bg-white text-[#F43F5E] border-white"
+                            )}>
+                              <AlertCircle className="w-2.5 h-2.5 mr-1" />
+                              Baja Calidad
+                            </Badge>
+                          )}
                         </div>
                         <div
                           className={cn(
@@ -618,27 +739,6 @@ export function MapPreviewModal({
                     className="h-8 w-8 text-[#1C1C1C] animate-spin opacity-20"
                   />
                 )}
-              </div>
-            )}
-
-            {/* Legend overlay */}
-            {!isCalculating && routesToCompare.length > 0 && (
-              <div className="absolute bottom-6 right-6 z-[1000] bg-white p-4 rounded-xl shadow-lg border border-[#EAEAEA] flex flex-col gap-3">
-                <span className="text-[10px] font-bold text-[#1C1C1C] uppercase tracking-widest">
-                  Leyenda Vías
-                </span>
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-[3px] bg-sky-500 rounded-full" />
-                  <span className="text-[11px] font-medium text-[#6B7280]">
-                    Plan Rápido
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-[3px] bg-emerald-500 rounded-full" />
-                  <span className="text-[11px] font-medium text-[#6B7280]">
-                    Plan Eficiente
-                  </span>
-                </div>
               </div>
             )}
           </div>
