@@ -88,7 +88,8 @@ export async function POST(req: Request) {
       zones,
       preference,
       traffic,
-      avoidPoorSmoothness,
+      // Health route ALWAYS avoids poor smoothness areas - it's the whole point!
+      avoidPoorSmoothness: preference === "health" ? true : avoidPoorSmoothness,
     });
 
     const vehicleRoutes: VehicleRoute[] = routeData.vehicleRoutes || [];

@@ -5,12 +5,16 @@ import { OverpassResponse, POI, RoadInfo, OverpassElement } from "./index";
  * Works in both Browser and Node.js (18+).
  */
 export class OverpassClient {
-  private static readonly DEFAULT_URL =
-    "https://overpass-api.de/api/interpreter";
-  private static readonly DEFAULT_TIMEOUT = 30000;
+  private static readonly URLS = [
+    "https://overpass.kumi.systems/api/interpreter",  // Primary - good stability
+    "https://overpass-api.de/api/interpreter",         // Fallback - public instance
+    "https://overpass.osm.ch/api/interpreter",         // Fallback - Swiss instance
+  ];
+  private static readonly DEFAULT_TIMEOUT = 60000; // 60 seconds to be safe
+  private static urlIndex = 0;
 
   /**
-   * Executes a raw Overpass QL query.
+   * Executes a raw Overpass QL query with automatic fallback to alternative servers.
    */
   static async query(
     query: string,
@@ -21,38 +25,82 @@ export class OverpassClient {
     } = {},
   ): Promise<OverpassResponse> {
     const timeout = options.timeout ?? this.DEFAULT_TIMEOUT;
-    const url = options.url ?? this.DEFAULT_URL;
+    const customUrl = options.url;
+    
+    // If custom URL provided or on first attempt, try the URLs in rotation
+    const urlsToTry = customUrl ? [customUrl] : this.URLS;
+    let lastError: Error | null = null;
 
-    const controller = new AbortController();
-    const signal = options.signal || controller.signal;
+    for (let attempt = 0; attempt < urlsToTry.length; attempt++) {
+      const url = urlsToTry[attempt];
+      console.log(`[OverpassClient] Attempting request to: ${url} (attempt ${attempt + 1}/${urlsToTry.length})`);
 
-    const timeoutId = setTimeout(() => {
-      if (!options.signal) controller.abort();
-    }, timeout);
+      // Create a fresh controller for each attempt
+      const controller = new AbortController();
+      const signal = controller.signal;
 
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        body: query,
-        headers: {
-          "Content-Type": "text/plain",
-          "User-Agent": "GIS-Transport-Logistics/1.0",
-        },
-        signal,
-      });
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeout);
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(
-          `Overpass API error (${response.status}): ${text.substring(0, 100)}`,
-        );
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          body: query,
+          headers: {
+            "Content-Type": "text/plain",
+            "User-Agent": "GIS-Transport-Logistics/1.0",
+          },
+          signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const statusMessage = {
+            429: "Too many requests (rate limited)",
+            504: "Gateway timeout (server busy or query too complex)",
+            500: "Internal server error",
+          } as Record<number, string>;
+          
+          const message = statusMessage[response.status] || `HTTP ${response.status}`;
+          const err = new Error(`Overpass API error (${response.status}): ${message}`);
+          console.warn(`[OverpassClient] Request failed: ${message}`);
+          lastError = err;
+
+          // Try next server on rate limit or timeout
+          if ([429, 504, 500, 503].includes(response.status)) {
+            continue;
+          }
+          throw err;
+        }
+
+        const data = await response.json();
+        console.log(`[OverpassClient] ✅ Query successful on ${url} - Returned ${data.elements?.length || 0} elements`);
+        // Update to remember which URL worked best
+        this.urlIndex = this.URLS.indexOf(url);
+        return data as OverpassResponse;
+      } catch (e) {
+        clearTimeout(timeoutId);
+        
+        if (e instanceof Error && e.name === 'AbortError') {
+          console.warn(`[OverpassClient] Request timeout (>${timeout}ms) on ${url}, trying next server...`);
+          lastError = e;
+          continue;
+        }
+        
+        if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
+          console.warn(`[OverpassClient] Network error on ${url}, trying next server...`);
+          lastError = e;
+          continue;
+        }
+        
+        throw e;
       }
-
-      const data = await response.json();
-      return data as OverpassResponse;
-    } finally {
-      clearTimeout(timeoutId);
     }
+
+    // All URLs failed
+    throw lastError || new Error('All Overpass API servers are unavailable');
   }
 
   /**
@@ -158,19 +206,36 @@ export class OverpassClient {
 
   /**
    * Fetches road segments with poor smoothness values within a bounding box.
+   * Ultra-simplified query to avoid Overpass timeouts.
    */
   static async fetchPoorSmoothnessWays(
     bbox: [number, number, number, number],
   ): Promise<OverpassElement[]> {
     const [minLat, minLon, maxLat, maxLon] = bbox;
-    const query = `[out:json][timeout:25];
-            (
-              way["smoothness"~"bad|very_bad|horrible|very_horrible|impassable"](${minLat},${minLon},${maxLat},${maxLon});
-              way["surface"~"unpaved|dirt|earth|grass|mud|sand|gravel|pebblestone|ground"](${minLat},${minLon},${maxLat},${maxLon});
-            );
-            out geom;`;
+    console.log(`[OverpassClient] Fetching poor smoothness ways for bbox: [${minLat.toFixed(4)}, ${minLon.toFixed(4)}, ${maxLat.toFixed(4)}, ${maxLon.toFixed(4)}]`);
+    
+    // Ultra-simplified: just look for explicit smoothness tags
+    const query = `[out:json][timeout:15];
+way["smoothness"~"bad|very_bad|horrible"](${minLat},${minLon},${maxLat},${maxLon});
+out geom;`;
 
-    const data = await this.query(query, { timeout: 20000 });
-    return data.elements || [];
+    try {
+      console.log(`[OverpassClient] Sending simplified query to Overpass API...`);
+      // 60 second client timeout to allow Overpass time to process
+      const data = await this.query(query, { timeout: 60000 });
+      const ways = data.elements || [];
+      console.log(`[OverpassClient] Poor smoothness query returned ${ways.length} ways`);
+      if (ways.length > 0) {
+        ways.slice(0, 3).forEach((w, i) => {
+          const tagsStr = w.tags ? JSON.stringify(w.tags).substring(0, 60) : 'no tags';
+          console.log(`  Way ${i+1}: id=${w.id}, pts=${w.geometry?.length || 0}, ${tagsStr}`);
+        });
+      }
+      return ways;
+    } catch (e) {
+      console.error(`[OverpassClient] Error fetching poor smoothness ways:`, e);
+      console.warn(`[OverpassClient] Returning empty array as fallback`);
+      return [];
+    }
   }
 }

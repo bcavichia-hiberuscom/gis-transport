@@ -219,6 +219,57 @@ export class AnalyticsService {
    * Calcula KPIs predictivos para asignación de conductor
    * Muestra el impacto de asignar un conductor específico
    */
+  /**
+   * Compara dos rutas y calcula ahorros reales (ruta comparada vs ruta baseline)
+   * Por ejemplo: mostrar ahorros de shortest vs fastest
+   */
+  static compareRoutesKPIs(
+    baselineDistanceKm: number,
+    comparisonDistanceKm: number,
+    baselineDurationSeconds: number,
+    comparisonDurationSeconds: number,
+    vehicle: FleetVehicle,
+  ): PredictiveKPIs {
+    // Calculamos diferencias reales
+    const distanceSaved = Math.max(0, baselineDistanceKm - comparisonDistanceKm);
+    const timeSavedSeconds = Math.max(0, baselineDurationSeconds - comparisonDurationSeconds);
+    
+    // Conversiones
+    const fuelConsumption = this.getFuelConsumption(vehicle);
+    const fuelSaved = (distanceSaved / 100) * fuelConsumption;
+    const timeSavedHours = timeSavedSeconds / 3600;
+    const emissionsSaved = fuelSaved * this.CO2_EMISSIONS_PER_LITER;
+    const fuelCostSaved = fuelSaved * this.FUEL_PRICE_PER_LITER;
+
+    // Porcentajes
+    const distancePercentage = baselineDistanceKm > 0 
+      ? Math.round((distanceSaved / baselineDistanceKm) * 100)
+      : 0;
+    
+    const timePercentage = baselineDurationSeconds > 0 
+      ? Math.round((timeSavedSeconds / baselineDurationSeconds) * 100)
+      : 0;
+    
+    const fuelPercentage = distancePercentage;
+    const emissionsPercentage = distancePercentage;
+
+    return {
+      timeSavedHours: Math.floor(timeSavedHours),
+      timeSavedMinutes: Math.round((timeSavedHours % 1) * 60),
+      timePercentage,
+      
+      fuelSavedLiters: Number(fuelSaved.toFixed(2)),
+      fuelCostSaved: Number(fuelCostSaved.toFixed(2)),
+      fuelPercentage,
+      
+      emissionsSavedKg: Number(emissionsSaved.toFixed(2)),
+      emissionsPercentage,
+      
+      distanceSavedKm: Number(distanceSaved.toFixed(1)),
+      distancePercentage,
+    };
+  }
+
   static calculateAssignmentPredictiveKPIs(
     vehicle: FleetVehicle,
     estimatedDistanceKm: number = 50, // distancia típica de un cliente

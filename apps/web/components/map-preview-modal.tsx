@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
   Route,
   Gauge,
@@ -15,52 +15,53 @@ import {
   Clock,
   DollarSign,
   Leaf,
-  AlertCircle
-} from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+  AlertCircle,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type {
   FleetJob,
   FleetVehicle,
   Zone,
   VehicleGroup,
-  RouteData
-} from '@gis/shared'
-import dynamic from 'next/dynamic'
-import { calculateDistance } from '@/lib/utils'
-import { AnalyticsService } from '@/lib/services/analytics-service'
+  RouteData,
+} from "@gis/shared";
+import dynamic from "next/dynamic";
+import { calculateDistance } from "@/lib/utils";
+import { AnalyticsService } from "@/lib/services/analytics-service";
+import { compareRouteAlternatives } from "@/lib/services/routing-service";
 
 // Prevent SSR for Leaflet
-const MapPreview = dynamic(() => import('@/components/map-preview'), {
-  ssr: false
-})
+const MapPreview = dynamic(() => import("@/components/map-preview"), {
+  ssr: false,
+});
 
 interface RouteAlternative {
-  preference: 'shortest' | 'fastest' | 'health'
-  label: string
-  icon: React.ElementType
-  data: RouteData | null
-  estimatedCost: number
-  fuelSource: string
-  fuelPrice: number
-  description?: string
-  error?: string
-  disabled?: boolean
-  disabledReason?: string
+  preference: "shortest" | "fastest" | "health";
+  label: string;
+  icon: React.ElementType;
+  data: RouteData | null;
+  estimatedCost: number;
+  fuelSource: string;
+  fuelPrice: number;
+  description?: string;
+  error?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 interface MapPreviewModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   targetVariables: {
-    jobs: FleetJob[]
-    vehicles?: FleetVehicle[]
-    groupId?: string | number
-  }
-  fleetVehicles: FleetVehicle[]
-  vehicleGroups?: VehicleGroup[]
-  activeZones: Zone[]
-  onConfirm: (preference: 'shortest' | 'fastest' | 'health') => void
+    jobs: FleetJob[];
+    vehicles?: FleetVehicle[];
+    groupId?: string | number;
+  };
+  fleetVehicles: FleetVehicle[];
+  vehicleGroups?: VehicleGroup[];
+  activeZones: Zone[];
+  onConfirm: (preference: "shortest" | "fastest" | "health") => void;
 }
 
 export function MapPreviewModal({
@@ -70,152 +71,154 @@ export function MapPreviewModal({
   fleetVehicles,
   vehicleGroups = [],
   activeZones,
-  onConfirm
+  onConfirm,
 }: MapPreviewModalProps) {
   const [alternatives, setAlternatives] = useState<RouteAlternative[]>([
     {
-      preference: 'shortest',
-      label: 'Eficiente',
+      preference: "shortest",
+      label: "Eficiente",
       icon: Route,
       data: null,
       estimatedCost: 0,
-      fuelSource: '',
+      fuelSource: "",
       fuelPrice: 0,
       description:
-        'Calculada con foco en menor impacto ambiental y menor trayecto total (prioriza menor coste).'
+        "Calculada con foco en menor impacto ambiental y menor trayecto total (prioriza menor coste).",
     },
     {
-      preference: 'fastest',
-      label: 'Rápida',
+      preference: "fastest",
+      label: "Rápida",
       icon: Gauge,
       data: null,
       estimatedCost: 0,
-      fuelSource: '',
+      fuelSource: "",
       fuelPrice: 0,
       description:
-        'Calculada con foco en minimizar el tiempo operativo (prioriza vías rápidas o autopistas).'
+        "Calculada con foco en minimizar el tiempo operativo (prioriza vías rápidas o autopistas).",
     },
     {
-      preference: 'health',
-      label: 'Salud del Vehículo',
+      preference: "health",
+      label: "Salud del Vehículo",
       icon: Activity,
       data: null,
       estimatedCost: 0,
-      fuelSource: '',
+      fuelSource: "",
       fuelPrice: 0,
       description:
-        'Prioriza pavimentos de alta calidad y vías principales para minimizar vibraciones y proteger la mecánica.'
-    }
-  ])
-  const [isCalculating, setIsCalculating] = useState(false)
+        "Prioriza pavimentos de alta calidad y vías principales para minimizar vibraciones y proteger la mecánica.",
+    },
+  ]);
+  const [isCalculating, setIsCalculating] = useState(false);
   const [selectedPreference, setSelectedPreference] = useState<
-    'shortest' | 'fastest' | 'health'
-  >('shortest')
-  const [globalError, setGlobalError] = useState<string | null>(null)
+    "shortest" | "fastest" | "health"
+  >("shortest");
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   // Resolve which vehicles are actually going to be used for calculation
   const resolvedVehicles = useMemo(() => {
     if (targetVariables.vehicles && targetVariables.vehicles.length > 0) {
-      return targetVariables.vehicles
+      return targetVariables.vehicles;
     }
     if (targetVariables.groupId) {
       const group = vehicleGroups.find(
-        g => String(g.id) === String(targetVariables.groupId)
-      )
+        (g) => String(g.id) === String(targetVariables.groupId),
+      );
       if (group) {
-        const groupVehicleIds = new Set(group.vehicleIds.map(String))
-        return fleetVehicles.filter(v => groupVehicleIds.has(String(v.id)))
+        const groupVehicleIds = new Set(group.vehicleIds.map(String));
+        return fleetVehicles.filter((v) => groupVehicleIds.has(String(v.id)));
       }
     }
-    return fleetVehicles // fallback to all
-  }, [targetVariables, fleetVehicles, vehicleGroups])
+    return fleetVehicles; // fallback to all
+  }, [targetVariables, fleetVehicles, vehicleGroups]);
 
-  const primaryVehicle = resolvedVehicles[0]
+  const primaryVehicle = resolvedVehicles[0];
 
   // Reset state upon opening
   useEffect(() => {
     if (open) {
-      setSelectedPreference('shortest')
-      setGlobalError(null)
-      calculateAlternatives()
+      setSelectedPreference("shortest");
+      setGlobalError(null);
+      calculateAlternatives();
     }
-  }, [open])
+  }, [open]);
 
   const fetchFuelPrice = async (
     lat: number,
-    lon: number
+    lon: number,
   ): Promise<{ price: number; source: string }> => {
     try {
       // Check if vehicle is EV to fetch from ev-stations, otherwise gas
-      const isEV = primaryVehicle?.type?.tags?.includes('ev') || false
-      const endpoint = isEV ? '/api/ev-stations' : '/api/gas-stations'
+      const isEV = primaryVehicle?.type?.tags?.includes("ev") || false;
+      const endpoint = isEV ? "/api/ev-stations" : "/api/gas-stations";
 
       const params = new URLSearchParams({
         lat: lat.toString(),
         lon: lon.toString(),
-        distanceKm: '5'
-      })
+        distanceKm: "5",
+      });
 
-      const res = await fetch(`${endpoint}?${params}`)
+      const res = await fetch(`${endpoint}?${params}`);
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json();
         if (data && data.success && data.data && data.data.length > 0) {
-          const firstGas = data.data[0]
+          const firstGas = data.data[0];
           if (isEV) {
             return {
               price: firstGas.price || 0.45,
-              source: `${firstGas.brand || 'Electrolinera'} (0.45€/kWh)`
-            }
+              source: `${firstGas.brand || "Electrolinera"} (0.45€/kWh)`,
+            };
           } else {
             return {
               price:
                 firstGas.prices?.diesel || firstGas.prices?.gasoline95 || 1.6,
-              source: `${firstGas.brand || 'Gasolinera'} (${firstGas.prices?.diesel || 1.6}€/L)`
-            }
+              source: `${firstGas.brand || "Gasolinera"} (${firstGas.prices?.diesel || 1.6}€/L)`,
+            };
           }
         }
       }
     } catch (e) {
-      console.error('Error fetching fuel price:', e)
+      console.error("Error fetching fuel price:", e);
     }
     // Fallback
-    const isEV = primaryVehicle?.type?.tags?.includes('ev')
-    if (isEV) return { price: 0.45, source: 'Estimado Estándar (0.45€/kWh)' }
-    return { price: 1.6, source: 'Estimado Estándar (1.60€/L)' }
-  }
+    const isEV = primaryVehicle?.type?.tags?.includes("ev");
+    if (isEV) return { price: 0.45, source: "Estimado Estándar (0.45€/kWh)" };
+    return { price: 1.6, source: "Estimado Estándar (1.60€/L)" };
+  };
 
   const calculateCost = (
     distanceKm: number,
     pricePerUnit: number,
-    isEV: boolean
+    isEV: boolean,
   ) => {
     const performance =
-      (primaryVehicle as any)?.metadata?.fuel_consumption || (primaryVehicle as any)?.fuelConsumption || (isEV ? 15 : 8) // kWh/100km or L/100km
-    return (distanceKm / 100) * performance * pricePerUnit
-  }
+      (primaryVehicle as any)?.metadata?.fuel_consumption ||
+      (primaryVehicle as any)?.fuelConsumption ||
+      (isEV ? 15 : 8); // kWh/100km or L/100km
+    return (distanceKm / 100) * performance * pricePerUnit;
+  };
 
   const calculateAlternatives = async () => {
     if (!primaryVehicle || targetVariables.jobs.length === 0) {
-      setGlobalError('Faltan datos para calcular (vehículo o pedidos).')
-      return
+      setGlobalError("Faltan datos para calcular (vehículo o pedidos).");
+      return;
     }
 
-    setIsCalculating(true)
-    setGlobalError(null)
+    setIsCalculating(true);
+    setGlobalError(null);
 
     try {
-      const startLat = primaryVehicle.position[0]
-      const startLon = primaryVehicle.position[1]
+      const startLat = primaryVehicle.position[0];
+      const startLon = primaryVehicle.position[1];
 
       // 1. Fetch fuel info
-      const fuelInfo = await fetchFuelPrice(startLat, startLon)
-      const isEV = primaryVehicle.type?.tags?.includes('ev') ?? false
+      const fuelInfo = await fetchFuelPrice(startLat, startLon);
+      const isEV = primaryVehicle.type?.tags?.includes("ev") ?? false;
 
       // 2. Fetch routes in parallel
-      const fetchRoute = async (pref: 'shortest' | 'fastest') => {
-        const res = await fetch('/api/gis/optimize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+      const fetchRoute = async (pref: "shortest" | "fastest") => {
+        const res = await fetch("/api/gis/optimize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             vehicles: resolvedVehicles,
             jobs: targetVariables.jobs,
@@ -223,141 +226,157 @@ export function MapPreviewModal({
             zones: activeZones,
             preference: pref,
             traffic: false, // Standardized for preview
-            isSimulation: true
-          })
-        })
-        const responseData = await res.json()
+            isSimulation: true,
+          }),
+        });
+        const responseData = await res.json();
         if (!res.ok || !responseData.success) {
           throw new Error(
-            responseData.error?.message || 'Error al calcular ruta'
-          )
+            responseData.error?.message || "Error al calcular ruta",
+          );
         }
-        return responseData.data as RouteData
-      }
+        return responseData.data as RouteData;
+      };
 
       const [shortestData, fastestData, healthData] = await Promise.all([
-        fetchRoute('shortest'),
-        fetchRoute('fastest'),
+        fetchRoute("shortest"),
+        fetchRoute("fastest"),
         // Health route: shortest + avoidPoorSmoothness
         (async () => {
-          const res = await fetch('/api/gis/optimize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/api/gis/optimize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               vehicles: resolvedVehicles,
               jobs: targetVariables.jobs,
               startTime: new Date().toISOString(),
               zones: activeZones,
-              preference: 'health',
+              preference: "health",
               traffic: false,
               isSimulation: true,
-            })
-          })
-          const responseData = await res.json()
+            }),
+          });
+          const responseData = await res.json();
           if (!res.ok || !responseData.success) {
             throw new Error(
-              responseData.error?.message || 'Error al calcular ruta de salud'
-            )
+              responseData.error?.message || "Error al calcular ruta de salud",
+            );
           }
-          return responseData.data as RouteData
-        })()
-      ])
+          return responseData.data as RouteData;
+        })(),
+      ]);
 
-      // Sum distance across all vehicle routes returned in this option
-      const sumDistanceShortest =
-        shortestData.vehicleRoutes?.reduce(
-          (acc, r) => acc + (r.distance || 0),
-          0
-        ) || 0
-      const sumDurationShortest =
-        shortestData.vehicleRoutes?.reduce(
-          (acc, r) => acc + (r.duration || 0),
-          0
-        ) || 0
+      // Use service to compare routes and determine redundancy
+      const comparison = compareRouteAlternatives(
+        shortestData,
+        fastestData,
+        healthData,
+      );
 
-      const sumDistanceFastest =
-        fastestData.vehicleRoutes?.reduce(
-          (acc, r) => acc + (r.distance || 0),
-          0
-        ) || 0
-      const sumDurationFastest =
-        fastestData.vehicleRoutes?.reduce(
-          (acc, r) => acc + (r.duration || 0),
-          0
-        ) || 0
+      const {
+        distances: {
+          shortest: sumDistanceShortest,
+          fastest: sumDistanceFastest,
+          health: sumDistanceHealth,
+        },
+        durations: {
+          shortest: sumDurationShortest,
+          fastest: sumDurationFastest,
+          health: sumDurationHealth,
+        },
+      } = comparison;
 
       // Attach computed summaries since RouteData might not have a top-level summary typed
       const shortestWithSummary = {
         ...shortestData,
         _computedSummary: {
           distance: sumDistanceShortest,
-          duration: sumDurationShortest
+          duration: sumDurationShortest,
         },
-        vehicleRoutes: shortestData.vehicleRoutes?.map(r => ({
+        vehicleRoutes: shortestData.vehicleRoutes?.map((r) => ({
           ...r,
-          color: '#10b981'
-        }))
-      } as any
+          color: "#10b981",
+        })),
+      } as any;
       const fastestWithSummary = {
         ...fastestData,
         _computedSummary: {
           distance: sumDistanceFastest,
-          duration: sumDurationFastest
+          duration: sumDurationFastest,
         },
-        vehicleRoutes: fastestData.vehicleRoutes?.map(r => ({
+        vehicleRoutes: fastestData.vehicleRoutes?.map((r) => ({
           ...r,
-          color: '#0ea5e9'
-        }))
-      } as any
-
-      const sumDistanceHealth =
-        healthData.vehicleRoutes?.reduce(
-          (acc, r) => acc + (r.distance || 0),
-          0
-        ) || 0
-      const sumDurationHealth =
-        healthData.vehicleRoutes?.reduce(
-          (acc, r) => acc + (r.duration || 0),
-          0
-        ) || 0
+          color: "#0ea5e9",
+        })),
+      } as any;
 
       const healthWithSummary = {
         ...healthData,
         _computedSummary: {
           distance: sumDistanceHealth,
-          duration: sumDurationHealth
+          duration: sumDurationHealth,
         },
-        vehicleRoutes: healthData.vehicleRoutes?.map(r => ({
+        vehicleRoutes: healthData.vehicleRoutes?.map((r) => ({
           ...r,
-          color: '#8b5cf6' // Purple for health
-        }))
-      } as any
+          color: "#8b5cf6", // Purple for health
+        })),
+      } as any;
 
-      // 3. Process results
-      const hasPoorQuality = (shortestWithSummary as any).hasPoorSmoothness || (fastestWithSummary as any).hasPoorSmoothness;
+      // Get comparison results
+      const isHealthDisabled = comparison.isHealthRedundant;
+      const hasPoorQuality = comparison.hasPoorQuality;
 
-      const healthIsFastest = Math.abs(sumDistanceHealth - sumDistanceFastest) < 0.1 && Math.abs(sumDurationHealth - sumDurationFastest) < 60;
-      const healthIsShortest = Math.abs(sumDistanceHealth - sumDistanceShortest) < 0.1 && Math.abs(sumDurationHealth - sumDurationShortest) < 60;
+      // Detailed logging for debugging
+      console.log("[MapPreviewModal] Route Comparison:", {
+        hasPoorQuality: comparison.hasPoorQuality,
+        shortestHasPoor: (shortestWithSummary as any).hasPoorSmoothness,
+        fastestHasPoor: (fastestWithSummary as any).hasPoorSmoothness,
+        healthHasPoor: (healthWithSummary as any).hasPoorSmoothness,
+        distanceShortest: comparison.distances.shortest.toFixed(2),
+        durationShortest: comparison.durations.shortest,
+        distanceFastest: comparison.distances.fastest.toFixed(2),
+        durationFastest: comparison.durations.fastest,
+        distanceHealth: comparison.distances.health.toFixed(2),
+        durationHealth: comparison.durations.health,
+        distanceTolerance: comparison.tolerances.distance.toFixed(2),
+        durationTolerance: comparison.tolerances.duration,
+        distDiffVsFastest: comparison.differences.distVsFastest.toFixed(3),
+        durDiffVsFastest: comparison.differences.durVsFastest,
+        distDiffVsShortest: comparison.differences.distVsShortest.toFixed(3),
+        durDiffVsShortest: comparison.differences.durVsShortest,
+        healthIsFastest: comparison.flags.healthIsFastest,
+        healthIsShortest: comparison.flags.healthIsShortest,
+        isHealthRedundant: comparison.isHealthRedundant,
+        isHealthDisabled,
+        badgeWillShowOnShortest: (shortestWithSummary as any).hasPoorSmoothness,
+        badgeWillShowOnFastest: (fastestWithSummary as any).hasPoorSmoothness,
+        badgeWillShowOnHealth: false, // NEVER show on health
+      });
 
-      const isHealthRedundant = hasPoorQuality && (healthIsFastest || healthIsShortest);
-      const isHealthDisabled = !hasPoorQuality || isHealthRedundant;
+      let healthDescription =
+        "Prioriza vías principales y pavimentos de mejor calidad para reducir desgaste del vehículo.";
+      let healthDisabledReason = "";
 
-      let healthDescription = 'Prioriza pavimentos de alta calidad y vías principales para minimizar vibraciones y proteger la mecánica.';
-      let healthDisabledReason = 'No se han detectado vías de baja calidad. Las opciones sugeridas ya protegen la mecánica.';
-
-      if (!hasPoorQuality) {
-        healthDescription = 'No se han detectado vías de baja calidad en la zona. Las rutas sugeridas ya aseguran la integridad del vehículo.';
-      } else if (isHealthRedundant) {
-        healthDescription = 'Las rutas actuales ya trazan la trayectoria más segura posible evadiendo irregularidades detectadas.';
-        healthDisabledReason = healthIsFastest
-          ? 'La trayectoria óptima coincide con la ruta Rápida obteniendo el máximo cuidado posible para la unidad.'
-          : 'La trayectoria óptima coincide con la ruta Eficiente obteniendo el máximo cuidado posible para la unidad.';
+      if (isHealthDisabled) {
+        healthDescription =
+          "Las rutas actuales ya ofrecen la mejor protección posible para tu vehículo.";
+        healthDisabledReason =
+          "Esta opción coincide completamente con las otras rutas disponibles.";
+      } else if (!hasPoorQuality) {
+        healthDescription =
+          "Prioriza vías principales y pavimentos de mejor calidad para reducir desgaste del vehículo.";
+      } else if (
+        hasPoorQuality &&
+        !(healthWithSummary as any).hasPoorSmoothness
+      ) {
+        healthDescription =
+          "✓ Ruta segura que evita vías de baja calidad. Protección óptima para el vehículo.";
       }
 
       const standardAlternatives: RouteAlternative[] = [
         {
-          preference: 'shortest',
-          label: 'Eficiente',
+          preference: "shortest",
+          label: "Eficiente",
           icon: Route,
           data: shortestWithSummary,
           fuelPrice: fuelInfo.price,
@@ -365,21 +384,25 @@ export function MapPreviewModal({
           estimatedCost: calculateCost(
             sumDistanceShortest,
             fuelInfo.price,
-            isEV
-          )
+            isEV,
+          ),
         },
         {
-          preference: 'fastest',
-          label: 'Rápida',
+          preference: "fastest",
+          label: "Rápida",
           icon: Gauge,
           data: fastestWithSummary,
           fuelPrice: fuelInfo.price,
           fuelSource: fuelInfo.source,
-          estimatedCost: calculateCost(sumDistanceFastest, fuelInfo.price, isEV)
+          estimatedCost: calculateCost(
+            sumDistanceFastest,
+            fuelInfo.price,
+            isEV,
+          ),
         },
         {
-          preference: 'health',
-          label: 'Salud del Vehículo',
+          preference: "health",
+          label: "Salud del Vehículo",
           icon: Activity,
           data: healthWithSummary,
           fuelPrice: fuelInfo.price,
@@ -387,41 +410,41 @@ export function MapPreviewModal({
           estimatedCost: calculateCost(sumDistanceHealth, fuelInfo.price, isEV),
           disabled: isHealthDisabled,
           disabledReason: healthDisabledReason,
-          description: healthDescription
-        }
-      ]
+          description: healthDescription,
+        },
+      ];
 
-      setAlternatives(standardAlternatives)
+      setAlternatives(standardAlternatives);
     } catch (err) {
-      console.error(err)
-      setGlobalError('Hubo un error calculando las alternativas de ruta.')
+      console.error(err);
+      setGlobalError("Hubo un error calculando las alternativas de ruta.");
     } finally {
-      setIsCalculating(false)
+      setIsCalculating(false);
     }
-  }
+  };
 
   const handleConfirm = () => {
     if (selectedPreference) {
       // For health route, we need to pass the extra option if we were to trigger routing again
-      // but onConfirm only takes 'shortest' | 'fastest'. 
+      // but onConfirm only takes 'shortest' | 'fastest'.
       // We'll treat 'Salud' as a special shortest route for now or the user might expect it to persist.
-      // However, the prompt says "return an optimized route". 
+      // However, the prompt says "return an optimized route".
       // Since map-preview-modal 'Lanzar Ruta' probably triggers the main routing in useRouting,
       // I might need to update useRouting to support avoidPoorSmoothness.
-      onConfirm(selectedPreference)
-      onOpenChange(false)
+      onConfirm(selectedPreference);
+      onOpenChange(false);
     }
-  }
+  };
 
   const routesToCompare = useMemo(() => {
     if (selectedPreference) {
       return alternatives
-        .filter(a => a.preference === selectedPreference)
-        .map(a => a.data)
-        .filter(Boolean) as RouteData[]
+        .filter((a) => a.preference === selectedPreference)
+        .map((a) => a.data)
+        .filter(Boolean) as RouteData[];
     }
-    return alternatives.map(a => a.data).filter(Boolean) as RouteData[]
-  }, [alternatives, selectedPreference])
+    return alternatives.map((a) => a.data).filter(Boolean) as RouteData[];
+  }, [alternatives, selectedPreference]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -468,36 +491,49 @@ export function MapPreviewModal({
               </div>
             ) : (
               <div className="p-6 flex flex-col gap-6">
-                {alternatives.map(alt => {
-                  if (!alt.data) return null
-                  const isSelected = selectedPreference === alt.preference
+                {alternatives.map((alt) => {
+                  if (!alt.data) return null;
+                  const isSelected = selectedPreference === alt.preference;
                   const distanceKm = (
-                    (alt.data as any)._computedSummary.distance
-                  ).toFixed(1)
+                    alt.data as any
+                  )._computedSummary.distance.toFixed(1);
                   const timeMins = Math.ceil(
-                    (alt.data as any)._computedSummary.duration / 60
-                  )
+                    (alt.data as any)._computedSummary.duration / 60,
+                  );
 
                   return (
                     <div
                       key={alt.preference}
-                      onClick={() => !alt.disabled && setSelectedPreference(alt.preference)}
+                      onClick={() =>
+                        !alt.disabled && setSelectedPreference(alt.preference)
+                      }
                       className={cn(
-                        'p-5 flex flex-col gap-4 rounded-xl border transition-all relative overflow-hidden group',
-                        alt.disabled ? 'cursor-not-allowed border-[#EAEAEA] bg-white' : 'cursor-pointer',
+                        "p-5 flex flex-col gap-4 rounded-xl border transition-all relative overflow-hidden group",
+                        alt.disabled
+                          ? "cursor-not-allowed border-[#EAEAEA] bg-white"
+                          : "cursor-pointer",
                         isSelected && !alt.disabled
-                          ? 'border-[#1C1C1C] bg-[#1C1C1C] shadow-lg'
-                          : !alt.disabled ? 'border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40' : ''
+                          ? "border-[#1C1C1C] bg-[#1C1C1C] shadow-lg"
+                          : !alt.disabled
+                            ? "border-[#EAEAEA] bg-white hover:border-[#1C1C1C]/40"
+                            : "",
                       )}
                     >
                       {/* Dark Overlay when disabled */}
                       {alt.disabled && (
                         <div className="absolute inset-0 bg-[#1C1C1C]/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-6 text-center select-none">
                           <div className="h-10 w-10 bg-white/5 rounded-full flex items-center justify-center mb-3 ring-1 ring-white/10">
-                            <Activity strokeWidth={1.5} className="h-5 w-5 text-white/80" />
+                            <Activity
+                              strokeWidth={1.5}
+                              className="h-5 w-5 text-white/80"
+                            />
                           </div>
-                          <span className="text-[11px] font-bold text-white uppercase tracking-widest mb-1.5">Integralidad Asegurada</span>
-                          <span className="text-[10px] text-white/60 leading-relaxed font-medium">{alt.disabledReason || 'No disponible'}</span>
+                          <span className="text-[11px] font-bold text-white uppercase tracking-widest mb-1.5">
+                            Integralidad Asegurada
+                          </span>
+                          <span className="text-[10px] text-white/60 leading-relaxed font-medium">
+                            {alt.disabledReason || "No disponible"}
+                          </span>
                         </div>
                       )}
                       {/* Header */}
@@ -505,36 +541,43 @@ export function MapPreviewModal({
                         <div className="flex items-center gap-3">
                           <div
                             className={cn(
-                              'h-8 w-8 rounded-md flex items-center justify-center transition-colors',
+                              "h-8 w-8 rounded-md flex items-center justify-center transition-colors",
                               isSelected
-                                ? 'bg-[#D4F04A] text-[#1C1C1C]'
-                                : 'bg-[#F7F8FA] text-[#1C1C1C]'
+                                ? "bg-[#D4F04A] text-[#1C1C1C]"
+                                : "bg-[#F7F8FA] text-[#1C1C1C]",
                             )}
                           >
                             <alt.icon strokeWidth={1.5} className="h-4 w-4" />
                           </div>
                           <span
                             className={cn(
-                              'text-[13px] font-bold uppercase tracking-widest',
-                              isSelected ? 'text-white' : 'text-[#1C1C1C]'
+                              "text-[13px] font-bold uppercase tracking-widest",
+                              isSelected ? "text-white" : "text-[#1C1C1C]",
                             )}
                           >
                             {alt.label}
                           </span>
-                          {(alt.data as any).hasPoorSmoothness && (
-                            <Badge variant="outline" className={cn(
-                              "text-[9px] uppercase tracking-tighter h-5 px-1.5 border-[#F43F5E] text-[#F43F5E] bg-[#F43F5E]/5 animate-pulse",
-                              isSelected && "bg-white text-[#F43F5E] border-white"
-                            )}>
-                              <AlertCircle className="w-2.5 h-2.5 mr-1" />
-                              Baja Calidad
-                            </Badge>
-                          )}
+                          {(alt.data as any).hasPoorSmoothness &&
+                            alt.preference !== "health" && (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[9px] uppercase tracking-tighter h-5 px-1.5 border-[#F43F5E] text-[#F43F5E] bg-[#F43F5E]/5 animate-pulse",
+                                  isSelected &&
+                                    "bg-white text-[#F43F5E] border-white",
+                                )}
+                              >
+                                <AlertCircle className="w-2.5 h-2.5 mr-1" />
+                                Baja Calidad
+                              </Badge>
+                            )}
                         </div>
                         <div
                           className={cn(
-                            'h-4 w-4 rounded-full border flex items-center justify-center transition-colors',
-                            isSelected ? 'border-[#D4F04A]' : 'border-[#EAEAEA]'
+                            "h-4 w-4 rounded-full border flex items-center justify-center transition-colors",
+                            isSelected
+                              ? "border-[#D4F04A]"
+                              : "border-[#EAEAEA]",
                           )}
                         >
                           {isSelected && (
@@ -548,16 +591,16 @@ export function MapPreviewModal({
                         <div className="flex flex-col gap-1">
                           <span
                             className={cn(
-                              'text-[9px] uppercase tracking-widest font-medium opacity-60',
-                              isSelected ? 'text-white' : 'text-[#6B7280]'
+                              "text-[9px] uppercase tracking-widest font-medium opacity-60",
+                              isSelected ? "text-white" : "text-[#6B7280]",
                             )}
                           >
                             Distancia
                           </span>
                           <span
                             className={cn(
-                              'text-sm font-semibold tabular-nums',
-                              isSelected ? 'text-[#D4F04A]' : 'text-[#1C1C1C]'
+                              "text-sm font-semibold tabular-nums",
+                              isSelected ? "text-[#D4F04A]" : "text-[#1C1C1C]",
                             )}
                           >
                             {distanceKm} km
@@ -566,16 +609,16 @@ export function MapPreviewModal({
                         <div className="flex flex-col gap-1">
                           <span
                             className={cn(
-                              'text-[9px] uppercase tracking-widest font-medium opacity-60',
-                              isSelected ? 'text-white' : 'text-[#6B7280]'
+                              "text-[9px] uppercase tracking-widest font-medium opacity-60",
+                              isSelected ? "text-white" : "text-[#6B7280]",
                             )}
                           >
                             Tiempo
                           </span>
                           <span
                             className={cn(
-                              'text-sm font-semibold tabular-nums',
-                              isSelected ? 'text-white' : 'text-[#1C1C1C]'
+                              "text-sm font-semibold tabular-nums",
+                              isSelected ? "text-white" : "text-[#1C1C1C]",
                             )}
                           >
                             {timeMins} min
@@ -584,8 +627,8 @@ export function MapPreviewModal({
                         <div className="col-span-2 flex flex-col gap-1 pt-2">
                           <span
                             className={cn(
-                              'text-[9px] uppercase tracking-widest font-medium opacity-60',
-                              isSelected ? 'text-white' : 'text-[#6B7280]'
+                              "text-[9px] uppercase tracking-widest font-medium opacity-60",
+                              isSelected ? "text-white" : "text-[#6B7280]",
                             )}
                           >
                             Costo Estimado
@@ -593,18 +636,20 @@ export function MapPreviewModal({
                           <div className="flex items-center gap-2">
                             <span
                               className={cn(
-                                'text-base font-bold tabular-nums',
-                                isSelected ? 'text-[#D4F04A]' : 'text-[#1C1C1C]'
+                                "text-base font-bold tabular-nums",
+                                isSelected
+                                  ? "text-[#D4F04A]"
+                                  : "text-[#1C1C1C]",
                               )}
                             >
                               €{alt.estimatedCost.toFixed(2)}
                             </span>
                             <span
                               className={cn(
-                                'text-[10px] font-medium border px-1.5 py-0.5 rounded',
+                                "text-[10px] font-medium border px-1.5 py-0.5 rounded",
                                 isSelected
-                                  ? 'border-white/20 text-white/80 bg-white/5'
-                                  : 'border-[#EAEAEA] text-[#6B7280] bg-[#F7F8FA]'
+                                  ? "border-white/20 text-white/80 bg-white/5"
+                                  : "border-[#EAEAEA] text-[#6B7280] bg-[#F7F8FA]",
                               )}
                             >
                               {alt.fuelSource}
@@ -614,19 +659,56 @@ export function MapPreviewModal({
 
                         {/* Predictive KPIs */}
                         {(() => {
-                          if (!primaryVehicle) return null
-                          const kpis =
-                            AnalyticsService.calculateAssignmentPredictiveKPIs(
-                              primaryVehicle,
-                              parseFloat(distanceKm)
-                            )
+                          if (!primaryVehicle) return null;
+
+                          const fastestAlt = alternatives.find(
+                            (a) => a.preference === "fastest",
+                          );
+                          if (!fastestAlt?.data) {
+                            console.log("[KPIs] No fastest alt found", {
+                              alternatives: alternatives.map(
+                                (a) => a.preference,
+                              ),
+                            });
+                            return null;
+                          }
+
+                          const fastestDistanceKm =
+                            (fastestAlt.data as any)._computedSummary
+                              ?.distance ?? 0;
+                          const fastestDurationSec =
+                            (fastestAlt.data as any)._computedSummary
+                              ?.duration ?? 0;
+
+                          const currentDistanceKm = parseFloat(distanceKm);
+                          const currentDurationSec = timeMins * 60;
+
+                          console.log("[KPIs] Comparing routes:", {
+                            currentPreference: alt.preference,
+                            fastestDistance: fastestDistanceKm,
+                            currentDistance: currentDistanceKm,
+                            fastestDuration: fastestDurationSec,
+                            currentDuration: currentDurationSec,
+                            distanceDiff: fastestDistanceKm - currentDistanceKm,
+                          });
+
+                          const kpis = AnalyticsService.compareRoutesKPIs(
+                            fastestDistanceKm,
+                            currentDistanceKm,
+                            fastestDurationSec,
+                            currentDurationSec,
+                            primaryVehicle,
+                          );
+
                           return (
                             <>
                               <div className="col-span-2 pt-3 mt-2 border-t border-white/10">
                                 <p
                                   className={cn(
-                                    'text-[8px] font-bold uppercase tracking-widest mb-2 opacity-70',
-                                    isSelected ? 'text-white' : 'text-[#6B7280]'
+                                    "text-[8px] font-bold uppercase tracking-widest mb-2 opacity-70",
+                                    isSelected
+                                      ? "text-white"
+                                      : "text-[#6B7280]",
                                   )}
                                 >
                                   Ahorros Potenciales:
@@ -635,39 +717,39 @@ export function MapPreviewModal({
                                   <div className="flex items-center gap-1 px-2 py-1 rounded bg-white/10 dark:bg-black/5">
                                     <Clock
                                       className={cn(
-                                        'h-3 w-3',
+                                        "h-3 w-3",
                                         isSelected
-                                          ? 'text-white'
-                                          : 'text-blue-600'
+                                          ? "text-white"
+                                          : "text-blue-600",
                                       )}
                                       strokeWidth={1.5}
                                     />
                                     <span
                                       className={
                                         isSelected
-                                          ? 'text-white/80'
-                                          : 'text-[#6B7280]'
+                                          ? "text-white/80"
+                                          : "text-[#6B7280]"
                                       }
                                     >
-                                      {kpis.timeSavedHours}h{' '}
+                                      {kpis.timeSavedHours}h{" "}
                                       {kpis.timeSavedMinutes}m
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1 px-2 py-1 rounded bg-white/10 dark:bg-black/5">
                                     <DollarSign
                                       className={cn(
-                                        'h-3 w-3',
+                                        "h-3 w-3",
                                         isSelected
-                                          ? 'text-white'
-                                          : 'text-orange-600'
+                                          ? "text-white"
+                                          : "text-orange-600",
                                       )}
                                       strokeWidth={1.5}
                                     />
                                     <span
                                       className={
                                         isSelected
-                                          ? 'text-white/80'
-                                          : 'text-[#6B7280]'
+                                          ? "text-white/80"
+                                          : "text-[#6B7280]"
                                       }
                                     >
                                       €{kpis.fuelCostSaved}
@@ -676,18 +758,18 @@ export function MapPreviewModal({
                                   <div className="flex items-center gap-1 px-2 py-1 rounded bg-white/10 dark:bg-black/5">
                                     <Leaf
                                       className={cn(
-                                        'h-3 w-3',
+                                        "h-3 w-3",
                                         isSelected
-                                          ? 'text-white'
-                                          : 'text-emerald-600'
+                                          ? "text-white"
+                                          : "text-emerald-600",
                                       )}
                                       strokeWidth={1.5}
                                     />
                                     <span
                                       className={
                                         isSelected
-                                          ? 'text-white/80'
-                                          : 'text-[#6B7280]'
+                                          ? "text-white/80"
+                                          : "text-[#6B7280]"
                                       }
                                     >
                                       {kpis.emissionsSavedKg}kg
@@ -696,7 +778,7 @@ export function MapPreviewModal({
                                 </div>
                               </div>
                             </>
-                          )
+                          );
                         })()}
                       </div>
 
@@ -704,8 +786,8 @@ export function MapPreviewModal({
                       {alt.description && (
                         <div
                           className={cn(
-                            'pt-4 mt-2 border-t border-white/10 dark:border-black/5 text-[10.5px] leading-relaxed',
-                            isSelected ? 'text-white/80' : 'text-[#6B7280]'
+                            "pt-4 mt-2 border-t border-white/10 dark:border-black/5 text-[10.5px] leading-relaxed",
+                            isSelected ? "text-white/80" : "text-[#6B7280]",
                           )}
                         >
                           {alt.description}
@@ -717,7 +799,7 @@ export function MapPreviewModal({
                         <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4F04A]/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
                       )}
                     </div>
-                  )
+                  );
                 })}
               </div>
             )}
@@ -750,7 +832,7 @@ export function MapPreviewModal({
             Operación bloqueada hasta validación. Nota: En la versión actual los
             cálculos asumen condiciones ideales.
             <br />
-            En un futuro se incluirá soporte nativo para integrar datos de{' '}
+            En un futuro se incluirá soporte nativo para integrar datos de{" "}
             <strong className="font-semibold">Tráfico en Tiempo Real</strong> a
             los cálculos de demora.
           </p>
@@ -776,5 +858,5 @@ export function MapPreviewModal({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

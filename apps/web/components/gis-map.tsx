@@ -23,7 +23,7 @@ import { useLiveTracking } from "@/hooks/use-live-tracking";
 import { useAlertLogs } from "@/hooks/use-alert-logs";
 import { useMapLayers } from "@/hooks/use-map-layers";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
-import { useVehicleSelection } from "@/hooks/use-vehicle-selection";
+
 import { useAlertMonitoring } from "@/hooks/use-alert-monitoring";
 import { useVehicleCoordination } from "@/hooks/use-vehicle-coordination";
 import { useJobCoordination } from "@/hooks/use-job-coordination";
@@ -32,7 +32,10 @@ import { useDialogCoordination } from "@/hooks/use-dialog-coordination";
 import { useZoneDrawing } from "@/hooks/use-zone-drawing";
 
 // Dashboard Components
-import { Dashboard, type DashboardModule } from "@/components/dashboard/dashboard";
+import {
+  Dashboard,
+  type DashboardModule,
+} from "@/components/dashboard/dashboard";
 import { DriversTab } from "./drivers-tab";
 import { VehiclesTab } from "./vehicles-tab";
 import { OrdersTab } from "./orders-tab";
@@ -149,13 +152,6 @@ export function GISMap() {
   // Map layers management
   const { layers, setLayers, toggleLayer } = useMapLayers();
 
-  // Vehicle selection management
-  const {
-    handleVehicleClick,
-    handleSelectVehicleIdOnly,
-    handleHighlightVehicleOnly,
-  } = useVehicleSelection(selectedVehicleId, setSelectedVehicleId);
-
   // Sidebar navigation state
   const {
     sidebarNavigateTab,
@@ -256,10 +252,20 @@ export function GISMap() {
 
   // Stores the routing overrides that were interrupted by the driver-assignment guard.
   // After the driver is assigned, we replay the routing with these overrides.
-  const pendingRoutingOverridesRef = useRef<{ vehicles?: FleetVehicle[]; jobs?: FleetJob[]; preference?: "fastest" | "shortest" | "recommended"; traffic?: boolean } | null>(null);
+  const pendingRoutingOverridesRef = useRef<{
+    vehicles?: FleetVehicle[];
+    jobs?: FleetJob[];
+    preference?: "fastest" | "shortest" | "health";
+    traffic?: boolean;
+  } | null>(null);
 
   const handleStartRouting = useCallback(
-    async (overrides?: { vehicles?: FleetVehicle[]; jobs?: FleetJob[]; preference?: "fastest" | "shortest" | "recommended"; traffic?: boolean }) => {
+    async (overrides?: {
+      vehicles?: FleetVehicle[];
+      jobs?: FleetJob[];
+      preference?: "fastest" | "shortest" | "health";
+      traffic?: boolean;
+    }) => {
       const vehiclesToCheck = overrides?.vehicles || fleetVehicles;
       const jobsToCheck = overrides?.jobs || fleetJobs;
 
@@ -267,42 +273,50 @@ export function GISMap() {
       // whether the routing was triggered automatically or via manual assignment.
       const assignedVehicleIds = new Set(
         jobsToCheck
-          .filter(j => j.assignedVehicleId)
-          .map(j => String(j.assignedVehicleId))
+          .filter((j) => j.assignedVehicleId)
+          .map((j) => String(j.assignedVehicleId)),
       );
 
-      const vehiclesWithNoDriver = vehiclesToCheck.filter((v) =>
-        assignedVehicleIds.has(String(v.id)) && !v.driver && !v.driverId && !v.assignedDriverId
+      const vehiclesWithNoDriver = vehiclesToCheck.filter(
+        (v) => assignedVehicleIds.has(String(v.id)) && !v.driver,
       );
 
       console.log("[GISMap] Driver Pre-check:", {
         hasOverrides: !!overrides,
         assignedVehicleIds: Array.from(assignedVehicleIds),
-        missingDrivers: vehiclesWithNoDriver.map(v => v.label)
+        missingDrivers: vehiclesWithNoDriver.map((v) => v.label),
       });
 
       if (vehiclesWithNoDriver.length > 0) {
         const firstVehicle = vehiclesWithNoDriver[0];
-        console.warn("[GISMap] Routing blocked — driver missing for:", firstVehicle.label);
+        console.warn(
+          "[GISMap] Routing blocked — driver missing for:",
+          firstVehicle.label,
+        );
 
         // Store the current overrides so we can resume routing after driver is assigned
         pendingRoutingOverridesRef.current = overrides ?? null;
 
-        dispatch({ type: "SET_ASSIGNING_VEHICLE_ID", payload: firstVehicle.id });
+        dispatch({
+          type: "SET_ASSIGNING_VEHICLE_ID",
+          payload: firstVehicle.id,
+        });
         dispatch({ type: "SET_IS_ASSIGN_DRIVER_OPEN", payload: true });
         return { success: false, aborted: true, unassignedJobs: [] };
       }
 
-      console.log("[GISMap] Driver check passed — excluding un-driven non-targeted vehicles");
-      
+      console.log(
+        "[GISMap] Driver check passed — excluding un-driven non-targeted vehicles",
+      );
+
       // Filter out vehicles that don't have drivers AND aren't targeted for manual assignment
-      const operationalVehicles = vehiclesToCheck.filter(v => 
-        assignedVehicleIds.has(String(v.id)) || (v.driver || v.driverId || v.assignedDriverId)
+      const operationalVehicles = vehiclesToCheck.filter(
+        (v) => assignedVehicleIds.has(String(v.id)) || v.driver,
       );
 
       return startRouting({
-          ...(overrides || {}),
-          vehicles: operationalVehicles
+        ...(overrides || {}),
+        vehicles: operationalVehicles,
       });
     },
     [fleetVehicles, fleetJobs, startRouting, dispatch],
@@ -344,14 +358,19 @@ export function GISMap() {
   useEffect(() => {
     const fetchGlobalWeather = async () => {
       try {
-        const res = await fetch('/api/weather', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vehicleRoutes: [], startTime: new Date().toISOString() })
+        const res = await fetch("/api/weather", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            vehicleRoutes: [],
+            startTime: new Date().toISOString(),
+          }),
         });
         if (res.ok) {
           const data = await res.json();
-          const globalRoute = data.routes?.find((r: any) => r.vehicle === 'GLOBAL');
+          const globalRoute = data.routes?.find(
+            (r: any) => r.vehicle === "GLOBAL",
+          );
           if (globalRoute?.alerts) {
             setGlobalWeatherAlerts(globalRoute.alerts);
           }
@@ -368,30 +387,39 @@ export function GISMap() {
 
   const hasWindAlert = useMemo(() => {
     // Check if any vehicle has a wind alert from operational metrics or route analysis
-    const vehicleAlertsHasWind = Object.values(vehicleAlerts).some(alerts =>
-      alerts.some(a => a.type === 'weather' && a.data?.wa?.event === 'WIND')
+    const vehicleAlertsHasWind = Object.values(vehicleAlerts).some((alerts) =>
+      alerts.some((a) => a.type === "weather" && a.data?.wa?.event === "WIND"),
     );
 
     // Also check global weather alerts from background fetch or route data
-    const hasGlobalRouteWind = routeData?.weatherRoutes?.some(wr =>
-      wr.vehicle === 'GLOBAL' && wr.alerts?.some(wa => wa.event === 'WIND')
+    const hasGlobalRouteWind = routeData?.weatherRoutes?.some(
+      (wr) =>
+        wr.vehicle === "GLOBAL" && wr.alerts?.some((wa) => wa.event === "WIND"),
     );
 
     const allWindAlerts = [
-      ...Object.values(vehicleAlerts).flatMap(alerts =>
-        alerts.filter(a => a.type === 'weather' && a.data?.wa?.event === 'WIND').map(a => a.data?.wa?.message)
+      ...Object.values(vehicleAlerts).flatMap((alerts) =>
+        alerts
+          .filter((a) => a.type === "weather" && a.data?.wa?.event === "WIND")
+          .map((a) => a.data?.wa?.message),
       ),
-      ...(routeData?.weatherRoutes?.flatMap(wr =>
-        wr.vehicle === 'GLOBAL' ? wr.alerts?.filter(wa => wa.event === 'WIND').map(wa => wa.message) : []
+      ...(routeData?.weatherRoutes?.flatMap((wr) =>
+        wr.vehicle === "GLOBAL"
+          ? wr.alerts
+              ?.filter((wa) => wa.event === "WIND")
+              .map((wa) => wa.message)
+          : [],
       ) || []),
-      ...globalWeatherAlerts.filter(wa => wa.event === 'WIND').map(wa => wa.message)
+      ...globalWeatherAlerts
+        .filter((wa) => wa.event === "WIND")
+        .map((wa) => wa.message),
     ].filter(Boolean);
 
     const message = allWindAlerts.length > 0 ? allWindAlerts[0] : undefined;
 
     return {
       hasAlert: allWindAlerts.length > 0,
-      message
+      message,
     };
   }, [vehicleAlerts, routeData?.weatherRoutes, globalWeatherAlerts]);
 
@@ -463,12 +491,9 @@ export function GISMap() {
   // Dashboard State
   const [activeModule, setActiveModule] = useState<DashboardModule>("map");
 
-  const handleModuleChange = useCallback(
-    (module: DashboardModule) => {
-      setActiveModule(module);
-    },
-    [],
-  );
+  const handleModuleChange = useCallback((module: DashboardModule) => {
+    setActiveModule(module);
+  }, []);
 
   // Sync with sidebar navigation (legacy support for deep links)
   useEffect(() => {
@@ -479,20 +504,30 @@ export function GISMap() {
   }, [sidebarNavigateTab]);
 
   // Return to module logic
-  const [returnToModule, setReturnToModule] = useState<DashboardModule | null>(null);
+  const [returnToModule, setReturnToModule] = useState<DashboardModule | null>(
+    null,
+  );
 
-  const handleStartPickingWithModuleSwitch = useCallback((pickingHandler: () => void) => {
-    if (activeModule !== "map") {
-      setReturnToModule(activeModule);
-      setActiveModule("map");
-    }
-    pickingHandler();
-  }, [activeModule]);
-
+  const handleStartPickingWithModuleSwitch = useCallback(
+    (pickingHandler: () => void) => {
+      if (activeModule !== "map") {
+        setReturnToModule(activeModule);
+        setActiveModule("map");
+      }
+      pickingHandler();
+    },
+    [activeModule],
+  );
 
   // Effect to return to previous module after picking
   useEffect(() => {
-    if (returnToModule && state.interactionMode === null && (state.pickedJobCoords || state.pickedStopCoords || state.zonePoints.length > 0)) {
+    if (
+      returnToModule &&
+      state.interactionMode === null &&
+      (state.pickedJobCoords ||
+        state.pickedStopCoords ||
+        state.zonePoints.length > 0)
+    ) {
       // Small timeout to ensure state is processed
       const timeout = setTimeout(() => {
         setActiveModule(returnToModule);
@@ -500,7 +535,13 @@ export function GISMap() {
       }, 100);
       return () => clearTimeout(timeout);
     }
-  }, [state.interactionMode, state.pickedJobCoords, state.pickedStopCoords, state.zonePoints.length, returnToModule]);
+  }, [
+    state.interactionMode,
+    state.pickedJobCoords,
+    state.pickedStopCoords,
+    state.zonePoints.length,
+    returnToModule,
+  ]);
 
   // Get selected vehicle object
   const selectedVehicleObject = useMemo(() => {
@@ -546,7 +587,6 @@ export function GISMap() {
     (zones: Zone[]) => dispatch({ type: "SET_ACTIVE_ZONES", payload: zones }),
     [dispatch],
   );
-
 
   const handleOpenAddStopChange = useCallback(
     (open: boolean) => {
@@ -637,7 +677,12 @@ export function GISMap() {
 
   return (
     <Dashboard activeModule={activeModule} onModuleChange={handleModuleChange}>
-      <div className={cn("h-full w-full relative", activeModule !== "map" && "hidden")}>
+      <div
+        className={cn(
+          "h-full w-full relative",
+          activeModule !== "map" && "hidden",
+        )}
+      >
         <MapContainer
           layers={layers}
           toggleLayer={toggleLayer}
@@ -671,9 +716,14 @@ export function GISMap() {
           onEditZone={handleEditZone}
           isInteracting={!!state.interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
-          onVehicleSelect={handleVehicleClick}
-          hiddenZones={[...state.hiddenZones, ...(editingZoneData?.id ? [editingZoneData.id] : [])]}
-          onToggleZoneVisibility={(id) => dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })}
+          // onVehicleSelect={handleVehicleClick}
+          hiddenZones={[
+            ...state.hiddenZones,
+            ...(editingZoneData?.id ? [editingZoneData.id] : []),
+          ]}
+          onToggleZoneVisibility={(id) =>
+            dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })
+          }
           onDeleteZone={removeCustomPOI}
         />
 
@@ -700,15 +750,15 @@ export function GISMap() {
             // Start zone picking flow directly
             handleStartZonePicking();
           }}
-          customZones={customPOIs.filter(poi => poi.entityType === 'zone')}
+          customZones={customPOIs.filter((poi) => poi.entityType === "zone")}
           hiddenZones={state.hiddenZones}
-          onToggleZoneVisibility={(id) => dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })}
+          onToggleZoneVisibility={(id) =>
+            dispatch({ type: "TOGGLE_ZONE_VISIBILITY", payload: id })
+          }
           onDeleteZone={removeCustomPOI}
           hasWindAlert={hasWindAlert}
         />
       </div>
-
-
 
       {/* 4. Drivers Module */}
       {activeModule === "drivers" && (
@@ -717,10 +767,10 @@ export function GISMap() {
             drivers={drivers || []}
             fleetVehicles={fleetVehicles || []}
             isLoading={isLoadingDrivers || false}
-            fetchDrivers={fetchDrivers || (async () => { })}
+            fetchDrivers={fetchDrivers || (async () => {})}
             addDriver={addDriver || (async () => undefined)}
             onDriverSelect={(d) => {
-              const fullDriver = drivers.find(drv => drv.id === d.id);
+              const fullDriver = drivers.find((drv) => drv.id === d.id);
               if (fullDriver) {
                 dispatch({ type: "SET_SELECTED_DRIVER", payload: fullDriver });
                 dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: true });
@@ -729,7 +779,13 @@ export function GISMap() {
             onVehicleSelect={handleVehicleSelectFromDriversWithDispatch}
             expandedGroups={state.driversExpandedGroups}
             onToggleGroup={(group, isExpanded) =>
-              dispatch({ type: "SET_DRIVERS_EXPANDED_GROUPS", payload: { ...state.driversExpandedGroups, [group]: isExpanded } })
+              dispatch({
+                type: "SET_DRIVERS_EXPANDED_GROUPS",
+                payload: {
+                  ...state.driversExpandedGroups,
+                  [group]: isExpanded,
+                },
+              })
             }
           />
         </div>
@@ -741,7 +797,7 @@ export function GISMap() {
           <VehiclesTab
             fleetVehicles={dataVehicles || []}
             isLoading={isLoadingApiVehicles || false}
-            fetchVehicles={fetchApiVehicles || (async () => { })}
+            fetchVehicles={fetchApiVehicles || (async () => {})}
             addVehicle={addApiVehicle || (async () => undefined)}
             onVehicleSelect={(v) => {
               setSelectedVehicleId(String(v.id));
@@ -755,7 +811,7 @@ export function GISMap() {
         <div className="h-full flex flex-col bg-background overflow-hidden relative">
           <FuelManagementTab
             onDriverClick={(driverId) => {
-              const fullDriver = drivers.find(drv => drv.id === driverId);
+              const fullDriver = drivers.find((drv) => drv.id === driverId);
               if (fullDriver) {
                 dispatch({ type: "SET_SELECTED_DRIVER", payload: fullDriver });
                 dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: true });
@@ -790,7 +846,7 @@ export function GISMap() {
             fetchJobs={async () => {
               await fetchVehicles();
             }}
-            removeJob={removeJob || (async () => { })}
+            removeJob={removeJob || (async () => {})}
             setJobAssignments={setJobAssignments}
             startRouting={handleStartRouting}
             routeData={routeData}
@@ -810,7 +866,7 @@ export function GISMap() {
       {activeModule === "analytics" && (
         <div className="h-full flex flex-col bg-background overflow-hidden relative">
           <AnalyticsTab
-            routeData={routeData}
+            routeData={routeData ?? undefined}
             fleetVehicles={fleetVehicles || []}
           />
         </div>
@@ -853,36 +909,43 @@ export function GISMap() {
         drivers={drivers}
         onAssignDriver={(driver) => {
           if (state.assigningVehicleId) {
-            console.log("[GISMap] Starting driver assignment for vehicle:", state.assigningVehicleId, "Driver:", driver?.name);
-            
+            console.log(
+              "[GISMap] Starting driver assignment for vehicle:",
+              state.assigningVehicleId,
+              "Driver:",
+              driver?.name,
+            );
+
             // Start async driver assignment but don't await
             handleAssignDriver(state.assigningVehicleId, driver);
-            
+
             dispatch({ type: "SET_IS_ASSIGN_DRIVER_OPEN", payload: false });
             dispatch({ type: "SET_ASSIGNING_VEHICLE_ID", payload: null });
 
             // Resume the routing that was blocked by the driver guard.
             const pendingOverrides = pendingRoutingOverridesRef.current;
             pendingRoutingOverridesRef.current = null;
-            
+
             // Pass current fleetVehicles but manually ensure the assigned vehicle has the driver
             // This prevents timing issues with state updates
             setTimeout(() => {
               // Find and update the specific vehicle with the driver to ensure it's included
-              const updatedVehicles = fleetVehicles.map(v => 
-                String(v.id) === String(state.assigningVehicleId) 
+              const updatedVehicles = fleetVehicles.map((v) =>
+                String(v.id) === String(state.assigningVehicleId)
                   ? { ...v, driver } // Explicitly include the assigned driver
-                  : v
+                  : v,
               );
-              
-              console.log("[GISMap] Resuming routing after driver assignment", { 
+
+              console.log("[GISMap] Resuming routing after driver assignment", {
                 hasPendingOverrides: !!pendingOverrides,
                 vehicleId: state.assigningVehicleId,
-                vehicleHasDriver: updatedVehicles.find(v => String(v.id) === String(state.assigningVehicleId))?.driver?.name,
+                vehicleHasDriver: updatedVehicles.find(
+                  (v) => String(v.id) === String(state.assigningVehicleId),
+                )?.driver?.name,
               });
-              startRouting({ 
+              startRouting({
                 ...pendingOverrides,
-                vehicles: updatedVehicles // Pass vehicles with driver explicitly set
+                vehicles: updatedVehicles, // Pass vehicles with driver explicitly set
               });
             }, 250);
           }
@@ -890,8 +953,8 @@ export function GISMap() {
         assigningVehicleLabel={
           state.assigningVehicleId
             ? fleetVehicles.find(
-              (v) => String(v.id) === String(state.assigningVehicleId),
-            )?.label
+                (v) => String(v.id) === String(state.assigningVehicleId),
+              )?.label
             : undefined
         }
       />
@@ -916,8 +979,12 @@ export function GISMap() {
       />
       <FuelDetailsSheet
         isOpen={state.isFuelDetailsOpen}
-        onOpenChange={(open) => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: open })}
-        onClose={() => dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: false })}
+        onOpenChange={(open) =>
+          dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: open })
+        }
+        onClose={() =>
+          dispatch({ type: "SET_IS_FUEL_DETAILS_OPEN", payload: false })
+        }
         driverId={state.selectedDriver?.id || null}
       />
 
@@ -925,8 +992,12 @@ export function GISMap() {
         <DriverDetailsSheet
           driver={state.selectedDriver}
           isOpen={state.isDriverDetailsOpen}
-          onOpenChange={(open) => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: open })}
-          onClose={() => dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false })}
+          onOpenChange={(open) =>
+            dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: open })
+          }
+          onClose={() =>
+            dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false })
+          }
         />
       )}
     </Dashboard>

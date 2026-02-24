@@ -558,7 +558,7 @@ export type SearchPOIParams = z.infer<typeof SearchPOIParamsSchema>;
 export const OptimizeOptionsSchema = z.object({
   startTime: z.string().optional(),
   zones: z.array(ZoneSchema).optional(),
-  preference: z.enum(["fastest", "shortest", "recommended", "health"]).optional(),
+  preference: z.enum(["fastest", "shortest", "health"]).optional(),
   traffic: z.boolean().optional(),
   avoidPoorSmoothness: z.boolean().optional(),
 });
