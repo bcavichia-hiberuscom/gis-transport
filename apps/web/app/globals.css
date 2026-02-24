@@ -2,115 +2,48 @@
 @import "tw-animate-css";
 
 :root {
-  --background: oklch(0.99 0.002 240);
-  /* Very faint off-white/blue for background */
-  --foreground: oklch(0.25 0.02 240);
-  /* Softer deep grey-blue */
-  --card: oklch(1 0 0);
-  /* Pure white cards */
-  --card-foreground: oklch(0.25 0.02 240);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 240);
-  --primary: oklch(0.35 0.08 240);
-  /* Calm blue-indigo primary */
-  --primary-foreground: oklch(0.99 0.002 240);
-  --secondary: oklch(0.96 0.01 240);
-  /* Subtle grey-blue for secondary */
-  --secondary-foreground: oklch(0.35 0.08 240);
-  --muted: oklch(0.94 0.01 240);
-  /* Clearer separation for muted areas */
-  --muted-foreground: oklch(0.5 0.03 240);
-  --accent: oklch(0.96 0.02 240);
-  --accent-foreground: oklch(0.35 0.08 240);
-  --destructive: oklch(0.6 0.18 20);
-  --destructive-foreground: oklch(0.99 0.002 240);
-  --border: oklch(0.91 0.01 240);
-  --input: oklch(0.98 0.005 240);
-  --ring: oklch(0.35 0.08 240);
-  --radius: 0.8rem;
-  --sidebar: oklch(0.98 0.005 240);
-  /* Subtle grey-blue sidebar background */
-  --sidebar-foreground: oklch(0.25 0.02 240);
-  --sidebar-primary: oklch(0.35 0.08 240);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.01 240);
-  --sidebar-accent-foreground: oklch(0.35 0.08 240);
-  --sidebar-border: oklch(0.92 0.01 240);
-  --sidebar-ring: oklch(0.35 0.08 240);
-}
-
-.leaflet-container {
-  z-index: 0;
-  position: relative;
-}
-
-.leaflet-control {
-  z-index: 401;
-}
-
-.leaflet-popup {
-  z-index: 402;
-}
-
-.leaflet-pane {
-  z-index: auto;
-}
-
-.leaflet-marker-pane {
-  z-index: 400;
-}
-
-.leaflet-overlay-pane {
-  z-index: 399;
-}
-
-.leaflet-shadow-pane {
-  z-index: 398;
-}
-
-.h-full.w-full {
-  touch-action: auto;
-}
-
-/* Map Marker Animations */
-@keyframes marker-pop-in {
-  0% {
-    transform: scale(0.3);
-    opacity: 0;
-  }
-
-  60% {
-    transform: scale(1.1);
-  }
-
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes marker-fade-out {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(0.7);
-    opacity: 0;
-  }
+  --background: #FFFFFF;
+  --foreground: #1C1C1C;
+  --muted-foreground: #6B7280;
+  
+  --primary: #D4F04A;
+  --primary-foreground: #1C1C1C;
+  
+  --card: #FFFFFF;
+  --card-foreground: #1C1C1C;
+  
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1C1C;
+  
+  --secondary: #F7F8FA;
+  --secondary-foreground: #1C1C1C;
+  
+  --muted: #F7F8FA;
+  
+  --accent: #F7F8FA;
+  --accent-foreground: #1C1C1C;
+  
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  
+  --border: #EAEAEA;
+  --input: #EAEAEA;
+  --ring: #D4F04A;
+  
+  --radius: 8px;
+  
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1C1C1C;
+  --sidebar-accent: #F7F8FA;
+  --sidebar-border: #EAEAEA;
 }
 
 @theme inline {
-  --font-roboto: var(--font-roboto);
-  --font-sans: "Roboto", "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -124,33 +57,199 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    background-color: #FFFFFF;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-white text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Leaflet map specific styles */
+@layer utilities {
+  /* Core card */
+  .premium-card {
+    @apply bg-white border border-[#EAEAEA] rounded-md;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .premium-card:hover {
+    border-color: #D0D0D0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  /* KPI Card — with left accent bar */
+  .kpi-card {
+    background: #FFFFFF;
+    border: 1px solid #EAEAEA;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+  .kpi-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #EAEAEA;
+    transition: background 0.15s ease;
+  }
+  .kpi-card:hover::before {
+    background: #D4F04A;
+  }
+  .kpi-card:hover {
+    border-color: #D0D0D0;
+  }
+
+  /* Chart container */
+  .chart-container {
+    background: #FFFFFF;
+    border: 1px solid #EAEAEA;
+    padding: 2rem;
+  }
+  .chart-title {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #1C1C1C;
+  }
+  .chart-subtitle {
+    font-size: 10px;
+    color: #6B7280;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  /* Trend badges */
+  .trend-up {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    background: rgba(212, 240, 74, 0.12);
+    color: #5D6B1A;
+    border: 1px solid rgba(212, 240, 74, 0.3);
+    border-radius: 2px;
+  }
+  .trend-down {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    background: #FEF2F2;
+    color: #B91C1C;
+    border: 1px solid #FECACA;
+    border-radius: 2px;
+  }
+
+  /* Sidebar items */
+  .premium-sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200 text-muted-foreground;
+  }
+  .premium-sidebar-item.active {
+    @apply text-foreground bg-secondary;
+    position: relative;
+  }
+  .premium-sidebar-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 25%;
+    bottom: 25%;
+    width: 3px;
+    background-color: var(--primary);
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Typography */
+  .text-premium-h1 { font-size: 28px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; }
+  .text-premium-h2 { font-size: 20px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; }
+  .text-premium-body { font-size: 14px; line-height: 1.6; }
+  .text-premium-meta { font-size: 12px; color: #6B7280; }
+}
+
+/* Map */
+.leaflet-container {
+  z-index: 0;
+  position: relative;
+  background: #F7F8FA;
+}
+
+.premium-popup .leaflet-popup-content-wrapper {
+  border-radius: 6px;
+  border: 1px solid #EAEAEA;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  padding: 0;
+}
+
+.premium-popup .leaflet-popup-content {
+  margin: 0;
+  width: 240px !important;
+}
+
+.premium-popup .leaflet-popup-tip {
+  background: #FFFFFF;
+}
+
+/* Premium Dark Map Popups (Leaflet Overrides) */
+.premium-map-popup .leaflet-popup-content-wrapper {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.premium-map-popup .leaflet-popup-content {
+  margin: 0;
+  width: auto !important; /* Let the React content dictate width */
+}
+
+/* Hide or restyle the leaflet tip */
+.premium-map-popup .leaflet-popup-tip-container {
+  display: none; /* We rendered a custom pointer in React if needed, or hide it entirely to rely on our own */
+}
+/* Weather Layers Effects */
+.weather-layer-temp {
+  mix-blend-mode: multiply;
+  filter: saturate(1.4) brightness(1.05);
+}
+
+.weather-layer-rain {
+  mix-blend-mode: screen;
+  filter: contrast(1.5) saturate(1.8) drop-shadow(0 0 2px rgba(255,255,255,0.2));
+}
+
+.weather-layer-wind {
+  mix-blend-mode: overlay;
+  opacity: 0.8;
+  filter: grayscale(0.5) contrast(1.2);
+}
+
+/* Animations */
+@keyframes flow {
+  from { transform: translateX(0); }
+  to { transform: translateX(20px); }
+}
+
+.animate-weather-flow {
+  animation: flow 2s linear infinite;
+}

@@ -2,15 +2,19 @@ import type React from "react";
 import type { Viewport } from "next";
 
 import { Analytics } from "@vercel/analytics/next";
-import { Roboto } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const roboto = Roboto({
-  weight: ["300", "400", "500", "700"],
+const inter = Inter({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-roboto",
+  variable: "--font-sans",
 });
+
+export const metadata = {
+  title: "VektorX",
+  description: "Advanced Fleet & Logistics Engine",
+};
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -33,7 +37,7 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className={`${roboto.variable} font-roboto antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`}>
         {children}
         <Analytics />
       </body>

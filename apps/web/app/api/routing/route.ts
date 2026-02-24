@@ -5,11 +5,17 @@ import { TIMEOUTS } from "@/lib/config";
 
 const ORS_LOCAL = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
 const ORS_PUBLIC = "https://api.openrouteservice.org/v2";
-const ORS_API_KEY = process.env.ORS_API_KEY || process.env.NEXT_PUBLIC_ORS_API_KEY || "";
+const ORS_API_KEY =
+  process.env.ORS_API_KEY || process.env.NEXT_PUBLIC_ORS_API_KEY || "";
 
-async function callOrsDirections(coordinates: [number, number][], usePublic: boolean) {
+async function callOrsDirections(
+  coordinates: [number, number][],
+  usePublic: boolean,
+) {
   const baseUrl = usePublic ? ORS_PUBLIC : ORS_LOCAL;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (usePublic && ORS_API_KEY) headers["Authorization"] = ORS_API_KEY;
 
   return fetchWithTimeout(`${baseUrl}/directions/driving-car/geojson`, {
@@ -18,7 +24,7 @@ async function callOrsDirections(coordinates: [number, number][], usePublic: boo
     body: JSON.stringify({
       coordinates,
       instructions: false,
-      preference: "recommended",
+      preference: "fastest",
       radiuses: coordinates.map(() => 5000),
     }),
     timeout: TIMEOUTS.ROUTING,
@@ -33,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (!coordinates || !Array.isArray(coordinates) || coordinates.length < 2) {
       return NextResponse.json(
         { error: "Need at least 2 coordinates for routing" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -45,14 +51,19 @@ export async function POST(request: NextRequest) {
       response = await callOrsDirections(coordinates, false);
       if (!response.ok) throw new Error(`Local ORS failed: ${response.status}`);
     } catch (localErr) {
-      console.warn("[Routing] Local ORS unavailable, falling back to public API");
+      console.warn(
+        "[Routing] Local ORS unavailable, falling back to public API",
+      );
       usedPublic = true;
       try {
         response = await callOrsDirections(coordinates, true);
       } catch (publicErr) {
         return NextResponse.json(
-          { error: "Both local and public ORS unavailable", details: String(publicErr) },
-          { status: 502 }
+          {
+            error: "Both local and public ORS unavailable",
+            details: String(publicErr),
+          },
+          { status: 502 },
         );
       }
     }
@@ -61,7 +72,7 @@ export async function POST(request: NextRequest) {
       const errorText = response ? await response.text() : "No response";
       return NextResponse.json(
         { error: "Routing failed", details: errorText },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -78,7 +89,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: "Internal server error", message: (error as Error).message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

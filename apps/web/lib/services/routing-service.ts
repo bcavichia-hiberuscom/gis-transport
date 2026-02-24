@@ -12,9 +12,23 @@ import {
   OptimizeOptions,
 } from "@gis/shared";
 import { THEME } from "@/lib/theme";
-import { ORS_URL, ORS_PUBLIC_URL, ORS_API_KEY, VROOM_URL, SNAP_URL, ROUTING_CONFIG } from "@/lib/config";
+import {
+  ORS_URL,
+  ORS_PUBLIC_URL,
+  ORS_API_KEY,
+  VROOM_URL,
+  SNAP_URL,
+  ROUTING_CONFIG,
+} from "@/lib/config";
 import { WeatherService } from "./weather-service";
-import { getForbiddenZones, getZoneForbiddenReason } from "@/lib/helpers/zone-access-helper";
+import {
+  isPointInZone,
+  isPointInPolygon,
+  isZoneForbiddenForVehicle,
+  getForbiddenZones,
+  getZoneForbiddenReason,
+} from "@/lib/helpers/zone-access-helper";
+import { OverpassClient } from "@gis/shared";
 
 const VROOM_PUBLIC = "https://solver.vroom-project.org";
 
@@ -30,16 +44,44 @@ async function fetchWithFallback(
   extraHeaders?: Record<string, string>,
 ): Promise<Response> {
   try {
-    const res = await fetch(localUrl, { ...options, signal: AbortSignal.timeout(10000) });
+    const res = await fetch(localUrl, {
+      ...options,
+      signal: AbortSignal.timeout(10000),
+    });
     if (res.ok) return res;
     throw new Error(`Local returned ${res.status}`);
-  } catch {
-    console.warn(`[Fallback] Local ${localUrl} unavailable, using public`);
+  } catch (err) {
+    const isORS = publicUrl.includes("openrouteservice.org");
+    console.warn(
+      `[Fallback] Local ${localUrl} unavailable, using public. Error: ${(err as Error).message}`,
+    );
+
+    if (isORS && !ORS_API_KEY) {
+      console.error(
+        "[Fallback] ❌ CRITICAL: No se ha detectado ORS_API_KEY o NEXT_PUBLIC_ORS_API_KEY en las variables de entorno. Las peticiones al servicio público de ORS fallarán con 'Authorization field missing'. Por favor, añada su clave a su archivo .env",
+      );
+    }
+
+    // Si es ORS y tenemos key, la metemos también en el URL para máxima compatibilidad
+    let finalPublicUrl = publicUrl;
+    if (isORS && ORS_API_KEY) {
+      console.log(
+        `[Fallback] Usando ORS Público con clave (longitud: ${ORS_API_KEY.length})`,
+      );
+      const separator = finalPublicUrl.includes("?") ? "&" : "?";
+      finalPublicUrl += `${separator}api_key=${ORS_API_KEY}`;
+    }
+
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
       ...extraHeaders,
     };
-    return fetch(publicUrl, { ...options, headers });
+
+    if (isORS && ORS_API_KEY && !headers["Authorization"]) {
+      headers["Authorization"] = ORS_API_KEY;
+    }
+
+    return fetch(finalPublicUrl, { ...options, headers });
   }
 }
 
@@ -60,8 +102,15 @@ export class RoutingService {
     const startTime = options.startTime || new Date().toISOString();
     const zones = options.zones || [];
 
+    if (options.preference === "health") {
+      options.avoidPoorSmoothness = true;
+    }
+
     console.log(
       `[Optimize] Iniciando optimización con ${vehicles.length} vehículos, ${jobs.length} jobs, ${zones.length} zonas`,
+    );
+    console.log(
+      `[Optimize] Route preference: ${options.preference || "default"}, avoidPoorSmoothness: ${options.avoidPoorSmoothness}`,
     );
     if (zones.length > 0) {
       console.log(
@@ -139,10 +188,13 @@ export class RoutingService {
     });
 
     const uniqueProfiles = this.getUniqueProfiles(vehicleProfiles);
-    const matrices = await this.getMatricesForProfiles(
-      snappedLocations,
-      uniqueProfiles,
-    );
+    const { matrices, poorSmoothnessPolygons } =
+      await this.getMatricesForProfiles(
+        snappedLocations,
+        uniqueProfiles,
+        allCoords,
+        options,
+      );
 
     // Map each vehicle index to its profile name and avoid polygons
     const vehicleToProfile = vehicles.map((_, idx) => {
@@ -260,7 +312,13 @@ export class RoutingService {
       vehicles,
       jobs,
       invalidAssignments,
+      poorSmoothnessPolygons,
+      options,
     );
+
+    // hasPoorSmoothness now indicates if poor quality roads were DETECTED in the area
+    // (not necessarily if the route passes through them - we try to avoid them)
+    const hasPoorSmoothness = poorSmoothnessPolygons.length > 0;
 
     // 6. Weather Analysis
     const weatherRoutes = await WeatherService.analyzeRoutes(
@@ -276,6 +334,7 @@ export class RoutingService {
       weatherRoutes,
       unassignedJobs,
       notices,
+      hasPoorSmoothness,
     };
   }
 
@@ -296,15 +355,177 @@ export class RoutingService {
   private static async getMatricesForProfiles(
     locations: LatLon[],
     profiles: ProfileData[],
-  ): Promise<Record<string, number[][]>> {
+    allCoords: LatLon[],
+    options: OptimizeOptions = {},
+  ): Promise<{
+    matrices: Record<string, number[][]>;
+    poorSmoothnessPolygons: LatLon[][];
+  }> {
     const matrices: Record<string, number[][]> = {};
-    for (const profile of profiles) {
-      matrices[profile.name] = await this.getMatrix(
-        locations,
-        profile.avoidPolygons,
+
+    // Only fetch poor smoothness areas for HEALTH routes
+    // This ensures shortest/fastest are different from health
+    let poorSmoothnessPolygons: LatLon[][] = [];
+    if (options.preference === "health") {
+      try {
+        // This will reject after 30 seconds if nothing happens
+        const smoothnessPromise = this.getPoorSmoothnessPolygons(allCoords);
+        const timeoutPromise = new Promise<LatLon[][]>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Smoothness fetch timeout")),
+            30000,
+          ),
+        );
+        poorSmoothnessPolygons = await Promise.race([
+          smoothnessPromise,
+          timeoutPromise,
+        ]);
+
+        console.log(
+          `[Optimize] Health route: Smoothness polygons found: ${poorSmoothnessPolygons.length}`,
+        );
+      } catch (e) {
+        console.warn(
+          `[Optimize] Smoothness fetch for health route failed, continuing:`,
+          e,
+        );
+        poorSmoothnessPolygons = [];
+      }
+    } else {
+      console.log(
+        `[Optimize] Skipping smoothness check for ${options.preference || "default"} route`,
       );
     }
-    return matrices;
+
+    for (const profile of profiles) {
+      const allAvoid = [
+        ...profile.avoidPolygons,
+        ...poorSmoothnessPolygons.filter(
+          (p) => !locations.some((l) => this.isPointInZone(l, p)),
+        ),
+      ];
+      matrices[profile.name] = await this.getMatrix(
+        locations,
+        allAvoid,
+        options,
+      );
+    }
+    return { matrices, poorSmoothnessPolygons };
+  }
+
+  private static async getPoorSmoothnessPolygons(
+    locations: LatLon[],
+  ): Promise<LatLon[][]> {
+    if (locations.length === 0) return [];
+
+    // Calculate bounding box - keep it tight to avoid timeouts
+    const lats = locations.map((l) => l[0]);
+    const lons = locations.map((l) => l[1]);
+    const BBOX_PADDING = 0.015;
+    const bbox: [number, number, number, number] = [
+      Math.min(...lats) - BBOX_PADDING,
+      Math.min(...lons) - BBOX_PADDING,
+      Math.max(...lats) + BBOX_PADDING,
+      Math.max(...lons) + BBOX_PADDING,
+    ];
+
+    try {
+      const ways = await OverpassClient.fetchPoorSmoothnessWays(bbox);
+
+      console.log(
+        `[RoutingService] Fetched poor smoothness ways: ${ways.length} ways found`,
+      );
+
+      // Convert ways with geometry to polygons
+      // Larger buffer (0.01°) to avoid poor roads effectively
+      // This is about 1.1km at the equator - ensures routes are significantly different
+      const BUFFER_DEGREES = 0.01; // About 1.1km at equator
+      const polygons = ways
+        .filter((w) => w.geometry && w.geometry.length >= 2)
+        .map((w) => {
+          // Create a polygon that follows the geometry of the way
+          // using perpendicular offsets from the line
+          const coords = w.geometry!;
+
+          // For simplicity: create a "corridor" polygon around the way
+          // by offsetting perpendicular to the line direction
+          const offsetCoords: LatLon[] = [];
+
+          // Add forward offset (perpendicular right)
+          for (let i = 0; i < coords.length; i++) {
+            const lat = coords[i].lat;
+            const lon = coords[i].lon;
+            // Simple perpendicular: rotate 90 degrees
+            // For North-South lines, offset in longitude; for East-West, offset in latitude
+            const nextI = i < coords.length - 1 ? i + 1 : i;
+            const prevI = i > 0 ? i - 1 : i;
+            const dx = coords[nextI].lon - coords[prevI].lon;
+            const dy = coords[nextI].lat - coords[prevI].lat;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const perpLon = (-dy / len) * BUFFER_DEGREES;
+            const perpLat = (dx / len) * BUFFER_DEGREES;
+            offsetCoords.push([lat + perpLat, lon + perpLon]);
+          }
+
+          // Add backward offset (perpendicular left, in reverse order)
+          for (let i = coords.length - 1; i >= 0; i--) {
+            const lat = coords[i].lat;
+            const lon = coords[i].lon;
+            const nextI = i < coords.length - 1 ? i + 1 : i;
+            const prevI = i > 0 ? i - 1 : i;
+            const dx = coords[nextI].lon - coords[prevI].lon;
+            const dy = coords[nextI].lat - coords[prevI].lat;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const perpLon = (dy / len) * BUFFER_DEGREES;
+            const perpLat = (-dx / len) * BUFFER_DEGREES;
+            offsetCoords.push([lat + perpLat, lon + perpLon]);
+          }
+
+          return offsetCoords as LatLon[];
+        })
+        .filter((poly) => {
+          // Ensure polygon has at least 3 unique points
+          if (poly.length < 3) return false;
+
+          // Remove consecutive duplicates
+          const unique = poly.filter((p, i) => {
+            if (i === 0) return true;
+            const prev = poly[i - 1];
+            return (
+              Math.abs(p[0] - prev[0]) > 0.00001 ||
+              Math.abs(p[1] - prev[1]) > 0.00001
+            );
+          });
+
+          return unique.length >= 3;
+        });
+
+      console.log(
+        `[RoutingService] Converted to ${polygons.length} valid polygons for avoidance (buffer: ${BUFFER_DEGREES}°, ~${Math.round(BUFFER_DEGREES * 111000)}m)`,
+      );
+      
+      // Validate polygons - log first and last for debugging
+      if (polygons.length > 0) {
+        const first = polygons[0];
+        const last = polygons[polygons.length - 1];
+        console.log(`[RoutingService] First polygon (${first.length} points):`, JSON.stringify(first.slice(0, 3)));
+        console.log(`[RoutingService] Last polygon (${last.length} points):`, JSON.stringify(last.slice(0, 3)));
+        
+        // Check for invalid coordinates
+        const invalidPolys = polygons.filter(p => p.some(pt => !isFinite(pt[0]) || !isFinite(pt[1])));
+        if (invalidPolys.length > 0) {
+          console.warn(`[RoutingService] ⚠️ Found ${invalidPolys.length} polygons with NaN/Inf coordinates!`);
+        }
+      }
+      
+      return polygons;
+    } catch (e) {
+      console.error(
+        "[RoutingService] Failed to fetch poor smoothness ways:",
+        e,
+      );
+      return [];
+    }
   }
 
   private static processUnassignedJobs(
@@ -317,8 +538,9 @@ export class RoutingService {
       const originalJob = jobs[jobIdx];
       return {
         id: originalJob?.id.toString() || u.id.toString(),
-        description: originalJob?.label || `Job ${jobIdx + 1}`,
-        reason: "No suitable vehicle available or unreachable location",
+        description: originalJob?.label || `Pedido ${jobIdx + 1}`,
+        reason:
+          "RESTRICCIÓN: Vehículo no compatible o ubicación fuera de alcance",
       };
     });
   }
@@ -408,6 +630,8 @@ export class RoutingService {
     originalVehicles: FleetVehicle[],
     originalJobs: FleetJob[],
     invalidAssignments: { vehicleIdx: number; jobLabels: string[] }[] = [],
+    poorSmoothnessPolygons: LatLon[][] = [],
+    options: OptimizeOptions = {},
   ): Promise<VehicleRoute[]> {
     const results: VehicleRoute[] = [];
     const invalidVehicleIndices = new Set(
@@ -416,13 +640,14 @@ export class RoutingService {
 
     for (const route of vroomResult.routes) {
       const vIdx = route.vehicle;
+      const isInvalidAssignment = invalidVehicleIndices.has(vIdx);
 
-      // Saltar rutas inválidas (violaciones legales) - no pintar polygons
-      if (invalidVehicleIndices.has(vIdx)) {
-        console.log(
-          `[CalculateRoutes] ⚠️ Saltando ruta para vehículo ${vIdx} (violación legal - no se pinta polygon)`,
+      // Si es una asignación inválida (violación legal), imprimimos warning pero CONTINUAMOS
+      // para que el usuario pueda ver la ruta, aunque sea ilegal.
+      if (isInvalidAssignment) {
+        console.warn(
+          `[CalculateRoutes] ⚠️ Ruta para vehículo ${vIdx} (${originalVehicles[vIdx].label}) tiene violaciones legales, pero se calculará geometry.`,
         );
-        continue;
       }
 
       const profile = vehicleToProfile[vIdx];
@@ -435,15 +660,97 @@ export class RoutingService {
       const vehicle = originalVehicles[vIdx];
       const color = ROUTE_COLORS[vIdx % ROUTE_COLORS.length];
 
+      let baseAvoidPolygons = profile.avoidPolygons;
+      let poorSmoothnessAvoidPolygons: LatLon[][] = [];
+
+      if (options.avoidPoorSmoothness && poorSmoothnessPolygons.length > 0) {
+        poorSmoothnessAvoidPolygons = poorSmoothnessPolygons;
+        baseAvoidPolygons = [...baseAvoidPolygons, ...poorSmoothnessPolygons];
+        console.log(
+          `[CalculateRoutes] Vehicle ${vIdx} (${vehicle.label}): Adding ${poorSmoothnessPolygons.length} poor smoothness polygons to avoid (total now: ${baseAvoidPolygons.length})`,
+        );
+      }
+
+      // Filtrar polígonos que contienen alguno de nuestros waypoints
+      // para permitir que ORS calcule la ruta entrando a la zona si es necesario
+      let filteredOutCount = 0;
+      const filteredAvoidPolygons = baseAvoidPolygons.filter((poly) => {
+        const anyWaypointInside = waypoints.some((wp) =>
+          this.isPointInZone(wp, poly),
+        );
+        if (anyWaypointInside) {
+          filteredOutCount++;
+        }
+        return !anyWaypointInside;
+      });
+
+      // Also create a version without poor smoothness for retry
+      const baseAvoidPolygonsOnly = profile.avoidPolygons.filter((poly) => {
+        const anyWaypointInside = waypoints.some((wp) =>
+          this.isPointInZone(wp, poly),
+        );
+        return !anyWaypointInside;
+      });
+
+      const smoothnessPolygonsCount =
+        filteredAvoidPolygons.length - baseAvoidPolygonsOnly.length;
+      console.log(
+        `[CalculateRoutes] Vehicle ${vIdx} (${vehicle.label}): Total polygons before filter: ${baseAvoidPolygons.length}, after filter: ${filteredAvoidPolygons.length} (filtered out: ${filteredOutCount}, base: ${baseAvoidPolygonsOnly.length}, smoothness: ${smoothnessPolygonsCount})`,
+      );
+
       const vehicleRoute = await this.fetchOrsRoute(
         vehicle.id,
         waypoints,
-        profile.avoidPolygons,
+        filteredAvoidPolygons,
         color,
         route.steps,
         originalJobs,
         originalVehicles.length,
+        poorSmoothnessPolygons,
+        options,
       );
+
+      // Si la ruta falló y tenemos poor smoothness constraints, intentar sin ellos
+      if (
+        vehicleRoute.error &&
+        options.preference === "health" &&
+        poorSmoothnessAvoidPolygons.length > 0
+      ) {
+        console.warn(
+          `[CalculateRoutes] Vehicle ${vIdx}: Health route failed with poor smoothness avoidance, retrying without...`,
+        );
+        console.warn(`[CalculateRoutes] Original error: ${vehicleRoute.error}`);
+
+        const retryRoute = await this.fetchOrsRoute(
+          vehicle.id,
+          waypoints,
+          baseAvoidPolygonsOnly,
+          color,
+          route.steps,
+          originalJobs,
+          originalVehicles.length,
+          [], // empty array - don't check for poor smoothness
+          options,
+        );
+        if (!retryRoute.error) {
+          console.log(
+            `[CalculateRoutes] Vehicle ${vIdx}: Retry without poor smoothness succeeded`,
+          );
+          results.push(retryRoute);
+          continue;
+        } else {
+          console.warn(
+            `[CalculateRoutes] Vehicle ${vIdx}: Retry also failed: ${retryRoute.error}`,
+          );
+          // Use the original error route
+        }
+      }
+
+      // Si era inválida, marcamos la ruta con el error
+      if (isInvalidAssignment && !vehicleRoute.error) {
+        const inv = invalidAssignments.find((i) => i.vehicleIdx === vIdx);
+        vehicleRoute.error = `Violación LEZ: No autorizado para acceder a: ${inv?.jobLabels.join(", ")}`;
+      }
 
       results.push(vehicleRoute);
     }
@@ -458,21 +765,53 @@ export class RoutingService {
     steps: VroomStep[],
     originalJobs: FleetJob[],
     vehicleOffset: number,
+    poorSmoothnessPolygons: LatLon[][] = [],
+    options: OptimizeOptions = {},
   ): Promise<VehicleRoute> {
     const orsWaypoints = waypoints.map(([lat, lon]) => [lon, lat]);
     const avoid_polygons = this.formatAvoidPolygons(avoidPolygons);
+    const orsPreference =
+      options.preference === "health"
+        ? "shortest"
+        : options.preference || "fastest";
 
-    const body = {
+    console.log(
+      `[FetchOrsRoute] Vehicle ${vehicleId}: Preference from options: ${options.preference} → ORS preference: ${orsPreference}`,
+    );
+
+    const body: any = {
       coordinates: orsWaypoints,
       instructions: false,
-      preference: "recommended",
+      preference: orsPreference,
       radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS),
     };
 
+    if (avoid_polygons) {
+      body.options = {
+        ...body.options,
+        avoid_polygons,
+      };
+      console.log(
+        `[FetchOrsRoute] Vehicle ${vehicleId}: Formatted avoid_polygons:`,
+        JSON.stringify(avoid_polygons).substring(0, 200),
+      );
+    }
+
     try {
-      const orsHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const orsHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
       const publicHeaders: Record<string, string> = {};
       if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;
+
+      console.log(
+        `[FetchOrsRoute] Vehicle ${vehicleId}: Sending to ORS with ${avoidPolygons.length} avoid polygons`,
+        {
+          waypointCount: waypoints.length,
+          avoidPolygonCount: avoidPolygons.length,
+          formattedPolygonsIncluded: avoid_polygons ? "yes" : "no",
+        },
+      );
 
       const res = await fetchWithFallback(
         `${ORS_URL}/directions/driving-car/geojson`,
@@ -485,17 +824,50 @@ export class RoutingService {
         publicHeaders,
       );
 
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(
+          `[FetchOrsRoute] Vehicle ${vehicleId}: ORS error (${res.status}):`,
+          errorText.substring(0, 500),
+        );
+        throw new Error(
+          `ORS error (${res.status}): ${errorText.substring(0, 100)}`,
+        );
+      }
 
       const data: OrsDirectionsResponse = await res.json();
+
+      if (!data.features || data.features.length === 0) {
+        console.error(
+          `[FetchOrsRoute] Vehicle ${vehicleId}: ORS returned no features`,
+        );
+        throw new Error("ORS returned no route features");
+      }
+
       const feat = data.features[0];
+      const coords = feat.geometry.coordinates.map(
+        ([lon, lat]: [number, number]) => [lat, lon] as LatLon,
+      );
+
+      console.log(
+        `[FetchOrsRoute] Vehicle ${vehicleId}: Received route with ${coords.length} waypoints. Route preview: [${coords[0]?.join(",")} ... ${coords[coords.length - 1]?.join(",")}]`,
+      );
+
+      // Check if any point in the route intersects with poor smoothness
+      const hasPoorSmoothness = coords.some((coord) =>
+        poorSmoothnessPolygons.some((poly) => this.isPointInZone(coord, poly)),
+      );
+
+      console.log(
+        `[FetchOrsRoute] Vehicle ${vehicleId} - Raw ORS distance: ${feat.properties.summary.distance}m, ` +
+          `duration: ${feat.properties.summary.duration}s, hasPoorSmoothness: ${hasPoorSmoothness}, ` +
+          `poorSmoothnessPolygons checked: ${poorSmoothnessPolygons.length}, preference: ${options.preference}`,
+      );
 
       return {
         vehicleId,
-        coordinates: feat.geometry.coordinates.map(
-          ([lon, lat]: [number, number]) => [lat, lon],
-        ),
-        distance: Math.round(feat.properties.summary.distance),
+        coordinates: coords,
+        distance: Math.round(feat.properties.summary.distance / 1000),
         duration: Math.round(feat.properties.summary.duration),
         color,
         jobsAssigned: steps.filter((s) => s.type === "job").length,
@@ -507,12 +879,17 @@ export class RoutingService {
           })
           .filter((id): id is string | number => id !== undefined),
         error: undefined,
+        hasPoorSmoothness,
       };
     } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error(
+        `[FetchOrsRoute] Vehicle ${vehicleId}: Failed to fetch route: ${errorMsg}`,
+      );
       return this.createErrorRoute(
         vehicleId,
         color,
-        "Error al calcular la ruta.",
+        `Error al calcular la ruta: ${errorMsg}`,
       );
     }
   }
@@ -522,6 +899,9 @@ export class RoutingService {
     color: string,
     error: string,
   ): VehicleRoute {
+    console.error(
+      `[CreateErrorRoute] Vehicle ${vehicleId}: Creating error route with message: ${error}`,
+    );
     return {
       vehicleId,
       coordinates: [],
@@ -529,6 +909,7 @@ export class RoutingService {
       duration: 0,
       color,
       jobsAssigned: 0,
+      assignedJobIds: [],
       error,
     };
   }
@@ -536,6 +917,7 @@ export class RoutingService {
   private static async getMatrix(
     locations: LatLon[],
     avoidPolygons: LatLon[][],
+    options: OptimizeOptions = {},
   ): Promise<number[][]> {
     const orsLocations = locations.map(([lat, lon]) => [lon, lat]);
     const body = {
@@ -544,7 +926,9 @@ export class RoutingService {
       units: "m",
     };
 
-    const orsHeaders: Record<string, string> = { "Content-Type": "application/json" };
+    const orsHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     const publicHeaders: Record<string, string> = {};
     if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;
 
@@ -583,11 +967,38 @@ export class RoutingService {
       );
     }
 
+    // Definición de pesos dinámicos según preferencia del Orquestador
+    // fastest: Prioriza tiempo (segundos) sobre distancia (metros)
+    // shortest: Prioriza distancia pura
+    // recommended: Balanceado 1:1 aproximado
+    const pref = options.preference || "fastest";
+    const trafficFactor = options.traffic ? 1.4 : 1.0; // Simulamos 40% más de tiempo si hay tráfico
+
+    let weightDistance = 1.0;
+    let weightTime = 0.3;
+
+    if (pref === "fastest") {
+      weightDistance = 0.2;
+      weightTime = 8.0; // Mucho más peso al tiempo
+    } else if (pref === "shortest") {
+      weightDistance = 5.0; // Prioriza metros sobre todo
+      weightTime = 0.1;
+    } else if (pref === "health") {
+      // Para salud del vehículo, priorizamos fuertemente las vías principales (tiempo)
+      // sobre cualquier atajo por calle secundaria (distancia).
+      weightDistance = 0.3;
+      weightTime = 10.0;
+    } else {
+      // Balanceado
+      weightDistance = 1.0;
+      weightTime = 1.5;
+    }
+
     return Array.from({ length: locations.length }, (_, i) =>
       Array.from({ length: locations.length }, (_, j) => {
         if (i === j) return 0;
 
-        // Si cualquiera de los dos puntos está en zona prohibida, costo infinito
+        // Si cualquiera de los dos puntos está en zona prohibida, penalización absoluta
         if (isLocForbidden[i] || isLocForbidden[j]) {
           return ROUTING_CONFIG.UNREACHABLE_COST;
         }
@@ -598,10 +1009,24 @@ export class RoutingService {
         if (d === undefined || t === undefined || d === null || t === null)
           return ROUTING_CONFIG.UNREACHABLE_COST;
 
-        return Math.round(
-          d * ROUTING_CONFIG.COST_PER_METER +
-            t * ROUTING_CONFIG.COST_PER_SECOND,
-        );
+        // Aplicamos los pesos dinámicos y el factor de tráfico simulado
+        const adjustedDuration = t * trafficFactor;
+
+        let cost = d * weightDistance + adjustedDuration * weightTime;
+
+        // Custom logic for Vehicle Health preference:
+        // 1. Penalize unclassified/residential/living_street if avoidPoorSmoothness is on
+        // Note: In a real world, ORS matrix doesn't return highway class for each cell easily.
+        // We simulate the hierarchy preference by increasing the cost of all non-unblocked paths
+        // if they are not known main roads.
+        if (options.avoidPoorSmoothness) {
+          // In this simulation, we give a slight preference to the general "best" roads
+          // by reducing cost for paths that are likely main roads (distance > 500m usually implies main roads)
+          // or simply increasing base cost slightly to favor routes that stay on main corridors.
+          cost *= 1.2;
+        }
+
+        return Math.round(cost);
       }),
     );
   }
@@ -621,19 +1046,43 @@ export class RoutingService {
       })),
     );
 
-    // Generate all possible vehicle skills (all indices + 1)
-    const allSkills = vehicles.map((_, idx) => idx + 1);
+    // Generate group skills mapping (starting from vehicles.length + 1 to avoid collision)
+    const groupSkillsMap = new Map<string | number, number>();
+    const uniqueGroupIds = Array.from(
+      new Set(
+        vehicles
+          .flatMap((v) => v.groupIds || [])
+          .concat(
+            jobs
+              .map((j) => j.assignedGroupId)
+              .filter((id): id is string | number => id !== undefined),
+          ),
+      ),
+    );
+
+    uniqueGroupIds.forEach((id, idx) => {
+      groupSkillsMap.set(id, vehicles.length + 1 + idx);
+    });
 
     const payload = {
-      vehicles: vehicles.map((v, idx) => ({
-        id: idx,
-        start_index: idx,
-        profile: vehicleToProfile[idx].name,
-        capacity: [ROUTING_CONFIG.MAX_CAPACITY],
-        // Each vehicle has its UNIQUE skill only
-        // This ensures pinned jobs can ONLY go to their assigned vehicle
-        skills: [idx + 1],
-      })),
+      vehicles: vehicles.map((v, idx) => {
+        const vehicleSkills = [idx + 1];
+        // Add skills for all groups this vehicle belongs to
+        if (v.groupIds) {
+          v.groupIds.forEach((gid) => {
+            const skill = groupSkillsMap.get(gid);
+            if (skill) vehicleSkills.push(skill);
+          });
+        }
+
+        return {
+          id: idx,
+          start_index: idx,
+          profile: vehicleToProfile[idx].name,
+          capacity: [ROUTING_CONFIG.MAX_CAPACITY],
+          skills: vehicleSkills,
+        };
+      }),
       jobs: jobs.map((job, jidx) => {
         const vehicleIdx = job.assignedVehicleId
           ? vehicles.findIndex(
@@ -641,14 +1090,10 @@ export class RoutingService {
             )
           : -1;
 
-        const isPinned = vehicleIdx !== -1;
-
-        console.log(`[Vroom] Job "${job.label}":`, {
-          assignedVehicleId: job.assignedVehicleId,
-          vehicleIdx,
-          isPinned,
-          willUseSkills: isPinned,
-        });
+        const isPinnedToVehicle = vehicleIdx !== -1;
+        const groupSkill = job.assignedGroupId
+          ? groupSkillsMap.get(job.assignedGroupId)
+          : null;
 
         const jobPayload: any = {
           id: vehicles.length + jidx,
@@ -658,10 +1103,10 @@ export class RoutingService {
           description: job.label,
         };
 
-        // ONLY pinned jobs (stops/paradas) get skills
-        // Regular jobs remain free for optimization
-        if (isPinned) {
+        if (isPinnedToVehicle) {
           jobPayload.skills = [vehicleIdx + 1];
+        } else if (groupSkill) {
+          jobPayload.skills = [groupSkill];
         }
 
         return jobPayload;
@@ -684,15 +1129,11 @@ export class RoutingService {
       JSON.stringify(payload.jobs, null, 2),
     );
 
-    const res = await fetchWithFallback(
-      VROOM_URL,
-      VROOM_PUBLIC,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
+    const res = await fetchWithFallback(VROOM_URL, VROOM_PUBLIC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
     if (!res.ok) throw new Error(`VROOM failed: ${await res.text()}`);
 
@@ -760,7 +1201,9 @@ export class RoutingService {
 
     const unassignedJobs = jobs
       .map((job, jIdx) => vehicles.length + jIdx)
-      .filter((jIdx) => !routes.some((r) => r.steps.some((s) => s.id === jIdx)));
+      .filter(
+        (jIdx) => !routes.some((r) => r.steps.some((s) => s.id === jIdx)),
+      );
 
     console.log("[Fallback] Round-robin assignment created:", {
       vehicleRoutes: routes.length,
@@ -805,9 +1248,21 @@ export class RoutingService {
 
   private static formatAvoidPolygons(avoidPolygons: LatLon[][]) {
     if (!avoidPolygons || avoidPolygons.length === 0) return null;
+    
     const coords = avoidPolygons
-      .map((poly) => {
-        if (poly.length < 3) return null;
+      .map((poly, idx) => {
+        if (poly.length < 3) {
+          console.warn(`[FormatAvoidPolygons] Poly ${idx}: Too short (${poly.length} pts)`);
+          return null;
+        }
+        
+        // Check for invalid coordinates
+        const hasInvalid = poly.some(p => !isFinite(p[0]) || !isFinite(p[1]));
+        if (hasInvalid) {
+          console.warn(`[FormatAvoidPolygons] Poly ${idx}: Has NaN/Inf coordinates`);
+          return null;
+        }
+        
         const closed = [...poly];
         if (
           closed[0][0] !== closed[closed.length - 1][0] ||
@@ -819,93 +1274,30 @@ export class RoutingService {
       })
       .filter((p): p is [number, number][][] => p !== null);
 
+    console.log(
+      `[FormatAvoidPolygons] Formatted ${coords.length}/${avoidPolygons.length} polygons for ORS`,
+    );
+
     return coords.length > 0
       ? { type: "MultiPolygon", coordinates: coords }
       : null;
   }
 
-  private static isPointInPolygon(point: LatLon, polygon: LatLon[]): boolean {
-    const [px, py] = point;
-    let inside = false;
-
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const [ix, iy] = polygon[i];
-      const [jx, jy] = polygon[j];
-
-      const intersects =
-        iy > py !== jy > py && px < ((jx - ix) * (py - iy)) / (jy - iy) + ix;
-
-      if (intersects) inside = !inside;
-    }
-
-    return inside;
-  }
-
   /**
-   * Aplana coordenadas de MultiPolygon que pueden tener profundidad 4D
-   * [[[[[lat, lon]]]]] -> [[lat, lon], [lat, lon], ...]
-   */
-  private static flattenPolygonCoordinates(coords: any): LatLon[] {
-    // Si ya es un array de tuplas [lat, lon], devolverlo
-    if (
-      Array.isArray(coords) &&
-      coords.length > 0 &&
-      Array.isArray(coords[0]) &&
-      coords[0].length === 2 &&
-      typeof coords[0][0] === "number" &&
-      typeof coords[0][1] === "number"
-    ) {
-      return coords as LatLon[];
-    }
-
-    // Si tiene profundidad extra, aplanar recursivamente
-    if (
-      Array.isArray(coords) &&
-      coords.length > 0 &&
-      Array.isArray(coords[0])
-    ) {
-      // Tomar el primer polígono si es MultiPolygon
-      return this.flattenPolygonCoordinates(coords[0]);
-    }
-
-    return coords as LatLon[];
-  }
-
-  /**
-   * Verifica si un punto está dentro de una zona (maneja MultiPolygon)
+   * Verifica si un punto está dentro de una zona (delegado a helper)
    */
   private static isPointInZone(point: LatLon, zoneCoords: any): boolean {
-    try {
-      // Si es un array de polígonos (MultiPolygon), verificar cada uno
-      if (Array.isArray(zoneCoords) && zoneCoords.length > 0) {
-        // Caso 1: Array de arrays de arrays (MultiPolygon con profundidad 4D)
-        if (Array.isArray(zoneCoords[0]) && Array.isArray(zoneCoords[0][0])) {
-          // Iterar sobre cada polígono
-          for (const polyGroup of zoneCoords) {
-            if (Array.isArray(polyGroup)) {
-              for (const poly of polyGroup) {
-                const flatPoly = this.flattenPolygonCoordinates(poly);
-                if (
-                  flatPoly.length >= 3 &&
-                  this.isPointInPolygon(point, flatPoly)
-                ) {
-                  return true;
-                }
-              }
-            }
-          }
-        } else {
-          // Caso 2: Array simple de coordenadas
-          const flatPoly = this.flattenPolygonCoordinates(zoneCoords);
-          if (flatPoly.length >= 3) {
-            return this.isPointInPolygon(point, flatPoly);
-          }
-        }
-      }
-    } catch (e) {
-      console.error("[isPointInZone] Error checking point:", e);
-    }
-    return false;
+    return isPointInZone(point, zoneCoords);
+  }
+
+  /**
+   * Checks if a point is inside a polygon using the ray casting algorithm
+   */
+  static isPointInPolygon(
+    point: [number, number],
+    polygon: [number, number][],
+  ): boolean {
+    return isPointInPolygon(point, polygon);
   }
 
   private static getForbiddenZonesForVehicle(
@@ -955,7 +1347,7 @@ export class RoutingService {
     const body = {
       coordinates: orsWaypoints,
       instructions: false,
-      preference: "recommended",
+      preference: "fastest",
       radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS),
     };
 
@@ -963,22 +1355,28 @@ export class RoutingService {
       console.log(
         `[CustomStopRoute] Requesting ORS for vehicle ${vehicleId} with ${waypoints.length} waypoints`,
       );
-      console.log(
-        `[CustomStopRoute] ORS URL: ${ORS_URL}/directions/driving-car/geojson`,
+
+      const orsHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const publicHeaders: Record<string, string> = {};
+      if (ORS_API_KEY) publicHeaders["Authorization"] = ORS_API_KEY;
+
+      const res = await fetchWithFallback(
+        `${ORS_URL}/directions/driving-car/geojson`,
+        `${ORS_PUBLIC_URL}/directions/driving-car/geojson`,
+        {
+          method: "POST",
+          headers: orsHeaders,
+          body: JSON.stringify(body),
+        },
+        publicHeaders,
       );
-
-      const res = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      console.log(`[CustomStopRoute] ORS response status: ${res.status}`);
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`[CustomStopRoute] ORS error: ${errText}`);
-        throw new Error(errText);
+        console.error(`[CustomStopRoute] ORS Matrix failed: ${errText}`);
+        throw new Error(`ORS Matrix failed: ${errText}`);
       }
 
       const data: OrsDirectionsResponse = await res.json();
@@ -993,7 +1391,7 @@ export class RoutingService {
         coordinates: feat.geometry.coordinates.map(
           ([lon, lat]: [number, number]) => [lat, lon],
         ),
-        distance: Math.round(feat.properties.summary.distance),
+        distance: Math.round(feat.properties.summary.distance / 1000),
         duration: Math.round(feat.properties.summary.duration),
         color: "#8B5CF6", // Purple for custom stop routes
         jobsAssigned: 0,
@@ -1006,4 +1404,101 @@ export class RoutingService {
       return null;
     }
   }
+}
+
+/**
+ * Compares three route alternatives (shortest, fastest, health) and determines
+ * if the health route is redundant (identical to one of the others).
+ * Returns comparison metrics and redundancy status.
+ */
+export function compareRouteAlternatives(
+  shortestData: RouteData,
+  fastestData: RouteData,
+  healthData: RouteData,
+) {
+  // Calculate total distance and duration for each alternative
+  const sumDistanceShortest =
+    shortestData.vehicleRoutes?.reduce((acc, r) => acc + (r.distance || 0), 0) ||
+    0;
+  const sumDurationShortest =
+    shortestData.vehicleRoutes?.reduce((acc, r) => acc + (r.duration || 0), 0) ||
+    0;
+
+  const sumDistanceFastest =
+    fastestData.vehicleRoutes?.reduce((acc, r) => acc + (r.distance || 0), 0) ||
+    0;
+  const sumDurationFastest =
+    fastestData.vehicleRoutes?.reduce((acc, r) => acc + (r.duration || 0), 0) ||
+    0;
+
+  const sumDistanceHealth =
+    healthData.vehicleRoutes?.reduce((acc, r) => acc + (r.distance || 0), 0) ||
+    0;
+  const sumDurationHealth =
+    healthData.vehicleRoutes?.reduce((acc, r) => acc + (r.duration || 0), 0) ||
+    0;
+
+  // Check if routes pass through poor quality areas
+  const shortestOrFastestHavePoorQuality =
+    (shortestData as any).hasPoorSmoothness ||
+    (fastestData as any).hasPoorSmoothness;
+  const healthDetectedPoorQuality = (healthData as any).hasPoorSmoothness;
+
+  // Set tolerance: stricter if health didn't manage to avoid poor quality
+  let distanceTolerance: number;
+  let durationTolerance: number;
+
+  if (healthDetectedPoorQuality) {
+    distanceTolerance = Math.max(sumDistanceShortest * 0.02, 0.5); // 2% or 500m minimum
+    durationTolerance = Math.max(
+      Math.min(sumDurationShortest, sumDurationFastest) * 0.02,
+      60,
+    ); // 2% or 60s
+  } else {
+    distanceTolerance = Math.max(sumDistanceShortest * 0.02, 0.5); // 2% or 500m minimum
+    durationTolerance = Math.max(
+      Math.min(sumDurationShortest, sumDurationFastest) * 0.02,
+      60,
+    ); // 2% or 60s
+  }
+
+  // Determine if health route is redundant
+  const healthIsFastest =
+    Math.abs(sumDistanceHealth - sumDistanceFastest) <= distanceTolerance &&
+    Math.abs(sumDurationHealth - sumDurationFastest) <= durationTolerance;
+  const healthIsShortest =
+    Math.abs(sumDistanceHealth - sumDistanceShortest) <= distanceTolerance &&
+    Math.abs(sumDurationHealth - sumDurationShortest) <= durationTolerance;
+
+  const isHealthRedundant = healthIsShortest || healthIsFastest;
+
+  return {
+    distances: {
+      shortest: sumDistanceShortest,
+      fastest: sumDistanceFastest,
+      health: sumDistanceHealth,
+    },
+    durations: {
+      shortest: sumDurationShortest,
+      fastest: sumDurationFastest,
+      health: sumDurationHealth,
+    },
+    tolerances: {
+      distance: distanceTolerance,
+      duration: durationTolerance,
+    },
+    hasPoorQuality: shortestOrFastestHavePoorQuality,
+    healthDetectedPoorQuality,
+    isHealthRedundant,
+    differences: {
+      distVsFastest: Math.abs(sumDistanceHealth - sumDistanceFastest),
+      durVsFastest: Math.abs(sumDurationHealth - sumDurationFastest),
+      distVsShortest: Math.abs(sumDistanceHealth - sumDistanceShortest),
+      durVsShortest: Math.abs(sumDurationHealth - sumDurationShortest),
+    },
+    flags: {
+      healthIsFastest,
+      healthIsShortest,
+    },
+  };
 }

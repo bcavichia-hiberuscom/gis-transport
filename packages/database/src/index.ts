@@ -1,5 +1,11 @@
 import { PrismaClient } from "@prisma/client";
-import { GisDashboardData, VehicleType, Zone, Driver } from "@gis/shared";
+import {
+  GisDashboardData,
+  VehicleType,
+  Zone,
+  Driver,
+  VehicleGroup,
+} from "@gis/shared";
 
 export interface IGisRepository {
   getLatestSnapshot(): Promise<GisDashboardData | null>;
@@ -17,6 +23,18 @@ export interface IGisRepository {
     assignedAt?: Date;
     unassignedAt?: Date | null;
   }): Promise<any>;
+
+  // Vehicle Groups
+  getVehicleGroups(): Promise<VehicleGroup[]>;
+  createVehicleGroup(
+    name: string,
+    vehicleIds: (string | number)[],
+  ): Promise<VehicleGroup>;
+  updateVehicleGroup(
+    id: string,
+    data: { name?: string; vehicleIds?: (string | number)[] },
+  ): Promise<VehicleGroup>;
+  deleteVehicleGroup(id: string): Promise<void>;
 }
 
 export class PrismaGisRepository implements IGisRepository {
@@ -256,6 +274,11 @@ export class PrismaGisRepository implements IGisRepository {
   }
 
   async updateDriver(id: string, data: any): Promise<any> {
+    console.log("[PrismaGisRepository.updateDriver] Called with:", {
+      id,
+      data,
+    });
+
     const updateData: any = { ...data };
 
     // Handle phoneNumber specially - don't update if it's an empty string
@@ -265,10 +288,18 @@ export class PrismaGisRepository implements IGisRepository {
       updateData.phoneNumber = updateData.phoneNumber.trim();
     }
 
-    return this.prisma.driver.update({
+    console.log(
+      "[PrismaGisRepository.updateDriver] Executing Prisma update with:",
+      { id, updateData },
+    );
+
+    const result = await this.prisma.driver.update({
       where: { id },
       data: updateData,
     });
+
+    console.log("[PrismaGisRepository.updateDriver] Update result:", result);
+    return result;
   }
 
   async logSpeeding(driverId: string, event: any): Promise<void> {
@@ -307,6 +338,56 @@ export class PrismaGisRepository implements IGisRepository {
         assignedAt: data.assignedAt || new Date(),
         unassignedAt: data.unassignedAt || null,
       },
+    });
+  }
+
+  // Vehicle Groups Implementations
+  async getVehicleGroups(): Promise<any[]> {
+    const groups = await this.prisma.vehicleGroup.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return groups.map((g) => ({
+      ...g,
+      vehicleIds: g.vehicleIds as (string | number)[],
+    }));
+  }
+
+  async createVehicleGroup(
+    name: string,
+    vehicleIds: (string | number)[],
+  ): Promise<any> {
+    const group = await this.prisma.vehicleGroup.create({
+      data: {
+        name,
+        vehicleIds: vehicleIds as any,
+      },
+    });
+    return {
+      ...group,
+      vehicleIds: group.vehicleIds as (string | number)[],
+    };
+  }
+
+  async updateVehicleGroup(
+    id: string,
+    data: { name?: string; vehicleIds?: (string | number)[] },
+  ): Promise<any> {
+    const group = await this.prisma.vehicleGroup.update({
+      where: { id },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.vehicleIds && { vehicleIds: data.vehicleIds as any }),
+      },
+    });
+    return {
+      ...group,
+      vehicleIds: group.vehicleIds as (string | number)[],
+    };
+  }
+
+  async deleteVehicleGroup(id: string): Promise<void> {
+    await this.prisma.vehicleGroup.delete({
+      where: { id },
     });
   }
 }

@@ -11,6 +11,9 @@ export type RiskLevel = z.infer<typeof RiskLevelSchema>;
 export const RoadInfoSchema = z.object({
   maxSpeed: z.number().optional(),
   roadName: z.string().optional(),
+  smoothness: z.string().optional(),
+  surface: z.string().optional(),
+  highway: z.string().optional(),
 });
 export type RoadInfo = z.infer<typeof RoadInfoSchema>;
 
@@ -109,6 +112,15 @@ export const DriverSchema = z.object({
   imageUrl: z.string().optional(),
   currentVehicleId: z.union([z.string(), z.number()]).optional(),
   speedingEvents: z.array(SpeedingEventSchema).optional(),
+
+  // Compliance & Legal
+  hireDate: z.number().optional(), // Unix timestamp
+  licenseExpiryDate: z.number().optional(), // Unix timestamp
+  medicalCertStatus: z.enum(["approved", "pending", "expired"]).optional(),
+  medicalCertExpiryDate: z.number().optional(),
+
+  // Fuel management reference (populated on demand)
+  fuelSummary: z.any().optional(), // DriverFuelSummary - avoid circular dependency
 });
 export type Driver = z.infer<typeof DriverSchema>;
 
@@ -163,8 +175,27 @@ export const FleetVehicleSchema = z.object({
   licensePlate: z.string().optional(),
   driver: DriverSchema.optional(),
   metrics: VehicleMetricsSchema.optional(),
+  // Vehicle specifications
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  year: z.number().optional(),
+  mileage: z.number().optional(),
+  fuelConsumption: z.number().optional(), // L/100km
+  // Maintenance tracking
+  status: z.enum(["active", "idle", "maintenance", "offline"]).optional(),
+  lastMaintenanceDate: z.number().optional(), // Unix timestamp
+  nextMaintenanceDate: z.number().optional(), // Unix timestamp
+  maintenanceHours: z.number().optional(),
+  groupIds: z.array(z.union([z.string(), z.number()])).optional(),
 });
 export type FleetVehicle = z.infer<typeof FleetVehicleSchema>;
+
+export const VehicleGroupSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  vehicleIds: z.array(z.union([z.string(), z.number()])),
+});
+export type VehicleGroup = z.infer<typeof VehicleGroupSchema>;
 
 export const FleetJobSchema = z.object({
   id: z.union([z.string(), z.number()]),
@@ -172,6 +203,7 @@ export const FleetJobSchema = z.object({
   position: LatLonSchema,
   requirements: z.array(z.string()).optional(),
   assignedVehicleId: z.union([z.string(), z.number()]).optional(),
+  assignedGroupId: z.union([z.string(), z.number()]).optional(),
   sequence: z.number().optional(),
   status: z
     .enum(["pending", "in_progress", "completed", "failed"])
@@ -179,6 +211,7 @@ export const FleetJobSchema = z.object({
   estimatedArrival: z.string().optional(),
   eta: z.string().optional(), // ISO 8601 timestamp string
   completedAt: z.number().optional(),
+  distance: z.number().optional(),
   type: z.enum(["standard", "custom"]).default("standard"),
 });
 export type FleetJob = z.infer<typeof FleetJobSchema>;
@@ -247,6 +280,7 @@ export const VehicleRouteSchema = z.object({
   jobsAssigned: z.number(),
   assignedJobIds: z.array(z.union([z.string(), z.number()])).optional(), // IDs of jobs assigned to this route
   error: z.string().optional(),
+  hasPoorSmoothness: z.boolean().optional(),
 });
 export type VehicleRoute = z.infer<typeof VehicleRouteSchema>;
 
@@ -268,6 +302,8 @@ export const WeatherAlertSchema = z.object({
   message: z.string(),
   lat: z.number(),
   lon: z.number(),
+  value: z.number().optional(),
+  direction: z.number().optional(),
 });
 export type WeatherAlert = z.infer<typeof WeatherAlertSchema>;
 
@@ -311,6 +347,7 @@ export const RouteDataSchema = z.object({
     .optional(),
   notices: z.array(RouteNoticeSchema).optional(),
   avoidPolygons: z.array(z.array(LatLonSchema)).optional(),
+  hasPoorSmoothness: z.boolean().optional(),
 });
 export type RouteData = z.infer<typeof RouteDataSchema>;
 
@@ -344,6 +381,7 @@ export const RawWeatherDataSchema = z.object({
   wind: z
     .object({
       speed: z.number().optional(),
+      deg: z.number().optional(),
     })
     .optional(),
   visibility: z.number().optional(),
@@ -356,6 +394,10 @@ export const LayerVisibilitySchema = z.object({
   evStations: z.boolean(),
   cityZones: z.boolean(),
   route: z.boolean(),
+  customZones: z.boolean(),
+  weatherRain: z.boolean().optional(),
+  weatherWind: z.boolean().optional(),
+  weatherTemp: z.boolean().optional(),
 });
 export type LayerVisibility = z.infer<typeof LayerVisibilitySchema>;
 
@@ -516,6 +558,9 @@ export type SearchPOIParams = z.infer<typeof SearchPOIParamsSchema>;
 export const OptimizeOptionsSchema = z.object({
   startTime: z.string().optional(),
   zones: z.array(ZoneSchema).optional(),
+  preference: z.enum(["fastest", "shortest", "health"]).optional(),
+  traffic: z.boolean().optional(),
+  avoidPoorSmoothness: z.boolean().optional(),
 });
 export type OptimizeOptions = z.infer<typeof OptimizeOptionsSchema>;
 
@@ -557,6 +602,7 @@ export const WeatherIncomingBodySchema = z.object({
   jobs: z.array(FleetJobSchema).optional(),
   locations: z.array(LatLonSchema).optional(),
   matrix: z.array(z.array(z.number())).optional(),
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
 });
 export type WeatherIncomingBody = z.infer<typeof WeatherIncomingBodySchema>;
 
@@ -564,3 +610,4 @@ export const GisDataContextSchema = z.record(z.string(), z.any());
 export type GisDataContext = z.infer<typeof GisDataContextSchema>;
 
 export * from "./overpass-client";
+export * from "./fuel-types";

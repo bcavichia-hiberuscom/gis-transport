@@ -97,16 +97,24 @@ export function useDrivers() {
           payload.currentVehicleId = updateData.currentVehicleId;
         }
 
+        console.log("[useDrivers.updateDriver] Sending PATCH request:", { id, payload });
+
         const res = await fetch(`/api/drivers/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+
+        console.log("[useDrivers.updateDriver] Response status:", res.status);
+
         if (!res.ok) {
           const errorData = await res.json();
+          console.error("[useDrivers.updateDriver] Error response:", errorData);
           throw new Error(errorData?.error || "Failed to update driver");
         }
         const data = await res.json();
+        console.log("[useDrivers.updateDriver] Success response:", data);
+
         if (data.success) {
           setDrivers((prev) => prev.map((d) => (d.id === id ? data.data : d)));
           return data.data;

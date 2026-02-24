@@ -12,11 +12,6 @@ interface VehiclesLayerProps {
   onUpdateType?: (vehicleId: string, type: VehicleType) => void;
   onUpdateLabel?: (vehicleId: string, label: string) => void;
   onSelect?: (vehicleId: string) => void;
-  onHover?: (
-    vehicleId: string,
-    pixelPosition: { x: number; y: number },
-  ) => void;
-  onHoverOut?: () => void;
   zoom: number;
 }
 
@@ -26,8 +21,6 @@ export const VehiclesLayer = memo(function VehiclesLayer({
   createVehicleIcon,
   vehicleAlerts = {},
   onSelect,
-  onHover,
-  onHoverOut,
   onUpdateType,
   onUpdateLabel,
   zoom,
@@ -41,8 +34,6 @@ export const VehiclesLayer = memo(function VehiclesLayer({
         onUpdateType,
         onUpdateLabel,
         onSelect,
-        onHover,
-        onHoverOut,
         zoom,
         vehicleAlerts,
       })}

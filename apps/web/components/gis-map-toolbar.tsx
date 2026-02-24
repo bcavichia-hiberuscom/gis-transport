@@ -57,7 +57,7 @@ export function GISMapToolbar({
         }`}
         title="Ajustar puntos"
       >
-        ✎
+        
       </button>
 
       <button
@@ -65,7 +65,7 @@ export function GISMapToolbar({
         className="p-1.5 rounded hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-colors text-xs"
         title="Cancelar (Esc)"
       >
-        ✕
+        
       </button>
 
       <button
@@ -74,7 +74,7 @@ export function GISMapToolbar({
         className="px-2 py-1.5 rounded bg-primary hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-white text-xs font-semibold"
         title="Confirmar (Enter)"
       >
-        ✓
+        
       </button>
     </div>
   );

@@ -20,7 +20,6 @@ interface GISState {
   fleetMode: boolean;
   showCustomPOIs: boolean;
   interactionMode: string | null;
-  pickedPOICoords: [number, number] | null;
   isAddCustomPOIOpen: boolean;
   pickedJobCoords: [number, number] | null;
   pickedStopCoords: [number, number] | null;
@@ -29,9 +28,12 @@ interface GISState {
   activeZones: Zone[];
   selectedDriver: Driver | null;
   isDriverDetailsOpen: boolean;
-  isVehicleDetailsOpen: boolean;
-  showVehiclePropertiesPanel: boolean;
+  isFuelDetailsOpen: boolean;
   zonePoints: [number, number][]; // For custom zone creation
+  driversExpandedGroups: Record<string, boolean>;
+  hiddenZones: string[]; // IDs of zones that are hidden
+  isAssignDriverOpen: boolean;
+  assigningVehicleId: string | number | null;
 }
 
 type GISAction =
@@ -44,7 +46,6 @@ type GISAction =
   | { type: "SET_FLEET_MODE"; payload: boolean }
   | { type: "SET_SHOW_CUSTOM_POIS"; payload: boolean }
   | { type: "SET_INTERACTION_MODE"; payload: string | null }
-  | { type: "SET_PICKED_POI_COORDS"; payload: [number, number] | null }
   | { type: "SET_IS_ADD_CUSTOM_POI_OPEN"; payload: boolean }
   | { type: "SET_PICKED_JOB_COORDS"; payload: [number, number] | null }
   | { type: "SET_PICKED_STOP_COORDS"; payload: [number, number] | null }
@@ -53,10 +54,13 @@ type GISAction =
   | { type: "SET_ACTIVE_ZONES"; payload: Zone[] }
   | { type: "SET_SELECTED_DRIVER"; payload: Driver | null }
   | { type: "SET_IS_DRIVER_DETAILS_OPEN"; payload: boolean }
-  | { type: "SET_IS_VEHICLE_DETAILS_OPEN"; payload: boolean }
-  | { type: "SET_SHOW_VEHICLE_PROPERTIES_PANEL"; payload: boolean }
+  | { type: "SET_IS_FUEL_DETAILS_OPEN"; payload: boolean }
   | { type: "ADD_ZONE_POINT"; payload: [number, number] }
-  | { type: "CLEAR_ZONE_POINTS" };
+  | { type: "CLEAR_ZONE_POINTS" }
+  | { type: "TOGGLE_ZONE_VISIBILITY"; payload: string }
+  | { type: "SET_DRIVERS_EXPANDED_GROUPS"; payload: Record<string, boolean> }
+  | { type: "SET_IS_ASSIGN_DRIVER_OPEN"; payload: boolean }
+  | { type: "SET_ASSIGNING_VEHICLE_ID"; payload: string | number | null };
 
 const initialState: GISState = {
   layers: {
@@ -64,6 +68,10 @@ const initialState: GISState = {
     evStations: false,
     cityZones: true,
     route: true,
+    customZones: false,
+    weatherRain: false,
+    weatherWind: false,
+    weatherTemp: false,
   },
   weather: null,
   dynamicEVStations: [],
@@ -73,7 +81,6 @@ const initialState: GISState = {
   fleetMode: false,
   showCustomPOIs: true,
   interactionMode: null,
-  pickedPOICoords: null,
   isAddCustomPOIOpen: false,
   pickedJobCoords: null,
   pickedStopCoords: null,
@@ -82,9 +89,12 @@ const initialState: GISState = {
   activeZones: [],
   selectedDriver: null,
   isDriverDetailsOpen: false,
-  isVehicleDetailsOpen: false,
-  showVehiclePropertiesPanel: false,
+  isFuelDetailsOpen: false,
   zonePoints: [],
+  driversExpandedGroups: { available: false, assigned: false },
+  hiddenZones: [],
+  isAssignDriverOpen: false,
+  assigningVehicleId: null,
 };
 
 // Maximum accumulated stations per type to prevent unbounded growth
@@ -132,8 +142,6 @@ function gisReducer(state: GISState, action: GISAction): GISState {
       return { ...state, showCustomPOIs: action.payload };
     case "SET_INTERACTION_MODE":
       return { ...state, interactionMode: action.payload };
-    case "SET_PICKED_POI_COORDS":
-      return { ...state, pickedPOICoords: action.payload };
     case "SET_IS_ADD_CUSTOM_POI_OPEN":
       return { ...state, isAddCustomPOIOpen: action.payload };
     case "SET_PICKED_JOB_COORDS":
@@ -150,14 +158,27 @@ function gisReducer(state: GISState, action: GISAction): GISState {
       return { ...state, selectedDriver: action.payload };
     case "SET_IS_DRIVER_DETAILS_OPEN":
       return { ...state, isDriverDetailsOpen: action.payload };
-    case "SET_IS_VEHICLE_DETAILS_OPEN":
-      return { ...state, isVehicleDetailsOpen: action.payload };
-    case "SET_SHOW_VEHICLE_PROPERTIES_PANEL":
-      return { ...state, showVehiclePropertiesPanel: action.payload };
+    case "SET_IS_FUEL_DETAILS_OPEN":
+      return { ...state, isFuelDetailsOpen: action.payload };
     case "ADD_ZONE_POINT":
       return { ...state, zonePoints: [...state.zonePoints, action.payload] };
     case "CLEAR_ZONE_POINTS":
       return { ...state, zonePoints: [] };
+    case "SET_DRIVERS_EXPANDED_GROUPS":
+      return { ...state, driversExpandedGroups: action.payload };
+    case "SET_IS_ASSIGN_DRIVER_OPEN":
+      return { ...state, isAssignDriverOpen: action.payload };
+    case "SET_ASSIGNING_VEHICLE_ID":
+      return { ...state, assigningVehicleId: action.payload };
+    case "TOGGLE_ZONE_VISIBILITY": {
+      const isHidden = state.hiddenZones.includes(action.payload);
+      return {
+        ...state,
+        hiddenZones: isHidden
+          ? state.hiddenZones.filter((id) => id !== action.payload)
+          : [...state.hiddenZones, action.payload],
+      };
+    }
     default:
       return state;
   }

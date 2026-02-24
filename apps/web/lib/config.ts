@@ -9,7 +9,7 @@ export const GAS_STATIONS_API_URL = "https://sedeaplicaciones.minetur.gob.es/Ser
 // OpenRouteService - Local Docker or Public API fallback
 export const ORS_LOCAL_URL = process.env.NEXT_PUBLIC_ORS_URL || "http://localhost:8080/ors/v2";
 export const ORS_PUBLIC_URL = "https://api.openrouteservice.org/v2";
-export const ORS_API_KEY = process.env.NEXT_PUBLIC_ORS_API_KEY || "";
+export const ORS_API_KEY = process.env.ORS_API_KEY || process.env.NEXT_PUBLIC_ORS_API_KEY || "";
 // Use local if available, otherwise public
 export const ORS_URL = ORS_LOCAL_URL;
 

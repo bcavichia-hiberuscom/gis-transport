@@ -18,9 +18,10 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { vehicles, jobs, startTime, zones } = body as {
+    const { vehicles, jobs, startTime, zones, preference, traffic, isSimulation, avoidPoorSmoothness } = body as {
       vehicles: FleetVehicle[];
       jobs: FleetJob[];
+      isSimulation?: boolean;
     } & OptimizeOptions;
 
     if (!vehicles || !jobs) {
@@ -33,9 +34,62 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!isSimulation) {
+      // Backend validation: Only vehicles that will be routed need an assigned driver
+      // This allows users to manage their fleet individually without requiring all vehicles to have drivers
+      console.log("[route.ts] Vehicles received:", vehicles.map((v: any) => ({
+        id: v.id,
+        label: v.label,
+        hasDriver: !!v.driver,
+        driverId: v.driver?.id,
+        driverName: v.driver?.name,
+        hasDriverId: !!v.driverId,
+        hasAssignedDriverId: !!v.assignedDriverId,
+      })));
+
+      const vehiclesWithoutDriver = vehicles.filter((v: any) => {
+        // Check multiple ways a driver might be assigned:
+        // 1. driver object exists and has an id
+        // 2. driverId property exists
+        // 3. assignedDriverId property exists
+        const hasDriverObject = v.driver && (v.driver.id || v.driver.name);
+        const hasDriverId = v.driverId || v.assignedDriverId;
+
+        return !hasDriverObject && !hasDriverId;
+      });
+
+      if (vehiclesWithoutDriver.length > 0) {
+        console.error("[route.ts] Vehicles without driver:", vehiclesWithoutDriver.map((v: any) => ({
+          id: v.id,
+          label: v.label,
+          driver: v.driver,
+          driverId: v.driverId,
+          assignedDriverId: v.assignedDriverId,
+        })));
+
+        // Build a more helpful error message
+        const vehicleLabels = vehiclesWithoutDriver.map((v: any) => v.label).join(", ");
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "VALIDATION_FAILED",
+              message: `Por favor, asigna un conductor a los siguientes vehículos antes de optimizar: ${vehicleLabels}`
+            },
+          } as IGisResponse,
+          { status: 400 },
+        );
+      }
+    }
+
     const routeData: RouteData = await RoutingService.optimize(vehicles, jobs, {
       startTime,
       zones,
+      preference,
+      traffic,
+      // Health route ALWAYS avoids poor smoothness areas - it's the whole point!
+      avoidPoorSmoothness: preference === "health" ? true : avoidPoorSmoothness,
     });
 
     const vehicleRoutes: VehicleRoute[] = routeData.vehicleRoutes || [];
@@ -122,10 +176,12 @@ export async function POST(req: Request) {
       },
     };
 
-    // 3. Persist background snapshot
-    GisDataService.saveSnapshot(context).catch((err: unknown) =>
-      console.error("Failed to save background snapshot in orchestrator", err),
-    );
+    // 3. Persist background snapshot ONLY on real assignment launch (not simulation)
+    if (!isSimulation) {
+      GisDataService.saveSnapshot(context).catch((err: unknown) =>
+        console.error("Failed to save background snapshot in orchestrator", err),
+      );
+    }
 
     return NextResponse.json({
       success: true,

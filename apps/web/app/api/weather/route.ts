@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payload: missing vehicleRoutes" }, { status: 400 });
     }
 
-    const results = await WeatherService.analyzeRoutes(routesToAnalyze, startTime);
+    const results = await WeatherService.analyzeRoutes(routesToAnalyze, startTime, body?.bbox);
 
     return NextResponse.json({ routes: results });
   } catch (err) {

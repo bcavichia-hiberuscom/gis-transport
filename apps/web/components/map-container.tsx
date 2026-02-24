@@ -11,6 +11,9 @@ import {
   TileLayer,
   Marker,
   ZoomControl,
+  Popup,
+  useMap,
+  Rectangle,
 } from "react-leaflet";
 import type {
   RouteData,
@@ -24,9 +27,9 @@ import type {
   FleetJob,
 } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
+import { createPortal } from "react-dom";
 import L from "leaflet";
 import { createMapIcons } from "@/lib/map-icons";
-import { Loader } from "@/components/loader";
 import { useLoadingLayers } from "@/hooks/use-loading-layers";
 import { usePOICache } from "@/hooks/use-poi-cache";
 import { ZoneLayer, WeatherMarkersLayer } from "./map-layers";
@@ -43,6 +46,8 @@ import { MapEventHandler } from "./map/MapEventHandler";
 import { RouteLayer } from "./map/RouteLayer";
 import { VehiclesLayer } from "./map/VehiclesLayer";
 import { ZoneDrawingPreview } from "./map/ZoneDrawingPreview";
+import { MapStyleSelector, MAP_STYLES, type MapStyle } from "./map/MapStyleSelector";
+import { WindFlowLayer } from "./map/wind-flow-layer";
 
 interface MapContainerProps {
   layers: LayerVisibility;
@@ -68,7 +73,6 @@ interface MapContainerProps {
   fleetVehicles?: FleetVehicle[];
   fleetJobs?: FleetJob[];
   selectedVehicleId?: string | null;
-  pickedPOICoords?: [number, number] | null;
   pickedJobCoords?: [number, number] | null;
   zonePoints?: [number, number][]; // For zone drawing preview
   zoneIsClosed?: boolean; // Whether zone polygon has been explicitly closed
@@ -77,17 +81,15 @@ interface MapContainerProps {
   onRemoveZonePoint?: (index: number) => void; // Callback to remove a specific zone point
   onUpdateZonePoint?: (index: number, newCoords: [number, number]) => void; // Callback to update a zone point position
   onZonesUpdate?: (zones: Zone[]) => void;
-  onEditZone?: (zoneId: string) => void; // Callback to edit a zone
+  onEditZone?: (zoneId: string) => void;
+  onDeleteZone?: (zoneId: string) => void;
   isInteracting?: boolean;
   onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
   onVehicleLabelUpdate?: (vehicleId: string, label: string) => void;
   onVehicleSelect?: (vehicleId: string) => void;
-  onVehicleHover?: (
-    vehicleId: string,
-    pixelPosition: { x: number; y: number },
-  ) => void;
-  onVehicleHoverOut?: () => void;
   toggleLayer?: (layer: keyof LayerVisibility) => void;
+  hiddenZones?: string[];
+  onToggleZoneVisibility?: (zoneId: string) => void;
 }
 
 export default function MapContainer({
@@ -109,7 +111,6 @@ export default function MapContainer({
   fleetJobs,
   selectedVehicleId,
   onMapClick,
-  pickedPOICoords,
   pickedJobCoords,
   zonePoints = [],
   zoneIsClosed = false,
@@ -123,24 +124,30 @@ export default function MapContainer({
   onVehicleTypeChange,
   onVehicleLabelUpdate,
   onVehicleSelect,
-  onVehicleHover,
-  onVehicleHoverOut,
+  toggleLayer,
+  hiddenZones = [],
+  onToggleZoneVisibility,
+  onDeleteZone,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
+  const [globalWeather, setGlobalWeather] = useState<any[]>([]);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  // viewportBounds is only written, never read — use a ref to avoid re-renders
-  const viewportBoundsRef = useRef<L.LatLngBounds | null>(null);
-  const setViewportBounds = useCallback((bounds: L.LatLngBounds) => {
-    viewportBoundsRef.current = bounds;
-  }, []);
+  const [activeStyle, setActiveStyle] = useState<MapStyle>(MAP_STYLES[0]);
+  const [viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(null);
+
 
   const { loading, wrapAsync } = useLoadingLayers();
   const poiCache = usePOICache();
   const mapIcons = useMemo(() => createMapIcons(), []);
   const { job, customPOI, picking, vehicle, weather, gasStation, evStation } =
     mapIcons;
-  const { snow, rain, ice, wind, fog } = weather;
+  const { snow, rain, ice, wind, fog, heat, cold } = weather;
+
+  // Narrowing for linting
+  const vehicleRoutes = routeData?.vehicleRoutes;
+  const weatherRoutes = routeData?.weatherRoutes;
+  const pCoords = pickedJobCoords;
 
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {
@@ -199,8 +206,9 @@ export default function MapContainer({
         description: zone.description,
         requiredTags: zone.requiredTags,
         isCustom: true,
-      }));
-  }, [customPOIs]);
+      }))
+      .filter((zone) => !hiddenZones.includes(zone.id));
+  }, [customPOIs, hiddenZones]);
 
   const renderedJobs = useMemo(() => {
     return renderJobMarkers({
@@ -213,6 +221,86 @@ export default function MapContainer({
     });
   }, [fleetJobs, job, routeData, fleetVehicles, zoom, selectedVehicleId]);
 
+  useEffect(() => {
+    if (!mounted) return;
+
+    const fetchGlobalWeather = async () => {
+      // If we don't have bounds yet, try to wait or use mapCenter to trigger something
+      // but usually Leaflet provides bounds very quickly after mount.
+      const currentBounds = viewportBounds;
+
+      const body: any = {
+        vehicleRoutes: [],
+        startTime: new Date().toISOString()
+      };
+
+      if (currentBounds) {
+        body.bbox = [
+          currentBounds.getWest(),
+          currentBounds.getSouth(),
+          currentBounds.getEast(),
+          currentBounds.getNorth()
+        ];
+      }
+
+      try {
+        const res = await fetch('/api/weather', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const globalRoute = data.routes?.find((r: any) => r.vehicle === 'GLOBAL');
+          if (globalRoute?.alerts) {
+            const windNodes = globalRoute.alerts
+              .filter((a: any) => a.event === 'WIND')
+              .map((a: any) => ({
+                lat: a.lat,
+                lon: a.lon,
+                speed: a.value,
+                direction: a.direction || 0
+              }));
+            if (windNodes.length > 0) {
+              setGlobalWeather(windNodes);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Global weather fetch failed", e);
+      }
+    };
+
+    fetchGlobalWeather();
+    const interval = setInterval(fetchGlobalWeather, 10 * 60 * 1000); // 10 mins
+    return () => clearInterval(interval);
+  }, [mounted, viewportBounds]);
+
+  const windData = useMemo(() => {
+    const weatherRoutes = routeData?.weatherRoutes || [];
+    const routeWindAlerts = weatherRoutes.flatMap(wr => wr.alerts || [])
+      .filter(a => a.event === 'WIND' && a.value !== undefined)
+      .map(a => ({
+        lat: a.lat,
+        lon: a.lon,
+        speed: (a as any).value!,
+        direction: (a as any).direction || 0
+      }));
+
+    // Combine route alerts with global data, prioritizing route data
+    const combined = [...routeWindAlerts];
+
+    // Only add global nodes that are not near existing route nodes (simple dedup)
+    for (const gw of globalWeather) {
+      const exists = combined.some(rc =>
+        Math.abs(rc.lat - gw.lat) < 0.1 && Math.abs(rc.lon - gw.lon) < 0.1
+      );
+      if (!exists) combined.push(gw);
+    }
+
+    return combined;
+  }, [routeData?.weatherRoutes, globalWeather]);
+
   useEffect(() => setMounted(true), []);
 
   if (!mounted)
@@ -224,18 +312,72 @@ export default function MapContainer({
 
   return (
     <div className="relative h-full w-full">
-      {loading && <Loader />}
+
+
+
+
+
       <LeafletMap
         center={MAP_CENTER}
         zoom={DEFAULT_ZOOM}
         className="w-full h-full z-0 outline-none"
         zoomControl={false}
         minZoom={5}
-        maxZoom={16}
+        maxZoom={activeStyle.maxZoom ?? 19}
         preferCanvas={true}
       >
-        <ZoomControl position="topright" />
-        <TileLayer attribution={MAP_ATTRIBUTION} url={MAP_TILE_URL} />
+        <TileLayer
+          attribution={activeStyle.attribution}
+          url={activeStyle.url}
+          key={activeStyle.id}
+        />
+
+        {/* CONTRAST OVERLAY: A world-spanning black rectangle between tiles and weather */}
+        {(layers.weatherWind || layers.weatherRain) && activeStyle.id !== 'dark' && (
+          <Rectangle
+            bounds={[[-90, -180], [90, 180]]}
+            pathOptions={{
+              color: 'transparent',
+              fillColor: '#000000',
+              fillOpacity: 0.65,
+              stroke: false
+            }}
+          />
+        )}
+
+
+
+        {layers.weatherRain && (
+          <TileLayer
+            key="weather-rain"
+            url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${process.env.NEXT_PUBLIC_OWM_API_KEY}`}
+            opacity={0.6}
+            zIndex={200}
+          />
+        )}
+        {layers.weatherWind && (
+          <>
+            <TileLayer
+              key="weather-wind"
+              url={`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${process.env.NEXT_PUBLIC_OWM_API_KEY}`}
+              opacity={0.4}
+              zIndex={200}
+            />
+            <WindFlowLayer
+              visible={true}
+              opacity={0.8}
+              data={windData}
+            />
+          </>
+        )}
+        {layers.weatherTemp && (
+          <TileLayer
+            key="weather-temp"
+            url={`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${process.env.NEXT_PUBLIC_OWM_API_KEY}`}
+            opacity={0.4}
+            zIndex={200}
+          />
+        )}
 
         <MapCenterHandler center={mapCenter} />
         <MapEventHandler
@@ -262,6 +404,9 @@ export default function MapContainer({
           isInteracting={isInteracting}
           canAccessZone={canAccessZone}
           onEditZone={onEditZone}
+          onDeleteZone={onDeleteZone}
+          hiddenZones={hiddenZones}
+          onToggleVisibility={onToggleZoneVisibility}
         />
 
         {/* Custom Zones Layer - renders custom zones with same behavior as LEZ */}
@@ -271,9 +416,11 @@ export default function MapContainer({
           isInteracting={isInteracting}
           canAccessZone={canAccessZone}
           onEditZone={onEditZone}
+          onDeleteZone={onDeleteZone}
+          hiddenZones={hiddenZones}
+          onToggleVisibility={onToggleZoneVisibility}
         />
 
-        {/* Zone Drawing Preview - shows polygon being created */}
         <ZoneDrawingPreview
           points={zonePoints}
           visible={interactionMode === "pick-zone"}
@@ -283,15 +430,42 @@ export default function MapContainer({
           onUpdatePoint={onUpdateZonePoint}
         />
 
-        {layers.route && routeData?.vehicleRoutes?.length ? (
+        {/* Floating Confirmation Tooltip on Map */}
+        {interactionMode === "pick-zone" && zonePoints.length >= 3 && (
+          <Popup
+            position={zonePoints[zonePoints.length - 1]}
+            closeButton={false}
+            offset={[0, -10]}
+          >
+            <div className="p-1 flex flex-col items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground text-center leading-tight">
+                ¿Finalizar diseño <br /> de la zona?
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // The Confirm handler is passed from GISMap
+                  if ((window as any).confirmZoneDrawing) {
+                    (window as any).confirmZoneDrawing();
+                  }
+                }}
+                className="w-full py-1.5 px-3 bg-primary text-black text-[10px] font-bold rounded-lg shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+              >
+                Confirmar Zona
+              </button>
+            </div>
+          </Popup>
+        )}
+
+        {layers.route && vehicleRoutes && vehicleRoutes.length > 0 && (
           <>
             <RouteLayer
-              vehicleRoutes={routeData.vehicleRoutes}
+              vehicleRoutes={vehicleRoutes as any}
               selectedVehicleId={selectedVehicleId}
             />
-            <FitBounds routes={routeData.vehicleRoutes} />
+            <FitBounds routes={vehicleRoutes as any} />
           </>
-        ) : null}
+        )}
 
         {renderedGasStations}
         {renderedEVStations}
@@ -305,25 +479,33 @@ export default function MapContainer({
           onUpdateType={onVehicleTypeChange}
           onUpdateLabel={onVehicleLabelUpdate}
           onSelect={onVehicleSelect}
-          onHover={onVehicleHover}
-          onHoverOut={onVehicleHoverOut}
           zoom={zoom}
         />
 
         {renderedJobs}
 
         <WeatherMarkersLayer
-          weatherRoutes={routeData?.weatherRoutes || []}
-          icons={{ snow, rain, ice, wind, fog }}
+          weatherRoutes={(weatherRoutes || []).filter(wr =>
+            vehicleRoutes?.some(vr => String(vr.vehicleId) === String(wr.vehicle))
+          )}
+          icons={{ snow, rain, ice, wind, fog, heat, cold }}
+          layers={layers}
         />
 
-        {pickedPOICoords && (
-          <Marker position={pickedPOICoords} icon={picking} />
-        )}
-        {pickedJobCoords && (
-          <Marker position={pickedJobCoords} icon={picking} />
+        {pCoords && pCoords[0] != null && pCoords[1] != null && (
+          <Marker position={[pCoords[0] as number, pCoords[1] as number] as L.LatLngExpression} icon={picking} />
         )}
       </LeafletMap>
+
+      {/* Map style selector — rendered outside LeafletMap to stay above tile layer */}
+      <MapStyleSelector
+        currentStyleId={activeStyle.id}
+        onStyleChange={setActiveStyle}
+      />
     </div>
   );
 }
+
+
+
+

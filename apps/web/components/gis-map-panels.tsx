@@ -1,23 +1,11 @@
 "use client";
 import React from "react";
-import { DriverDetailsSheet } from "@/components/driver-details-sheet";
-import { VehicleDetailsPanel } from "@/components/vehicle-details-panel";
-import { VehicleDetailSheet } from "@/components/vehicle-detail-sheet";
-import type { Driver, FleetVehicle, FleetJob, VehicleType } from "@gis/shared";
+import type { Driver, FleetVehicle, FleetJob } from "@gis/shared";
 
 interface GISMapPanelsProps {
-  // Driver Details Sheet
-  selectedDriver: Driver | null;
-  isDriverDetailsOpen: boolean;
-  onDriverDetailsOpenChange: (open: boolean) => void;
-  onDriverDetailsClose: () => void;
-
-  // Vehicle Properties Panel
-  showVehiclePropertiesPanel: boolean;
+  // Common
   selectedVehicleId: string | number | null;
   selectedVehicleObject: FleetVehicle | null;
-  isVehicleDetailsOpen: boolean;
-  onCloseVehiclePropertiesPanel: () => void;
   drivers: Driver[];
   onAssignDriver: (vehicleId: string | number, newDriver: Driver | null) => Promise<void>;
   onChangeEnvironmentalTag: (vehicleId: string | number, tagId: string) => void;
@@ -25,8 +13,7 @@ interface GISMapPanelsProps {
   onUpdateLicensePlate: (vehicleId: string | number, plate: string) => void;
   onViewDriverProfile: (driverId: string) => void;
 
-  // Vehicle Detail Sheet
-  onCloseVehicleDetails: () => void;
+  // Route Management
   fleetJobs: FleetJob[];
   addStopToVehicle: (
     vehicleId: string | number,
@@ -42,22 +29,13 @@ interface GISMapPanelsProps {
 }
 
 export function GISMapPanels({
-  selectedDriver,
-  isDriverDetailsOpen,
-  onDriverDetailsOpenChange,
-  onDriverDetailsClose,
-  showVehiclePropertiesPanel,
-  selectedVehicleId,
   selectedVehicleObject,
-  isVehicleDetailsOpen,
-  onCloseVehiclePropertiesPanel,
   drivers,
   onAssignDriver,
   onChangeEnvironmentalTag,
   onUpdateLabel,
   onUpdateLicensePlate,
   onViewDriverProfile,
-  onCloseVehicleDetails,
   fleetJobs,
   addStopToVehicle,
   startRouting,
@@ -67,52 +45,9 @@ export function GISMapPanels({
   pickedStopCoords,
   onAddStopSubmit,
 }: GISMapPanelsProps) {
-  return (
-    <>
-      <DriverDetailsSheet
-        driver={selectedDriver}
-        isOpen={isDriverDetailsOpen}
-        onOpenChange={onDriverDetailsOpenChange}
-        onClose={onDriverDetailsClose}
-      />
-
-      {/* Vehicle Properties Panel - opens explicitly from sidebar or popup */}
-      {showVehiclePropertiesPanel &&
-        selectedVehicleObject &&
-        !isVehicleDetailsOpen && (
-          <VehicleDetailsPanel
-            vehicle={selectedVehicleObject}
-            isOpen={true}
-            onClose={onCloseVehiclePropertiesPanel}
-            drivers={drivers}
-            onAssignDriver={onAssignDriver}
-            onChangeEnvironmentalTag={onChangeEnvironmentalTag}
-            onUpdateLabel={onUpdateLabel}
-            onUpdateLicensePlate={onUpdateLicensePlate}
-            onViewDriverProfile={onViewDriverProfile}
-          />
-        )}
-
-      {/* Vehicle Route Management Panel - opens from map popup "Ver detalles" */}
-      {isVehicleDetailsOpen && selectedVehicleObject && (
-        <div className="fixed inset-0 right-0 left-auto w-72 h-full z-40 bg-background border-l border-border/40 shadow-lg overflow-hidden">
-          <VehicleDetailSheet
-            vehicle={selectedVehicleObject}
-            metrics={selectedVehicleObject.metrics || null}
-            onClose={onCloseVehicleDetails}
-            drivers={drivers}
-            onAssignDriver={onAssignDriver}
-            jobs={fleetJobs}
-            addStopToVehicle={addStopToVehicle}
-            startRouting={startRouting}
-            isAddStopOpen={isAddStopOpen}
-            setIsAddStopOpen={setIsAddStopOpen}
-            onStartPickingStop={onStartPickingStop}
-            pickedStopCoords={pickedStopCoords}
-            onAddStopSubmit={onAddStopSubmit}
-          />
-        </div>
-      )}
-    </>
-  );
+  // Note: VehicleDetailsPanel and VehicleDetailSheet are currently disabled
+  // as per user request to only show the route status bar on click.
+  // We keep the logic for future restoration or other triggers (like sidebar).
+  // For now, we return null to ensure they don't show up.
+  return null;
 }
