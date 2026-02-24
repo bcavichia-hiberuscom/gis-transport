@@ -23,7 +23,7 @@ describe('OverpassClient', () => {
 
             expect(result).toEqual(mockData);
             expect(globalFetch).toHaveBeenCalledWith(
-                expect.stringContaining('overpass-api.de'),
+                expect.stringContaining('kumi.systems'),
                 expect.objectContaining({
                     method: 'POST',
                     body: 'node(1);out;',
